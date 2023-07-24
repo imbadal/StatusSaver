@@ -1,24 +1,11 @@
 package com.inningsstudio.statussaver
 
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.ManagedActivityResultLauncher
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -30,13 +17,9 @@ import androidx.compose.material3.NavigationBarItemDefaults.colors
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,12 +31,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import coil.compose.AsyncImage
 import com.inningsstudio.statussaver.Const.STATUS_URI
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
 import com.inningsstudio.statussaver.viewmodels.MainViewModel
 
 class MainActivity : ComponentActivity() {
+
 
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,29 +46,7 @@ class MainActivity : ComponentActivity() {
             StatusSaverTheme {
 
                 val viewModel = viewModel<MainViewModel>()
-                val dialogQueue = viewModel.visiblePermissionDialogQueue
-
-                viewModel.statusUri = getUriFromExtras()
-                val multiplePermissionResultLauncher =
-                    rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions(),
-                        onResult = { permissions ->
-                            permissions.keys.forEach { key ->
-                                viewModel.onPermissionResult(
-                                    permission = key,
-                                    isGranted = permissions[key] == true
-                                )
-                            }
-                        })
-
-                LaunchedEffect(true) {
-                    multiplePermissionResultLauncher.launch(PermissionsConfig.permissionsToRequest)
-                }
-                RequestAppPermissions(
-                    dialogQueue.toList(),
-                    viewModel,
-                    multiplePermissionResultLauncher
-                )
-
+                viewModel.fetchStatus(applicationContext, getUriFromExtras())
 
                 val navController = rememberNavController()
                 Scaffold(bottomBar = {
@@ -116,42 +77,6 @@ class MainActivity : ComponentActivity() {
     private fun getUriFromExtras(): String {
         return intent.extras?.getString(STATUS_URI) ?: ""
     }
-
-    @Composable
-    private fun RequestAppPermissions(
-        dialogQueue: List<String>,
-        viewModel: MainViewModel,
-        multiplePermissionResultLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, @JvmSuppressWildcards Boolean>>
-    ) {
-        dialogQueue
-            .reversed()
-            .forEach { permission ->
-                PermissionDialog(
-                    permissionTextProvider = when (permission) {
-
-                        PermissionsConfig.readImagePermission -> {
-                            StoragePermissionTextProvider()
-                        }
-
-                        else -> return@forEach
-                    },
-                    isPermanentlyDeclined = !shouldShowRequestPermissionRationale(
-                        permission
-                    ),
-                    onDismiss = viewModel::dismissDialog,
-                    onOkClick = {
-                        viewModel.dismissDialog()
-                        multiplePermissionResultLauncher.launch(
-                            arrayOf(permission)
-                        )
-                    },
-                    onGoToAppSettingClick = {
-                        openAppSettings()
-                        viewModel.dismissDialog()
-                    }
-                )
-            }
-    }
 }
 
 
@@ -159,7 +84,7 @@ class MainActivity : ComponentActivity() {
 fun Navigation(navHostController: NavHostController, viewModel: MainViewModel) {
     NavHost(navController = navHostController, startDestination = "home") {
         composable("home") {
-            HomeScreen(viewModel)
+            StatusListingScreen(viewModel.statusList)
         }
 
         composable("chat") {
@@ -209,61 +134,23 @@ fun BottomNavigationBar(
     }
 }
 
-@Composable
-fun HomeScreen(viewModel: MainViewModel) {
-    val statusList = FileUtils.getStatus(LocalContext.current, viewModel.statusUri)
-    Column(modifier = Modifier.fillMaxSize()) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3)
-        ) {
-            items(statusList.size) { index ->
-                ImageItemView(statusList[index])
-            }
-        }
-    }
-}
+//@Composable
+//fun HomeScreen(viewModel: MainViewModel) {
+//    val statusList = FileUtils.getStatus(LocalContext.current, viewModel.statusUri)
+//    Column(modifier = Modifier.fillMaxSize()) {
+//        LazyVerticalGrid(
+//            columns = GridCells.Fixed(3)
+//        ) {
+//            items(statusList.size) { index ->
+//                ImageItemView(statusList[index])
+//            }
+//        }
+//    }
+//}
 
-@Composable
-fun ImageItemView(statusModel: StatusModel) {
-    val modifier = Modifier
-        .fillMaxWidth()
-        .height(120.dp)
-        .padding(2.dp)
-    if (statusModel.isVideo) {
-        AsyncImage(
-            model = statusModel.thumbnail,
-            contentDescription = "",
-            contentScale = ContentScale.Crop,
-            alignment = Alignment.Center,
-            modifier = modifier
-        )
-    } else {
-        AsyncImage(
-            model = statusModel.imageRequest,
-            contentDescription = "icon",
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-        )
-    }
-}
-
-@Composable
-fun ChatScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Chat Screen")
-    }
-}
-
-@Composable
-fun SettingsScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Settings Screen")
-    }
-}
-
-fun Activity.openAppSettings() {
-    Intent(
-        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-        Uri.fromParts("package", packageName, null)
-    ).also(::startActivity)
-}
+//fun Activity.openAppSettings() {
+//    Intent(
+//        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+//        Uri.fromParts("package", packageName, null)
+//    ).also(::startActivity)
+//}

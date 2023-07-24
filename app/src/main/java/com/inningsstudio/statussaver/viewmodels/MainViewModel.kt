@@ -1,24 +1,18 @@
 package com.inningsstudio.statussaver.viewmodels
 
-import androidx.compose.runtime.mutableStateListOf
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import com.inningsstudio.statussaver.FileUtils
+import com.inningsstudio.statussaver.StatusModel
 
 class MainViewModel : ViewModel() {
 
-    val visiblePermissionDialogQueue = mutableStateListOf<String>()
+    val statusList = mutableListOf<StatusModel>()
 
-     var statusUri: String = ""
-
-    fun dismissDialog() {
-        visiblePermissionDialogQueue.removeLastOrNull()
+    fun fetchStatus(applicationContext: Context, uri: String) {
+        val allStatus = FileUtils.getStatus(applicationContext, uri)
+        statusList.clear()
+        statusList.addAll(allStatus)
     }
 
-    fun onPermissionResult(
-        permission: String,
-        isGranted: Boolean
-    ) {
-        if (!isGranted && !visiblePermissionDialogQueue.contains(permission)) {
-            visiblePermissionDialogQueue.add(permission)
-        }
-    }
 }
