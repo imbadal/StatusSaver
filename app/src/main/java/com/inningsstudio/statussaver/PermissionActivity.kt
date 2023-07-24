@@ -14,7 +14,7 @@ import com.inningsstudio.statussaver.Const.STATUS_URI
 class PermissionActivity : ComponentActivity() {
 
     private val targetDirectory = "Android%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses"
-    lateinit var preferenceUtils: PreferenceUtils
+    private lateinit var preferenceUtils: PreferenceUtils
 
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,15 +22,12 @@ class PermissionActivity : ComponentActivity() {
         setContentView(R.layout.activity_permission)
 
         preferenceUtils = PreferenceUtils(application)
-
         val uriTree = preferenceUtils.getUriFromPreference()
-
         if (uriTree.isNullOrBlank()) {
             getFolderPermission()
         } else {
             fetchImages(uriTree)
         }
-
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -57,9 +54,7 @@ class PermissionActivity : ComponentActivity() {
                     treeUri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-
                 val actualPath = treeUri.toString()
-
                 preferenceUtils.setUriToPreference(actualPath)
                 fetchImages(actualPath)
             }
@@ -67,8 +62,6 @@ class PermissionActivity : ComponentActivity() {
     }
 
     private fun fetchImages(statusUri: String) {
-//        val statusList = FileUtils.getFilesFromUri(applicationContext, statusUri)
-
         val intent = Intent(this, MainActivity::class.java)
         intent.putExtra(STATUS_URI, statusUri)
         startActivity(intent)

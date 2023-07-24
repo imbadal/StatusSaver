@@ -49,7 +49,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.inningsstudio.statussaver.Const.STATUS_URI
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
 import com.inningsstudio.statussaver.viewmodels.MainViewModel
@@ -212,13 +211,11 @@ fun BottomNavigationBar(
 
 @Composable
 fun HomeScreen(viewModel: MainViewModel) {
-
-    val statusList = FileUtils.getFilesFromUri(LocalContext.current, viewModel.statusUri)
+    val statusList = FileUtils.getStatus(LocalContext.current, viewModel.statusUri)
     Column(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2)
+            columns = GridCells.Fixed(3)
         ) {
-
             items(statusList.size) { index ->
                 ImageItemView(statusList[index])
             }
@@ -227,18 +224,27 @@ fun HomeScreen(viewModel: MainViewModel) {
 }
 
 @Composable
-fun ImageItemView(path: String) {
-    AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(path)
-            .build(),
-        contentDescription = "icon",
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp)
-            .padding(4.dp)
-    )
+fun ImageItemView(statusModel: StatusModel) {
+    val modifier = Modifier
+        .fillMaxWidth()
+        .height(120.dp)
+        .padding(2.dp)
+    if (statusModel.isVideo) {
+        AsyncImage(
+            model = statusModel.thumbnail,
+            contentDescription = "",
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.Center,
+            modifier = modifier
+        )
+    } else {
+        AsyncImage(
+            model = statusModel.imageRequest,
+            contentDescription = "icon",
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
+    }
 }
 
 @Composable
