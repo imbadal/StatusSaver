@@ -5,12 +5,13 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import coil.request.ImageRequest
+import com.inningsstudio.statussaver.Const.MP4
 import com.inningsstudio.statussaver.Const.NO_MEDIA
 
 object FileUtils {
 
     private fun isVideo(path: String): Boolean {
-        return (path.substring(path.length - 3) == "mp4")
+        return (path.substring(path.length - 3) == MP4)
     }
 
     fun getStatus(context: Context, statusUri: String): List<StatusModel> {
