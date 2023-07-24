@@ -1,6 +1,7 @@
 package com.inningsstudio.statussaver
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,7 +69,7 @@ class MainActivity : ComponentActivity() {
                         navController.navigate(it.route)
                     })
                 }) {
-                    Navigation(navHostController = navController, viewModel)
+                    Navigation(navHostController = navController, viewModel, LocalContext.current)
                 }
             }
         }
@@ -78,12 +80,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
-fun Navigation(navHostController: NavHostController, viewModel: MainViewModel) {
+fun Navigation(navHostController: NavHostController, viewModel: MainViewModel, current: Context) {
     NavHost(navController = navHostController, startDestination = "home") {
         composable("home") {
-            StatusListingScreen(viewModel.statusList)
+            StatusListingScreen(viewModel.statusList) { clickedIndex ->
+                viewModel.onStatusClicked(current, clickedIndex)
+            }
         }
 
         composable("chat") {

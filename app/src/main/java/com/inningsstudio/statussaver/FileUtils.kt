@@ -10,6 +10,8 @@ import com.inningsstudio.statussaver.Const.NO_MEDIA
 
 object FileUtils {
 
+    val statusList = mutableListOf<StatusModel>()
+
     private fun isVideo(path: String): Boolean {
         return (path.substring(path.length - 3) == MP4)
     }
@@ -34,6 +36,8 @@ object FileUtils {
             }
         }
         files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
+        statusList.clear()
+        statusList.addAll(files)
         return files
     }
 
