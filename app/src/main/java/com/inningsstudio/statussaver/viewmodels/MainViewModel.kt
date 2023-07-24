@@ -7,6 +7,8 @@ class MainViewModel : ViewModel() {
 
     val visiblePermissionDialogQueue = mutableStateListOf<String>()
 
+     var statusUri: String = ""
+
     fun dismissDialog() {
         visiblePermissionDialogQueue.removeLastOrNull()
     }
@@ -15,7 +17,7 @@ class MainViewModel : ViewModel() {
         permission: String,
         isGranted: Boolean
     ) {
-        if(!isGranted && !visiblePermissionDialogQueue.contains(permission)) {
+        if (!isGranted && !visiblePermissionDialogQueue.contains(permission)) {
             visiblePermissionDialogQueue.add(permission)
         }
     }

@@ -14,7 +14,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -31,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,10 +48,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.inningsstudio.statussaver.Const.STATUS_URI
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
 import com.inningsstudio.statussaver.viewmodels.MainViewModel
 
 class MainActivity : ComponentActivity() {
+
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -56,6 +66,7 @@ class MainActivity : ComponentActivity() {
                 val viewModel = viewModel<MainViewModel>()
                 val dialogQueue = viewModel.visiblePermissionDialogQueue
 
+                viewModel.statusUri = getUriFromExtras()
                 val multiplePermissionResultLauncher =
                     rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions(),
                         onResult = { permissions ->
@@ -70,7 +81,11 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(true) {
                     multiplePermissionResultLauncher.launch(PermissionsConfig.permissionsToRequest)
                 }
-                RequestAppPermissions(dialogQueue.toList(), viewModel, multiplePermissionResultLauncher)
+                RequestAppPermissions(
+                    dialogQueue.toList(),
+                    viewModel,
+                    multiplePermissionResultLauncher
+                )
 
 
                 val navController = rememberNavController()
@@ -93,10 +108,14 @@ class MainActivity : ComponentActivity() {
                         navController.navigate(it.route)
                     })
                 }) {
-                    Navigation(navHostController = navController)
+                    Navigation(navHostController = navController, viewModel)
                 }
             }
         }
+    }
+
+    private fun getUriFromExtras(): String {
+        return intent.extras?.getString(STATUS_URI) ?: ""
     }
 
     @Composable
@@ -137,12 +156,11 @@ class MainActivity : ComponentActivity() {
 }
 
 
-
 @Composable
-fun Navigation(navHostController: NavHostController) {
+fun Navigation(navHostController: NavHostController, viewModel: MainViewModel) {
     NavHost(navController = navHostController, startDestination = "home") {
         composable("home") {
-            HomeScreen()
+            HomeScreen(viewModel)
         }
 
         composable("chat") {
@@ -193,10 +211,34 @@ fun BottomNavigationBar(
 }
 
 @Composable
-fun HomeScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Home Screen")
+fun HomeScreen(viewModel: MainViewModel) {
+
+    val statusList = FileUtils.getFilesFromUri(LocalContext.current, viewModel.statusUri)
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2)
+        ) {
+
+            items(statusList.size) { index ->
+                ImageItemView(statusList[index])
+            }
+        }
     }
+}
+
+@Composable
+fun ImageItemView(path: String) {
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(path)
+            .build(),
+        contentDescription = "icon",
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+            .padding(4.dp)
+    )
 }
 
 @Composable
