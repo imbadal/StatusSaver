@@ -37,7 +37,6 @@ import com.inningsstudio.statussaver.viewmodels.MainViewModel
 
 class MainActivity : ComponentActivity() {
 
-
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -133,24 +132,3 @@ fun BottomNavigationBar(
         }
     }
 }
-
-//@Composable
-//fun HomeScreen(viewModel: MainViewModel) {
-//    val statusList = FileUtils.getStatus(LocalContext.current, viewModel.statusUri)
-//    Column(modifier = Modifier.fillMaxSize()) {
-//        LazyVerticalGrid(
-//            columns = GridCells.Fixed(3)
-//        ) {
-//            items(statusList.size) { index ->
-//                ImageItemView(statusList[index])
-//            }
-//        }
-//    }
-//}
-
-//fun Activity.openAppSettings() {
-//    Intent(
-//        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-//        Uri.fromParts("package", packageName, null)
-//    ).also(::startActivity)
-//}
