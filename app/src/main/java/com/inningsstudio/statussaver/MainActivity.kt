@@ -1,9 +1,16 @@
 package com.inningsstudio.statussaver
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +26,7 @@ import androidx.compose.material3.NavigationBarItemDefaults.colors
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
@@ -27,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -34,47 +43,99 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
+import com.inningsstudio.statussaver.viewmodels.MainViewModel
 
 class MainActivity : ComponentActivity() {
-
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
             StatusSaverTheme {
-                val navController = rememberNavController()
-                Scaffold(
-                    bottomBar = {
-                        BottomNavigationBar(
-                            items = listOf(
-                                BottomNavItem(
-                                    name = "Home",
-                                    route = "home",
-                                    icon = Icons.Default.Home
-                                ),
-                                BottomNavItem(
-                                    name = "Chat",
-                                    route = "chat",
-                                    icon = Icons.Default.Notifications
-                                ),
-                                BottomNavItem(
-                                    name = "Settings",
-                                    route = "settings",
-                                    icon = Icons.Default.Settings
-                                ),
-                            ), navController = navController, onItemClick = {
-                                navController.navigate(it.route)
+
+                val viewModel = viewModel<MainViewModel>()
+                val dialogQueue = viewModel.visiblePermissionDialogQueue
+
+                val multiplePermissionResultLauncher =
+                    rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions(),
+                        onResult = { permissions ->
+                            permissions.keys.forEach { key ->
+                                viewModel.onPermissionResult(
+                                    permission = key,
+                                    isGranted = permissions[key] == true
+                                )
                             }
-                        )
-                    }
-                ) {
+                        })
+
+                LaunchedEffect(true) {
+                    multiplePermissionResultLauncher.launch(PermissionsConfig.permissionsToRequest)
+                }
+                RequestAppPermissions(dialogQueue.toList(), viewModel, multiplePermissionResultLauncher)
+
+
+                val navController = rememberNavController()
+                Scaffold(bottomBar = {
+                    BottomNavigationBar(items = listOf(
+                        BottomNavItem(
+                            name = "Home", route = "home", icon = Icons.Default.Home
+                        ),
+                        BottomNavItem(
+                            name = "Chat",
+                            route = "chat",
+                            icon = Icons.Default.Notifications
+                        ),
+                        BottomNavItem(
+                            name = "Settings",
+                            route = "settings",
+                            icon = Icons.Default.Settings
+                        ),
+                    ), navController = navController, onItemClick = {
+                        navController.navigate(it.route)
+                    })
+                }) {
                     Navigation(navHostController = navController)
                 }
             }
         }
     }
+
+    @Composable
+    private fun RequestAppPermissions(
+        dialogQueue: List<String>,
+        viewModel: MainViewModel,
+        multiplePermissionResultLauncher: ManagedActivityResultLauncher<Array<String>, Map<String, @JvmSuppressWildcards Boolean>>
+    ) {
+        dialogQueue
+            .reversed()
+            .forEach { permission ->
+                PermissionDialog(
+                    permissionTextProvider = when (permission) {
+
+                        PermissionsConfig.readImagePermission -> {
+                            StoragePermissionTextProvider()
+                        }
+
+                        else -> return@forEach
+                    },
+                    isPermanentlyDeclined = !shouldShowRequestPermissionRationale(
+                        permission
+                    ),
+                    onDismiss = viewModel::dismissDialog,
+                    onOkClick = {
+                        viewModel.dismissDialog()
+                        multiplePermissionResultLauncher.launch(
+                            arrayOf(permission)
+                        )
+                    },
+                    onGoToAppSettingClick = {
+                        openAppSettings()
+                        viewModel.dismissDialog()
+                    }
+                )
+            }
+    }
 }
+
 
 
 @Composable
@@ -103,8 +164,7 @@ fun BottomNavigationBar(
 ) {
     val backStackEntry = navController.currentBackStackEntryAsState()
     NavigationBar(
-        modifier = modifier,
-        containerColor = Color.Black
+        modifier = modifier, containerColor = Color.Black
     ) {
         items.forEach { item ->
             val isSelected = item.route == backStackEntry.value?.destination?.route
@@ -151,4 +211,11 @@ fun SettingsScreen() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text = "Settings Screen")
     }
+}
+
+fun Activity.openAppSettings() {
+    Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", packageName, null)
+    ).also(::startActivity)
 }
