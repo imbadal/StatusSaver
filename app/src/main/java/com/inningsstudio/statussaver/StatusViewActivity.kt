@@ -6,25 +6,40 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.StyledPlayerView
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
+import kotlinx.coroutines.launch
 
 class StatusViewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,12 +47,57 @@ class StatusViewActivity : ComponentActivity() {
         setContent {
             StatusSaverTheme {
                 // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    val clickedIndex = getClickedIndexFromExtras()
-                    StatusPreview(FileUtils.statusList, clickedIndex)
+                val scope = rememberCoroutineScope()
+                val context = LocalContext.current
+                Scaffold(
+                    bottomBar = {
+                        BottomAppBar() {
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Filled.ArrowBack,
+                                    "",
+                                    tint = LIGHT_GREEN,
+                                    modifier = Modifier.clickable {
+                                        (context as StatusViewActivity).finish()
+                                    })
+                            }
+
+                            Spacer(Modifier.weight(1f, true))
+
+                            FloatingActionButton(
+                                modifier = Modifier.padding(end = 16.dp),
+                                containerColor = Color.Black,
+                                contentColor = LIGHT_GREEN, onClick = {}
+                            ) {
+                                Icon(Icons.Outlined.Share, "")
+                            }
+
+                            FloatingActionButton(
+                                modifier = Modifier.padding(end = 16.dp),
+                                containerColor = Color.Black,
+                                contentColor = LIGHT_GREEN,
+                                onClick = {}
+                            ) {
+                                Icon(Icons.Outlined.ArrowDropDown, "")
+                            }
+
+                        }
+                    }) { innerPadding ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues = innerPadding),
+                        color = MaterialTheme.colorScheme.background,
+                    ) {
+                        val clickedIndex = getClickedIndexFromExtras()
+                        StatusPreview(FileUtils.statusList, clickedIndex)
+                    }
                 }
             }
         }
