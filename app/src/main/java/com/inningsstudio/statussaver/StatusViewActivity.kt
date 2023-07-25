@@ -71,11 +71,25 @@ fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
             pageCount = statusList.size,
             state = pagerState,
         ) { index ->
+            val currentStatus = statusList[index]
             val painter: Any? =
-                if (statusList[index].isVideo) statusList[index].thumbnail else statusList[index].imageRequest
+                if (currentStatus.isVideo) currentStatus.thumbnail else currentStatus.imageRequest
 
-            if (statusList[index].isVideo) {
-                VideoPlayer(statusList[index].path, index == pagerState.currentPage)
+            if (currentStatus.isVideo && pagerState.currentPage == index) {
+                val context = LocalContext.current
+                val exoPlayer = ExoPlayer.Builder(LocalContext.current).build()
+                val mediaItem = MediaItem.fromUri(currentStatus.path)
+                exoPlayer.setMediaItem(mediaItem)
+
+                val playerView = StyledPlayerView(context)
+                playerView.player = exoPlayer
+                DisposableEffect(AndroidView(factory = { playerView })) {
+                    exoPlayer.prepare()
+                    exoPlayer.playWhenReady = true
+                    onDispose {
+                        exoPlayer.release()
+                    }
+                }
             } else {
                 AsyncImage(
                     model = painter,
@@ -129,9 +143,9 @@ fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
 }
 
 @Composable
-fun VideoPlayer(url: String, playWhenReady: Boolean) {
+fun VideoPlayer(url: String) {
     val context = LocalContext.current
-    val exoPlayer = ExoPlayer.Builder(context).build()
+    val exoPlayer = ExoPlayer.Builder(LocalContext.current).build()
     val mediaItem = MediaItem.fromUri(url)
     exoPlayer.setMediaItem(mediaItem)
 
@@ -139,7 +153,7 @@ fun VideoPlayer(url: String, playWhenReady: Boolean) {
     playerView.player = exoPlayer
     DisposableEffect(AndroidView(factory = { playerView })) {
         exoPlayer.prepare()
-        exoPlayer.playWhenReady = playWhenReady
+        exoPlayer.playWhenReady = true
         onDispose {
             exoPlayer.release()
         }
