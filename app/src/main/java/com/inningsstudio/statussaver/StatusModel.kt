@@ -7,5 +7,6 @@ data class StatusModel(
     val path: String,
     val isVideo: Boolean = false,
     val imageRequest: ImageRequest? = null,
-    val thumbnail: Bitmap? = null
+    val thumbnail: Bitmap? = null,
+    var isSelected: Boolean = false,
 )
