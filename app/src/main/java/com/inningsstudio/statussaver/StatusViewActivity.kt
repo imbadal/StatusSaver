@@ -1,22 +1,15 @@
 package com.inningsstudio.statussaver
 
 import android.os.Bundle
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -24,18 +17,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.StyledPlayerView
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
-import kotlinx.coroutines.launch
-
 
 class StatusViewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,7 +48,6 @@ class StatusViewActivity : ComponentActivity() {
     }
 }
 
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
@@ -70,6 +58,8 @@ fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
         HorizontalPager(
             pageCount = statusList.size,
             state = pagerState,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxSize()
         ) { index ->
             val currentStatus = statusList[index]
             val painter: Any? =
@@ -82,8 +72,18 @@ fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
                 exoPlayer.setMediaItem(mediaItem)
 
                 val playerView = StyledPlayerView(context)
+                playerView.hideController()
+                playerView.controllerAutoShow = false
                 playerView.player = exoPlayer
-                DisposableEffect(AndroidView(factory = { playerView })) {
+
+                DisposableEffect(AndroidView(factory = {
+                    playerView.apply {
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                })) {
                     exoPlayer.prepare()
                     exoPlayer.playWhenReady = true
                     onDispose {
@@ -94,68 +94,12 @@ fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
                 AsyncImage(
                     model = painter,
                     contentDescription = "",
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.FillWidth,
                     alignment = Alignment.Center,
                     modifier = Modifier.fillMaxSize()
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .offset(y = -(16).dp)
-                .fillMaxWidth(0.5f)
-                .clip(RoundedCornerShape(100))
-                .padding(8.dp)
-                .align(Alignment.BottomCenter)
-        ) {
-            IconButton(
-                onClick = {
-                    scope.launch {
-                        pagerState.animateScrollToPage(
-                            pagerState.currentPage - 1
-                        )
-                    }
-                },
-                modifier = Modifier.align(Alignment.CenterStart)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowLeft,
-                    contentDescription = "Go back"
-                )
-            }
-            IconButton(
-                onClick = {
-                    scope.launch {
-                        pagerState.animateScrollToPage(
-                            pagerState.currentPage + 1
-                        )
-                    }
-                },
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowRight,
-                    contentDescription = "Go forward"
-                )
-            }
-        }
     }
 }
 
-@Composable
-fun VideoPlayer(url: String) {
-    val context = LocalContext.current
-    val exoPlayer = ExoPlayer.Builder(LocalContext.current).build()
-    val mediaItem = MediaItem.fromUri(url)
-    exoPlayer.setMediaItem(mediaItem)
-
-    val playerView = StyledPlayerView(context)
-    playerView.player = exoPlayer
-    DisposableEffect(AndroidView(factory = { playerView })) {
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
-        onDispose {
-            exoPlayer.release()
-        }
-    }
-}
