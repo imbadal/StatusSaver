@@ -115,8 +115,8 @@ fun BottomNavigationBar(
             NavigationBarItem(selected = isSelected,
                 onClick = { onItemClick(item) },
                 colors = colors(
-                    selectedIconColor = Color.Green,
-                    selectedTextColor = Color.Green,
+                    selectedIconColor = LIGHT_GREEN,
+                    selectedTextColor = LIGHT_GREEN,
                     indicatorColor = Color(0xFF001010),
                     unselectedIconColor = Color.White,
                     unselectedTextColor = Color.White
