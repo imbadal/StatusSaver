@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                         BottomNavItem(
                             name = "Saved",
                             route = "saved",
-                            icon = Icons.Default.Done
+                            icon =Icons.Filled.Favorite
                         ),
                         BottomNavItem(
                             name = "More",
@@ -77,10 +77,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun getUriFromExtras(): String {
-        return intent.extras?.getString(STATUS_URI) ?: ""
-    }
-
-    private fun getSavedUri(): String {
         return intent.extras?.getString(STATUS_URI) ?: ""
     }
 }
