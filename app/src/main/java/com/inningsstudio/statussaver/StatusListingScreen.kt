@@ -1,5 +1,6 @@
 package com.inningsstudio.statussaver
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,25 +16,29 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 
 @Composable
-fun StatusListingScreen(statusList: List<StatusModel>) {
+fun StatusListingScreen(statusList: List<StatusModel>, onStatusClick: (Int) -> Unit) {
 
     Column(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3)
         ) {
             items(statusList.size) { index ->
-                ImageItemView(statusList[index])
+                val modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .padding(2.dp)
+                    .clickable {
+                        onStatusClick(index)
+                    }
+                ImageItemView(statusList[index], modifier)
             }
         }
     }
 }
 
 @Composable
-fun ImageItemView(statusModel: StatusModel) {
-    val modifier = Modifier
-        .fillMaxWidth()
-        .height(120.dp)
-        .padding(2.dp)
+fun ImageItemView(statusModel: StatusModel, modifier: Modifier) {
+
     if (statusModel.isVideo) {
         AsyncImage(
             model = statusModel.thumbnail,

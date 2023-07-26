@@ -1,15 +1,16 @@
 package com.inningsstudio.statussaver
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,7 +39,6 @@ import com.inningsstudio.statussaver.viewmodels.MainViewModel
 
 class MainActivity : ComponentActivity() {
 
-
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -47,6 +48,7 @@ class MainActivity : ComponentActivity() {
 
                 val viewModel = viewModel<MainViewModel>()
                 viewModel.fetchStatus(applicationContext, getUriFromExtras())
+                viewModel.fetchSavedStatus(applicationContext)
 
                 val navController = rememberNavController()
                 Scaffold(bottomBar = {
@@ -55,20 +57,20 @@ class MainActivity : ComponentActivity() {
                             name = "Home", route = "home", icon = Icons.Default.Home
                         ),
                         BottomNavItem(
-                            name = "Chat",
-                            route = "chat",
-                            icon = Icons.Default.Notifications
+                            name = "Saved",
+                            route = "saved",
+                            icon =Icons.Filled.Favorite
                         ),
                         BottomNavItem(
-                            name = "Settings",
-                            route = "settings",
-                            icon = Icons.Default.Settings
+                            name = "More",
+                            route = "more",
+                            icon = Icons.Default.MoreVert
                         ),
                     ), navController = navController, onItemClick = {
                         navController.navigate(it.route)
                     })
                 }) {
-                    Navigation(navHostController = navController, viewModel)
+                    Navigation(navHostController = navController, viewModel, LocalContext.current)
                 }
             }
         }
@@ -79,19 +81,23 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
-fun Navigation(navHostController: NavHostController, viewModel: MainViewModel) {
+fun Navigation(navHostController: NavHostController, viewModel: MainViewModel, current: Context) {
     NavHost(navController = navHostController, startDestination = "home") {
         composable("home") {
-            StatusListingScreen(viewModel.statusList)
+            StatusListingScreen(viewModel.statusList) { clickedIndex ->
+                viewModel.onStatusClicked(current, clickedIndex)
+            }
         }
 
-        composable("chat") {
-            ChatScreen()
+        composable("saved") {
+//            SavedStatusScreen()
+            StatusListingScreen(viewModel.savedStatusList) { clickedIndex ->
+                viewModel.onStatusClicked(current, clickedIndex, true)
+            }
         }
 
-        composable("settings") {
+        composable("more") {
             SettingsScreen()
         }
     }
@@ -113,8 +119,8 @@ fun BottomNavigationBar(
             NavigationBarItem(selected = isSelected,
                 onClick = { onItemClick(item) },
                 colors = colors(
-                    selectedIconColor = Color.Green,
-                    selectedTextColor = Color.Green,
+                    selectedIconColor = LIGHT_GREEN,
+                    selectedTextColor = LIGHT_GREEN,
                     indicatorColor = Color(0xFF001010),
                     unselectedIconColor = Color.White,
                     unselectedTextColor = Color.White
@@ -133,24 +139,3 @@ fun BottomNavigationBar(
         }
     }
 }
-
-//@Composable
-//fun HomeScreen(viewModel: MainViewModel) {
-//    val statusList = FileUtils.getStatus(LocalContext.current, viewModel.statusUri)
-//    Column(modifier = Modifier.fillMaxSize()) {
-//        LazyVerticalGrid(
-//            columns = GridCells.Fixed(3)
-//        ) {
-//            items(statusList.size) { index ->
-//                ImageItemView(statusList[index])
-//            }
-//        }
-//    }
-//}
-
-//fun Activity.openAppSettings() {
-//    Intent(
-//        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-//        Uri.fromParts("package", packageName, null)
-//    ).also(::startActivity)
-//}

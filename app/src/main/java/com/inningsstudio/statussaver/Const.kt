@@ -6,4 +6,6 @@ object Const {
     const val STATUS_URI = "status_uri"
     const val NO_MEDIA = "nomedia"
     const val MP4 = "mp4"
+    const val CLICKED_INDEX = "clicked_index"
+    const val IS_SAVED = "is_saved"
 }
