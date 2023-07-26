@@ -8,9 +8,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
 
                 val viewModel = viewModel<MainViewModel>()
                 viewModel.fetchStatus(applicationContext, getUriFromExtras())
+                viewModel.fetchSavedStatus(applicationContext)
 
                 val navController = rememberNavController()
                 Scaffold(bottomBar = {
@@ -56,14 +57,14 @@ class MainActivity : ComponentActivity() {
                             name = "Home", route = "home", icon = Icons.Default.Home
                         ),
                         BottomNavItem(
-                            name = "Chat",
-                            route = "chat",
-                            icon = Icons.Default.Notifications
+                            name = "Saved",
+                            route = "saved",
+                            icon = Icons.Default.Done
                         ),
                         BottomNavItem(
-                            name = "Settings",
-                            route = "settings",
-                            icon = Icons.Default.Settings
+                            name = "More",
+                            route = "more",
+                            icon = Icons.Default.MoreVert
                         ),
                     ), navController = navController, onItemClick = {
                         navController.navigate(it.route)
@@ -78,6 +79,10 @@ class MainActivity : ComponentActivity() {
     private fun getUriFromExtras(): String {
         return intent.extras?.getString(STATUS_URI) ?: ""
     }
+
+    private fun getSavedUri(): String {
+        return intent.extras?.getString(STATUS_URI) ?: ""
+    }
 }
 
 @Composable
@@ -89,11 +94,14 @@ fun Navigation(navHostController: NavHostController, viewModel: MainViewModel, c
             }
         }
 
-        composable("chat") {
-            ChatScreen()
+        composable("saved") {
+//            SavedStatusScreen()
+            StatusListingScreen(viewModel.savedStatusList) { clickedIndex ->
+                viewModel.onStatusClicked(current, clickedIndex, true)
+            }
         }
 
-        composable("settings") {
+        composable("more") {
             SettingsScreen()
         }
     }

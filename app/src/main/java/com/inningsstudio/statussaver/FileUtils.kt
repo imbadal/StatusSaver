@@ -19,6 +19,10 @@ import java.io.InputStream
 object FileUtils {
 
     val statusList = mutableListOf<StatusModel>()
+    val savedStatusList = mutableListOf<StatusModel>()
+
+    private val SAVED_DIRECTORY = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+        .toString() + File.separator + "inningsstudio" + File.separator + "Status Saver"
 
     private fun isVideo(path: String): Boolean {
         return (path.substring(path.length - 3) == MP4)
@@ -49,16 +53,45 @@ object FileUtils {
         return files
     }
 
+    fun getSavedStatus(context: Context): List<StatusModel> {
+        val savedFiles = mutableListOf<StatusModel>()
+
+        val file = File(SAVED_DIRECTORY)
+        file.listFiles()?.forEach { it ->
+            val path = it.path
+            if (isValidFile(path)) {
+                if (isVideo(path)) {
+                    val mediaMetadataRetriever = MediaMetadataRetriever()
+                    mediaMetadataRetriever.setDataSource(context, Uri.parse(path))
+                    val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
+                    mediaMetadataRetriever.release()
+                    savedFiles.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
+                } else {
+                    val imageRequest = ImageRequest.Builder(context).data(path).build()
+                    savedFiles.add(StatusModel(path = path, imageRequest = imageRequest))
+                }
+            }
+        }
+
+        savedStatusList.clear()
+        savedStatusList.addAll(savedFiles)
+        return savedFiles
+    }
+
     private fun isValidFile(path: String): Boolean {
         return path.substringAfterLast(".") != NO_MEDIA || path.isEmpty()
     }
 
+    fun deleteFile(
+        path: String
+    ): Boolean {
+        val file = File(path)
+        return file.delete()
+    }
+
     fun copyFileToInternalStorage(
-        uri: Uri,
-        mContext: Context
+        uri: Uri, mContext: Context
     ): String? {
-        val newDirName = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-            .toString() + File.separator + "inningsstudio" + File.separator + "Status Saver"
         val returnCursor: Cursor? = mContext.contentResolver.query(
             uri, arrayOf<String>(
                 OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE
@@ -70,16 +103,14 @@ object FileUtils {
             val sizeIndex = returnCursor.getColumnIndex(OpenableColumns.SIZE)
             returnCursor.moveToFirst()
             val name = returnCursor.getString(nameIndex)
-            val size = java.lang.Long.toString(returnCursor.getLong(sizeIndex))
-            val output: File
-            if (newDirName != "") {
-                val dir: File = File(newDirName)
+            val output: File = if (SAVED_DIRECTORY != "") {
+                val dir: File = File(SAVED_DIRECTORY)
                 if (!dir.exists()) {
                     dir.mkdir()
                 }
-                output = File("$newDirName/$name")
+                File("$SAVED_DIRECTORY/$name")
             } else {
-                output = File(mContext.filesDir.toString() + "/" + name)
+                File(mContext.filesDir.toString() + "/" + name)
             }
             try {
                 val inputStream: InputStream? = mContext.contentResolver.openInputStream(uri)

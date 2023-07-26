@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -15,7 +16,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
@@ -26,12 +27,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
@@ -73,19 +78,45 @@ class StatusViewActivity : ComponentActivity() {
                                 Icon(Icons.Outlined.Share, "")
                             }
 
-                            FloatingActionButton(
-                                modifier = Modifier.padding(end = 16.dp),
-                                containerColor = Color.Black,
-                                contentColor = LIGHT_GREEN,
-                                onClick = {
-                                    FileUtils.copyFileToInternalStorage(
-                                        Uri.parse(currentPath),
-                                        context
+                            if (isFromSaved()) {
+                                FloatingActionButton(
+                                    modifier = Modifier.padding(end = 16.dp),
+                                    containerColor = Color.Black,
+                                    contentColor = LIGHT_GREEN,
+                                    onClick = {
+                                        val status = FileUtils.deleteFile(currentPath)
+                                        val message =
+                                            if (status) "Deleted Successfully" else "Delete Failed"
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                        if (status) {
+                                            (context as StatusViewActivity).finish()
+                                        }
+                                    }
+                                ) {
+                                    Icon(Icons.Outlined.Delete, "")
+                                }
+                            } else {
+                                FloatingActionButton(
+                                    modifier = Modifier.padding(end = 16.dp),
+                                    containerColor = Color.Black,
+                                    contentColor = LIGHT_GREEN,
+                                    onClick = {
+                                        val savedPath = FileUtils.copyFileToInternalStorage(
+                                            Uri.parse(currentPath),
+                                            context
+                                        )
+                                        val message =
+                                            if (savedPath.isNullOrBlank()) "Save Failed" else "Saved Successfully"
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.baseline_download_24),
+                                        ""
                                     )
                                 }
-                            ) {
-                                Icon(Icons.Outlined.ArrowDropDown, "")
                             }
+
                         }
                     }) { innerPadding ->
                     Surface(
@@ -95,25 +126,40 @@ class StatusViewActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.background,
                     ) {
                         val clickedIndex = getClickedIndexFromExtras()
-                        StatusPreview(FileUtils.statusList, clickedIndex)
+                        val statusList =
+                            if (isFromSaved())
+                                FileUtils.savedStatusList
+                            else
+                                FileUtils.statusList
+                        StatusPreview(statusList, clickedIndex)
                     }
                 }
             }
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+    }
+
     private fun getClickedIndexFromExtras(): Int {
         return intent.extras?.getInt(Const.CLICKED_INDEX) ?: 0
+    }
+
+    private fun isFromSaved(): Boolean {
+        return intent.extras?.getBoolean(Const.IS_SAVED) ?: false
     }
 }
 
 var currentPath = ""
+var currentStatus by mutableStateOf<StatusModel?>(null)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
     val pagerState = rememberPagerState(initialPage = clickedIndex)
     currentPath = statusList[clickedIndex].path
+    currentStatus = statusList[clickedIndex]
     Box(modifier = Modifier.fillMaxSize()) {
         HorizontalPager(
             pageCount = statusList.size,
