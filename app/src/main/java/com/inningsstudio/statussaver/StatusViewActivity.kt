@@ -73,7 +73,10 @@ class StatusViewActivity : ComponentActivity() {
                             FloatingActionButton(
                                 modifier = Modifier.padding(end = 16.dp),
                                 containerColor = Color.Black,
-                                contentColor = LIGHT_GREEN, onClick = {}
+                                contentColor = LIGHT_GREEN,
+                                onClick = {
+                                   FileUtils.shareStatus(context, currentPath)
+                                }
                             ) {
                                 Icon(Icons.Outlined.Share, "")
                             }
