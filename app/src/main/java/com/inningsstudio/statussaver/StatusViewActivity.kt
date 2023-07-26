@@ -1,12 +1,12 @@
 package com.inningsstudio.statussaver
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,7 +39,6 @@ import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.StyledPlayerView
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
-import kotlinx.coroutines.launch
 
 class StatusViewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,18 +53,14 @@ class StatusViewActivity : ComponentActivity() {
                         BottomAppBar() {
                             IconButton(
                                 onClick = {
-                                    scope.launch {
-
-                                    }
+                                    (context as StatusViewActivity).finish()
                                 }
                             ) {
                                 Icon(
                                     Icons.Filled.ArrowBack,
                                     "",
-                                    tint = LIGHT_GREEN,
-                                    modifier = Modifier.clickable {
-                                        (context as StatusViewActivity).finish()
-                                    })
+                                    tint = LIGHT_GREEN
+                                )
                             }
 
                             Spacer(Modifier.weight(1f, true))
@@ -82,11 +77,15 @@ class StatusViewActivity : ComponentActivity() {
                                 modifier = Modifier.padding(end = 16.dp),
                                 containerColor = Color.Black,
                                 contentColor = LIGHT_GREEN,
-                                onClick = {}
+                                onClick = {
+                                    FileUtils.copyFileToInternalStorage(
+                                        Uri.parse(currentPath),
+                                        context
+                                    )
+                                }
                             ) {
                                 Icon(Icons.Outlined.ArrowDropDown, "")
                             }
-
                         }
                     }) { innerPadding ->
                     Surface(
@@ -108,12 +107,13 @@ class StatusViewActivity : ComponentActivity() {
     }
 }
 
+var currentPath = ""
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
     val pagerState = rememberPagerState(initialPage = clickedIndex)
-    val scope = rememberCoroutineScope()
-
+    currentPath = statusList[clickedIndex].path
     Box(modifier = Modifier.fillMaxSize()) {
         HorizontalPager(
             pageCount = statusList.size,
@@ -125,6 +125,7 @@ fun StatusPreview(statusList: MutableList<StatusModel>, clickedIndex: Int) {
             val painter: Any? =
                 if (currentStatus.isVideo) currentStatus.thumbnail else currentStatus.imageRequest
 
+            currentPath = statusList[pagerState.currentPage].path
             if (currentStatus.isVideo && pagerState.currentPage == index) {
                 val context = LocalContext.current
                 val exoPlayer = ExoPlayer.Builder(LocalContext.current).build()
