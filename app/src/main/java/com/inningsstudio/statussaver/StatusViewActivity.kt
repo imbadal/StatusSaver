@@ -55,7 +55,7 @@ class StatusViewActivity : ComponentActivity() {
                 val context = LocalContext.current
                 Scaffold(
                     bottomBar = {
-                        BottomAppBar() {
+                        BottomAppBar(containerColor = Color.Black) {
                             IconButton(
                                 onClick = {
                                     (context as StatusViewActivity).finish()
@@ -72,7 +72,7 @@ class StatusViewActivity : ComponentActivity() {
 
                             FloatingActionButton(
                                 modifier = Modifier.padding(end = 16.dp),
-                                containerColor = Color.Black,
+                                containerColor = LIGHT_BLACK,
                                 contentColor = LIGHT_GREEN,
                                 onClick = {
                                    FileUtils.shareStatus(context, currentPath)
@@ -84,7 +84,7 @@ class StatusViewActivity : ComponentActivity() {
                             if (isFromSaved()) {
                                 FloatingActionButton(
                                     modifier = Modifier.padding(end = 16.dp),
-                                    containerColor = Color.Black,
+                                    containerColor = LIGHT_BLACK,
                                     contentColor = LIGHT_GREEN,
                                     onClick = {
                                         val status = FileUtils.deleteFile(currentPath)
@@ -101,7 +101,7 @@ class StatusViewActivity : ComponentActivity() {
                             } else {
                                 FloatingActionButton(
                                     modifier = Modifier.padding(end = 16.dp),
-                                    containerColor = Color.Black,
+                                    containerColor = LIGHT_BLACK,
                                     contentColor = LIGHT_GREEN,
                                     onClick = {
                                         val savedPath = FileUtils.copyFileToInternalStorage(

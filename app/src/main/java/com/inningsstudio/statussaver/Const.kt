@@ -4,6 +4,7 @@ object Const {
 
     const val APP_PREFERENCE = "app_preference"
     const val STATUS_URI = "status_uri"
+    const val IS_PRIVACY_POLICY_ACCEPTED = "is_privacy_policy_accepted"
     const val NO_MEDIA = "nomedia"
     const val MP4 = "mp4"
     const val CLICKED_INDEX = "clicked_index"

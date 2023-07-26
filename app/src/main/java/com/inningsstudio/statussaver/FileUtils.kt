@@ -19,7 +19,6 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 
-
 object FileUtils {
 
     val statusList = mutableListOf<StatusModel>()
@@ -105,7 +104,6 @@ object FileUtils {
 
         returnCursor?.let {
             val nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            val sizeIndex = returnCursor.getColumnIndex(OpenableColumns.SIZE)
             returnCursor.moveToFirst()
             val name = returnCursor.getString(nameIndex)
             val output: File = if (SAVED_DIRECTORY != "") {

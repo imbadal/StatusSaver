@@ -21,4 +21,20 @@ class PreferenceUtils(private val application: Application) {
             .apply()
     }
 
+    fun setPolicyPolicyAccepted(isAccepted: Boolean) {
+        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .edit()
+            .putBoolean(Const.IS_PRIVACY_POLICY_ACCEPTED, isAccepted)
+            .apply()
+    }
+
+    fun isPolicyPolicyAccepted(): Boolean {
+        return application.getSharedPreferences(
+            Const.APP_PREFERENCE,
+            ComponentActivity.MODE_PRIVATE
+        )?.getBoolean(
+            Const.IS_PRIVACY_POLICY_ACCEPTED, false
+        ) ?: false
+    }
+
 }

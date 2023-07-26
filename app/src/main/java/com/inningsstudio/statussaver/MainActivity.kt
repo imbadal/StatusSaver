@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                         BottomNavItem(
                             name = "Saved",
                             route = "saved",
-                            icon =Icons.Filled.Favorite
+                            icon = Icons.Filled.Favorite
                         ),
                         BottomNavItem(
                             name = "More",
@@ -91,14 +91,13 @@ fun Navigation(navHostController: NavHostController, viewModel: MainViewModel, c
         }
 
         composable("saved") {
-//            SavedStatusScreen()
             StatusListingScreen(viewModel.savedStatusList) { clickedIndex ->
                 viewModel.onStatusClicked(current, clickedIndex, true)
             }
         }
 
         composable("more") {
-            SettingsScreen()
+            MoreScreen()
         }
     }
 }
