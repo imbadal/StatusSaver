@@ -21,4 +21,16 @@ class PreferenceUtils(private val application: Application) {
             .apply()
     }
 
+    fun isOnboardingCompleted(): Boolean {
+        return application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .getBoolean("onboarding_completed", false)
+    }
+
+    fun setOnboardingCompleted(completed: Boolean) {
+        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .edit()
+            .putBoolean("onboarding_completed", completed)
+            .apply()
+    }
+
 }
