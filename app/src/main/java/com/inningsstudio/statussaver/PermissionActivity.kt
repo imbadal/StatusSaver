@@ -32,14 +32,10 @@ class PermissionActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.Q)
     fun getFolderPermission() {
-        val storageManager = application.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-        val intent = storageManager.primaryStorageVolume.createOpenDocumentTreeIntent()
-        var uri = intent.getParcelableExtra<Uri>("android.provider.extra.INITIAL_URI") as Uri
-        var scheme = uri.toString()
-        scheme = scheme.replace("/root/", "/document/")
-        scheme += "%3A$targetDirectory"
-        uri = Uri.parse(scheme)
-        intent.putExtra("android.provider.extra.INITIAL_URI", uri)
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+        // Optionally, set the initial URI if you want to guide the user to a specific folder
+        // val initialUri = ... // You can construct your initialUri if needed
+        // intent.putExtra("android.provider.extra.INITIAL_URI", initialUri)
         intent.putExtra("android.content.extra.SHOW_ADVANCE", true)
         startActivityForResult(intent, 1212)
     }
