@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp">
+
+    <!-- Icon -->
+    <ImageView
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@drawable/baseline_security_24"
+        android:background="@drawable/circle_background"
+        android:padding="24dp"
+        android:contentDescription="Android 15 Permission"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Title -->
+    <TextView
+        android:id="@+id/stepTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Android 15+ Permissions"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Description -->
+    <TextView
+        android:id="@+id/stepDescription"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Android 15 requires special permissions for file access. We need 'All Files Access' permission to read WhatsApp status files."
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:alpha="0.9"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Android 15 specific info -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/warning_background"
+        android:padding="16dp"
+        android:layout_marginBottom="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Why this permission?"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="• Android 15 has stricter file access rules\n• WhatsApp status files are in protected directories\n• This permission allows us to access those files\n• Your data remains private and secure"
+            android:textSize="12sp"
+            android:textColor="@color/white"
+            android:alpha="0.9"
+            android:lineSpacingExtra="4dp" />
+
+    </LinearLayout>
+
+    <!-- Instructions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/instruction_background"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="How to grant permission:"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1. Tap 'Grant Permission' below\n2. Go to 'All files access'\n3. Enable the toggle for this app\n4. Return and tap 'Check Permission'"
+            android:textSize="12sp"
+            android:textColor="@color/white"
+            android:alpha="0.9"
+            android:lineSpacingExtra="4dp" />
+
+    </LinearLayout>
+
+</LinearLayout> 

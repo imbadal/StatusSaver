@@ -22,6 +22,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.inningsstudio.statussaver.R
 import com.inningsstudio.statussaver.core.constants.Const
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
+import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import android.widget.LinearLayout
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -33,8 +34,9 @@ import com.inningsstudio.statussaver.presentation.ui.MainActivity
 import com.inningsstudio.statussaver.presentation.viewmodel.OnboardingViewModel
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
 import androidx.appcompat.app.AlertDialog
+import androidx.fragment.app.FragmentActivity
 
-class OnBoardingActivity : ComponentActivity() {
+class OnBoardingActivity : FragmentActivity() {
 
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var viewPager: ViewPager2
@@ -44,13 +46,23 @@ class OnBoardingActivity : ComponentActivity() {
     private lateinit var step1Container: LinearLayout
     private lateinit var step2Container: LinearLayout
     private lateinit var step3Container: LinearLayout
+    private lateinit var step4Container: LinearLayout
     
     private var currentStep = 0
     private var folderPermissionGranted = false
     private var storagePermissionGranted = false
+    private var android15PermissionGranted = false
     private var permissionAttempts = 0
     private val maxPermissionAttempts = 3
     private var permissionMaxAttemptsReached = false
+    
+    // Check if Android 15 permission step is needed
+    private val isAndroid15StepNeeded: Boolean
+        get() = Build.VERSION.SDK_INT >= 34 // Android 15
+    
+    // Total number of steps (3 for older devices, 4 for Android 15+)
+    private val totalSteps: Int
+        get() = if (isAndroid15StepNeeded) 4 else 3
 
     // Activity result launcher for folder selection
     private val folderSelectionLauncher = registerForActivityResult(
@@ -174,6 +186,15 @@ class OnBoardingActivity : ComponentActivity() {
             // Auto-navigate to next step
             moveToNextStep()
         }
+        
+        // Check if Android 15 permission was granted when user returns from settings
+        if (isAndroid15StepNeeded && !android15PermissionGranted && StorageAccessHelper.hasManageExternalStoragePermission()) {
+            android15PermissionGranted = true
+            updateStepIndicator()
+            updateButtonText()
+            updateStepContent()
+            moveToNextStep()
+        }
     }
 
     private fun initializeViews() {
@@ -184,9 +205,25 @@ class OnBoardingActivity : ComponentActivity() {
         step1Container = findViewById(R.id.step1Container)
         step2Container = findViewById(R.id.step2Container)
         step3Container = findViewById(R.id.step3Container)
+        step4Container = findViewById(R.id.step4Container)
 
         backButton.setOnClickListener { moveToPreviousStep() }
         nextButton.setOnClickListener { handleNextButtonClick() }
+        
+        // Show/hide Android 15 step based on device version
+        updateStepVisibility()
+    }
+
+    private fun updateStepVisibility() {
+        val android15StepDivider = findViewById<View>(R.id.android15StepDivider)
+        
+        if (isAndroid15StepNeeded) {
+            step4Container.visibility = View.VISIBLE
+            android15StepDivider.visibility = View.VISIBLE
+        } else {
+            step4Container.visibility = View.GONE
+            android15StepDivider.visibility = View.GONE
+        }
     }
 
     private fun setupViewPager() {
@@ -211,7 +248,13 @@ class OnBoardingActivity : ComponentActivity() {
     private fun updateStepIndicator() {
         updateStepIndicatorState(step1Container, 0, storagePermissionGranted)
         updateStepIndicatorState(step2Container, 1, folderPermissionGranted)
-        updateStepIndicatorState(step3Container, 2, false) // Step 3 is always last
+        
+        if (isAndroid15StepNeeded) {
+            updateStepIndicatorState(step3Container, 2, android15PermissionGranted)
+            updateStepIndicatorState(step4Container, 3, false) // Welcome step is always last
+        } else {
+            updateStepIndicatorState(step3Container, 2, false) // Welcome step for older devices
+        }
     }
 
     private fun dpToPx(dp: Int): Int {
@@ -276,7 +319,7 @@ class OnBoardingActivity : ComponentActivity() {
     }
 
     private fun updateStepCounter() {
-        stepCounter.text = "Step ${currentStep + 1} of 3"
+        stepCounter.text = "Step ${currentStep + 1} of $totalSteps"
     }
 
     private fun updateButtonText() {
@@ -301,7 +344,14 @@ class OnBoardingActivity : ComponentActivity() {
                     }
                 }
             }
-            2 -> nextButton.text = "Get Started"
+            2 -> {
+                if (android15PermissionGranted) {
+                    nextButton.text = "Next"
+                } else {
+                    nextButton.text = "Grant Permissions"
+                }
+            }
+            3 -> nextButton.text = "Get Started"
         }
     }
 
@@ -331,7 +381,14 @@ class OnBoardingActivity : ComponentActivity() {
                     moveToNextStep()
                 }
             }
-            2 -> completeOnboarding()
+            2 -> {
+                if (!android15PermissionGranted) {
+                    requestAndroid15Permissions()
+                } else {
+                    moveToNextStep()
+                }
+            }
+            3 -> completeOnboarding()
         }
     }
 
@@ -555,7 +612,7 @@ class OnBoardingActivity : ComponentActivity() {
     }
 
     private fun moveToNextStep() {
-        if (currentStep < 2 && isStepCompleted(currentStep)) {
+        if (currentStep < totalSteps - 1 && isStepCompleted(currentStep)) {
             currentStep++
             viewPager.currentItem = currentStep
             updateStepIndicator()
@@ -575,14 +632,18 @@ class OnBoardingActivity : ComponentActivity() {
     }
 
     private fun completeOnboarding() {
-        // Only mark onboarding as completed if all steps are done
-        if (folderPermissionGranted && storagePermissionGranted) {
+        // Check if all required steps are completed
+        val allStepsCompleted = when {
+            isAndroid15StepNeeded -> folderPermissionGranted && storagePermissionGranted && android15PermissionGranted
+            else -> folderPermissionGranted && storagePermissionGranted
+        }
+        
+        if (allStepsCompleted) {
             preferenceUtils.setOnboardingCompleted(true)
             navigateToMainActivity()
         } else {
             // If not all steps are completed, show appropriate message
             when {
-                !folderPermissionGranted -> Toast.makeText(this, "Please select a folder first", Toast.LENGTH_SHORT).show()
                 !storagePermissionGranted -> {
                     if (permissionMaxAttemptsReached) {
                         Toast.makeText(this, "Please grant permissions manually in Settings", Toast.LENGTH_SHORT).show()
@@ -590,6 +651,8 @@ class OnBoardingActivity : ComponentActivity() {
                         Toast.makeText(this, "Please grant storage permissions first", Toast.LENGTH_SHORT).show()
                     }
                 }
+                !folderPermissionGranted -> Toast.makeText(this, "Please select a folder first", Toast.LENGTH_SHORT).show()
+                isAndroid15StepNeeded && !android15PermissionGranted -> Toast.makeText(this, "Please grant Android 15+ permissions first", Toast.LENGTH_SHORT).show()
                 else -> Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
             }
         }
@@ -609,14 +672,21 @@ class OnBoardingActivity : ComponentActivity() {
     }
 
     private fun isOnboardingFullyCompleted(): Boolean {
-        val uriTree = preferenceUtils.getUriFromPreference()
-        val onboardingCompleted = preferenceUtils.isOnboardingCompleted()
+        // Check if onboarding was marked as completed
+        if (!preferenceUtils.isOnboardingCompleted()) {
+            return false
+        }
         
-        // Check if both folder permission and storage permission are granted
-        val hasFolderPermission = !uriTree.isNullOrBlank()
-        val hasStoragePermission = checkStoragePermissions()
+        // Check if all required permissions are granted
+        val storagePermissionsGranted = checkStoragePermissions()
+        val folderSelected = !preferenceUtils.getUriFromPreference().isNullOrBlank()
+        val android15PermissionGranted = if (isAndroid15StepNeeded) {
+            StorageAccessHelper.hasManageExternalStoragePermission()
+        } else {
+            true
+        }
         
-        return onboardingCompleted && hasFolderPermission && hasStoragePermission
+        return storagePermissionsGranted && folderSelected && android15PermissionGranted
     }
 
     private fun restoreStepStates() {
@@ -657,15 +727,19 @@ class OnBoardingActivity : ComponentActivity() {
                     permissionMaxAttemptsReached = true
                 }
             }
-            // If permissionAttempts == 0, user hasn't denied yet, so show normal permission request
+        }
+        
+        // Check if Android 15 permission was already granted
+        if (isAndroid15StepNeeded && StorageAccessHelper.hasManageExternalStoragePermission()) {
+            android15PermissionGranted = true
         }
 
-        // Determine which step to show (new order: permissions first, then folder)
-        // Always start from the first incomplete step
-        when {
-            !storagePermissionGranted -> currentStep = 0
-            !folderPermissionGranted -> currentStep = 1
-            else -> currentStep = 2
+        // Determine which step to show based on completion status
+        currentStep = when {
+            !storagePermissionGranted -> 0
+            !folderPermissionGranted -> 1
+            isAndroid15StepNeeded && !android15PermissionGranted -> 2
+            else -> if (isAndroid15StepNeeded) 3 else 2
         }
     }
 
@@ -687,11 +761,12 @@ class OnBoardingActivity : ComponentActivity() {
         }
     }
 
-    private fun isStepCompleted(stepIndex: Int): Boolean {
-        return when (stepIndex) {
+    private fun isStepCompleted(step: Int): Boolean {
+        return when (step) {
             0 -> storagePermissionGranted
             1 -> folderPermissionGranted
-            2 -> true // Welcome step is always considered complete
+            2 -> if (isAndroid15StepNeeded) android15PermissionGranted else true
+            3 -> true // Welcome step is always considered complete
             else -> false
         }
     }
@@ -707,7 +782,8 @@ class OnBoardingActivity : ComponentActivity() {
         when (currentStep) {
             0 -> updatePermissionsContent()
             1 -> updateFolderSelectionContent()
-            2 -> updateWelcomeContent()
+            2 -> updateAndroid15Content()
+            3 -> updateWelcomeContent()
         }
     }
 
@@ -723,51 +799,76 @@ class OnBoardingActivity : ComponentActivity() {
         viewPager.adapter?.notifyItemChanged(currentStep)
     }
 
+    private fun updateAndroid15Content() {
+        // This will be handled by the ViewPager adapter
+        // We'll need to refresh the current view
+        viewPager.adapter?.notifyItemChanged(currentStep)
+    }
+
     private fun updateWelcomeContent() {
         // This will be handled by the ViewPager adapter
         // We'll need to refresh the current view
         viewPager.adapter?.notifyItemChanged(currentStep)
     }
 
-    // ViewPager Adapter for onboarding steps
-    private inner class OnboardingAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<OnboardingAdapter.ViewHolder>() {
-        
-        private val layouts = listOf(
-            R.layout.step_permissions,
-            R.layout.step_folder_selection,
-            R.layout.step_welcome
-        )
+    private fun requestAndroid15Permissions() {
+        if (Build.VERSION.SDK_INT >= 34) {
+            // Check if permission is already granted
+            if (StorageAccessHelper.hasManageExternalStoragePermission()) {
+                android15PermissionGranted = true
+                updateStepIndicator()
+                updateButtonText()
+                updateStepContent()
+                moveToNextStep()
+            } else {
+                // Request the permission
+                StorageAccessHelper.requestManageExternalStoragePermission(this)
+            }
+        } else {
+            // For older devices, skip this step
+            android15PermissionGranted = true
+            moveToNextStep()
+        }
+    }
 
-        override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): ViewHolder {
-            val view = layoutInflater.inflate(layouts[viewType], parent, false)
-            return ViewHolder(view)
+    // ViewPager Adapter for onboarding steps
+    private inner class OnboardingAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<OnboardingAdapter.OnboardingViewHolder>() {
+        
+        private val layouts = if (isAndroid15StepNeeded) {
+            listOf(
+                R.layout.step_permissions,
+                R.layout.step_folder_selection,
+                R.layout.step_android15,
+                R.layout.step_welcome
+            )
+        } else {
+            listOf(
+                R.layout.step_permissions,
+                R.layout.step_folder_selection,
+                R.layout.step_welcome
+            )
         }
 
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): OnboardingViewHolder {
+            val view = layoutInflater.inflate(viewType, parent, false)
+            return OnboardingViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: OnboardingViewHolder, position: Int) {
             when (position) {
                 0 -> bindPermissionsStep(holder.itemView)
                 1 -> bindFolderSelectionStep(holder.itemView)
-                2 -> bindWelcomeStep(holder.itemView)
+                2 -> if (isAndroid15StepNeeded) bindAndroid15Step(holder.itemView) else bindWelcomeStep(holder.itemView)
+                3 -> bindWelcomeStep(holder.itemView)
             }
         }
 
-        private fun bindFolderSelectionStep(view: View) {
-            val titleText = view.findViewById<TextView>(R.id.stepTitle)
-            val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
-            
-            if (folderPermissionGranted) {
-                titleText?.text = "Folder Selected!"
-                descriptionText?.text = "Thank you for choosing a folder. You can now proceed to the next step."
-            } else {
-                titleText?.text = "Choose a Folder"
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    descriptionText?.text = "We'll create a 'StatusWp' folder for you and open it for confirmation. Please grant storage permissions first."
-                } else {
-                    descriptionText?.text = "We'll create a 'StatusWp' folder for you automatically. Please grant storage permissions to continue."
-                }
-            }
-        }
+        override fun getItemCount(): Int = layouts.size
 
+        override fun getItemViewType(position: Int): Int = layouts[position]
+
+        inner class OnboardingViewHolder(itemView: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView)
+        
         private fun bindPermissionsStep(view: View) {
             val titleText = view.findViewById<TextView>(R.id.stepTitle)
             val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
@@ -794,6 +895,36 @@ class OnBoardingActivity : ComponentActivity() {
             }
         }
 
+        private fun bindFolderSelectionStep(view: View) {
+            val titleText = view.findViewById<TextView>(R.id.stepTitle)
+            val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
+            
+            if (folderPermissionGranted) {
+                titleText?.text = "Folder Selected!"
+                descriptionText?.text = "Thank you for choosing a folder. You can now proceed to the next step."
+            } else {
+                titleText?.text = "Choose a Folder"
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    descriptionText?.text = "We'll create a 'StatusWp' folder for you and open it for confirmation. Please grant storage permissions first."
+                } else {
+                    descriptionText?.text = "We'll create a 'StatusWp' folder for you automatically. Please grant storage permissions to continue."
+                }
+            }
+        }
+
+        private fun bindAndroid15Step(view: View) {
+            val titleText = view.findViewById<TextView>(R.id.stepTitle)
+            val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
+            
+            if (android15PermissionGranted) {
+                titleText?.text = "Android 15+ Permissions Granted!"
+                descriptionText?.text = "Thank you for granting Android 15+ permissions. You can now proceed to the next step."
+            } else {
+                titleText?.text = "Android 15+ Permissions"
+                descriptionText?.text = "We need additional permissions for Android 15+ devices. Please grant the required permissions to continue."
+            }
+        }
+
         private fun bindWelcomeStep(view: View) {
             val titleText = view.findViewById<TextView>(R.id.stepTitle)
             val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
@@ -801,11 +932,5 @@ class OnBoardingActivity : ComponentActivity() {
             titleText?.text = "Welcome to StatusSaver!"
             descriptionText?.text = "You're all set! Now you can save and manage your WhatsApp statuses easily. Tap 'Get Started' to begin saving your WhatsApp statuses!"
         }
-
-        override fun getItemCount(): Int = layouts.size
-
-        override fun getItemViewType(position: Int): Int = position
-
-        inner class ViewHolder(itemView: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView)
     }
 }
