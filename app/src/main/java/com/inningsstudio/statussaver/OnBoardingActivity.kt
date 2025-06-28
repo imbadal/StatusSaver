@@ -24,7 +24,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.util.TypedValue
 
-class PermissionActivity : ComponentActivity() {
+class OnBoardingActivity : ComponentActivity() {
 
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var viewPager: ViewPager2
@@ -97,7 +97,7 @@ class PermissionActivity : ComponentActivity() {
         // Set status bar color to match the gradient background
         window.statusBarColor = resources.getColor(R.color.primary_color, null)
         
-        setContentView(R.layout.activity_permission)
+        setContentView(R.layout.activity_onboarding)
 
         preferenceUtils = PreferenceUtils(application)
         
