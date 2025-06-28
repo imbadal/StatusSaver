@@ -1,4 +1,4 @@
-package com.inningsstudio.statussaver
+package com.inningsstudio.statussaver.presentation.ui.onboarding
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button

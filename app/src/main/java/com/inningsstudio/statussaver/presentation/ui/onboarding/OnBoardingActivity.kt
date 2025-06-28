@@ -1,4 +1,4 @@
-package com.inningsstudio.statussaver
+package com.inningsstudio.statussaver.presentation.ui.onboarding
 
 import android.Manifest
 import android.content.Context
@@ -19,7 +19,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.viewpager2.widget.ViewPager2
-import com.inningsstudio.statussaver.Const.STATUS_URI
+import com.inningsstudio.statussaver.R
+import com.inningsstudio.statussaver.core.constants.Const
+import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import android.widget.LinearLayout
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -27,6 +29,10 @@ import android.util.TypedValue
 import java.io.File
 import android.app.Dialog
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.inningsstudio.statussaver.presentation.ui.MainActivity
+import com.inningsstudio.statussaver.presentation.viewmodel.OnboardingViewModel
+import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
+import androidx.appcompat.app.AlertDialog
 
 class OnBoardingActivity : ComponentActivity() {
 
@@ -597,7 +603,7 @@ class OnBoardingActivity : ComponentActivity() {
 
     private fun fetchImages(statusUri: String) {
         val intent = Intent(this, MainActivity::class.java)
-        intent.putExtra(STATUS_URI, statusUri)
+        intent.putExtra(Const.STATUS_URI, statusUri)
         startActivity(intent)
         finish()
     }

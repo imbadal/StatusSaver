@@ -1,7 +1,8 @@
-package com.inningsstudio.statussaver
+package com.inningsstudio.statussaver.presentation.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,9 +34,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.inningsstudio.statussaver.Const.STATUS_URI
+import com.inningsstudio.statussaver.core.constants.Const.STATUS_URI
+import com.inningsstudio.statussaver.core.constants.BottomNavItem
+import com.inningsstudio.statussaver.core.constants.LIGHT_GREEN
+import com.inningsstudio.statussaver.presentation.ui.settings.SettingsScreen
+import com.inningsstudio.statussaver.presentation.ui.status.SavedStatusScreen
+import com.inningsstudio.statussaver.presentation.ui.status.StatusListingScreen
+import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModel
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
-import com.inningsstudio.statussaver.viewmodels.MainViewModel
+import com.inningsstudio.statussaver.data.datasource.StatusLocalDataSource
+import com.inningsstudio.statussaver.data.repository.StatusRepositoryImpl
+import com.inningsstudio.statussaver.domain.usecase.DetectStatusPathsUseCase
+import com.inningsstudio.statussaver.domain.usecase.GetStatusesUseCase
+import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModelFactory
 
 class MainActivity : ComponentActivity() {
 
@@ -45,11 +56,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             StatusSaverTheme {
-
-                val viewModel = viewModel<MainViewModel>()
-                viewModel.fetchStatus(applicationContext, getUriFromExtras())
-                viewModel.fetchSavedStatus(applicationContext)
-
+                val context = LocalContext.current.applicationContext
+                val repository = StatusRepositoryImpl(StatusLocalDataSource(context), context)
+                val getStatusesUseCase = GetStatusesUseCase(repository)
+                val detectStatusPathsUseCase = DetectStatusPathsUseCase(repository)
+                val factory = MainViewModelFactory(getStatusesUseCase, detectStatusPathsUseCase)
+                val viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = factory)
                 val navController = rememberNavController()
                 Scaffold(bottomBar = {
                     BottomNavigationBar(items = listOf(
@@ -85,16 +97,11 @@ class MainActivity : ComponentActivity() {
 fun Navigation(navHostController: NavHostController, viewModel: MainViewModel, current: Context) {
     NavHost(navController = navHostController, startDestination = "home") {
         composable("home") {
-            StatusListingScreen(viewModel.statusList) { clickedIndex ->
-                viewModel.onStatusClicked(current, clickedIndex)
-            }
+            StatusListingScreen(viewModel = viewModel)
         }
 
         composable("saved") {
-//            SavedStatusScreen()
-            StatusListingScreen(viewModel.savedStatusList) { clickedIndex ->
-                viewModel.onStatusClicked(current, clickedIndex, true)
-            }
+            StatusListingScreen(viewModel = viewModel, isSaved = true)
         }
 
         composable("more") {

@@ -1,4 +1,4 @@
-package com.inningsstudio.statussaver
+package com.inningsstudio.statussaver.core.utils
 
 import android.content.Context
 import android.content.Intent
@@ -11,8 +11,9 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import coil.request.ImageRequest
-import com.inningsstudio.statussaver.Const.MP4
-import com.inningsstudio.statussaver.Const.NO_MEDIA
+import com.inningsstudio.statussaver.core.constants.Const.MP4
+import com.inningsstudio.statussaver.core.constants.Const.NO_MEDIA
+import com.inningsstudio.statussaver.data.model.StatusModel
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream

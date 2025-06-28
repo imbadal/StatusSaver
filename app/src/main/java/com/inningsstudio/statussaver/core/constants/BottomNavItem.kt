@@ -1,4 +1,4 @@
-package com.inningsstudio.statussaver
+package com.inningsstudio.statussaver.core.constants
 
 import androidx.compose.ui.graphics.vector.ImageVector
 

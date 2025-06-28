@@ -1,6 +1,9 @@
-package com.inningsstudio.statussaver
+package com.inningsstudio.statussaver.core.utils
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
+import com.inningsstudio.statussaver.core.constants.Const
 import androidx.activity.ComponentActivity
 
 class PreferenceUtils(private val application: Application) {
@@ -45,4 +48,33 @@ class PreferenceUtils(private val application: Application) {
             .apply()
     }
 
+    companion object {
+        private const val PREF_NAME = Const.PREF_NAME
+        private const val KEY_FIRST_TIME = Const.KEY_FIRST_TIME
+        private const val KEY_STATUS_URI = Const.KEY_STATUS_URI
+
+        fun isFirstTime(context: Context): Boolean {
+            val sharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            return sharedPreferences.getBoolean(KEY_FIRST_TIME, true)
+        }
+
+        fun setFirstTime(context: Context, isFirstTime: Boolean) {
+            val sharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            val editor = sharedPreferences.edit()
+            editor.putBoolean(KEY_FIRST_TIME, isFirstTime)
+            editor.apply()
+        }
+
+        fun getStatusUri(context: Context): String {
+            val sharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            return sharedPreferences.getString(KEY_STATUS_URI, "") ?: ""
+        }
+
+        fun setStatusUri(context: Context, statusUri: String) {
+            val sharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            val editor = sharedPreferences.edit()
+            editor.putString(KEY_STATUS_URI, statusUri)
+            editor.apply()
+        }
+    }
 }

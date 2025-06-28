@@ -1,4 +1,4 @@
-package com.inningsstudio.statussaver
+package com.inningsstudio.statussaver.core.utils
 
 import android.content.Context
 import android.os.Build
