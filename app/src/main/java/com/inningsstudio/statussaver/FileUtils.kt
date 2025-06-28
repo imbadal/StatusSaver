@@ -22,6 +22,7 @@ import java.io.InputStream
 
 object FileUtils {
 
+    private const val TAG = "FileUtils"
     val statusList = mutableListOf<StatusModel>()
     val savedStatusList = mutableListOf<StatusModel>()
 
@@ -35,23 +36,98 @@ object FileUtils {
 
     fun getStatus(context: Context, statusUri: String): List<StatusModel> {
         val files = mutableListOf<StatusModel>()
-        val fileDoc = DocumentFile.fromTreeUri(context, Uri.parse(statusUri))
-
-        fileDoc?.listFiles()?.forEach { file ->
-            val path = file.uri.toString()
-            if (isValidFile(path)) {
-                if (isVideo(path)) {
-                    val mediaMetadataRetriever = MediaMetadataRetriever()
-                    mediaMetadataRetriever.setDataSource(context, Uri.parse(path))
-                    val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
-                    mediaMetadataRetriever.release()
-                    files.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
-                } else {
-                    val imageRequest = ImageRequest.Builder(context).data(path).build()
-                    files.add(StatusModel(path = path, imageRequest = imageRequest))
-                }
+        
+        // Check if statusUri is empty or invalid
+        if (statusUri.isBlank()) {
+            Log.w(TAG, "Status URI is empty, trying to detect WhatsApp status paths")
+            
+            // Try to detect WhatsApp status paths automatically
+            val bestPath = StatusPathDetector.getBestStatusPath(context)
+            if (bestPath != null) {
+                Log.d(TAG, "Using detected path: $bestPath")
+                return getStatusFromPath(context, bestPath)
+            } else {
+                Log.w(TAG, "No WhatsApp status paths found")
+                return files // Return empty list
             }
         }
+        
+        // Try to use the provided URI
+        try {
+            val fileDoc = DocumentFile.fromTreeUri(context, Uri.parse(statusUri))
+            if (fileDoc != null && fileDoc.exists()) {
+                fileDoc.listFiles()?.forEach { file ->
+                    val path = file.uri.toString()
+                    if (isValidFile(path)) {
+                        if (isVideo(path)) {
+                            val mediaMetadataRetriever = MediaMetadataRetriever()
+                            mediaMetadataRetriever.setDataSource(context, Uri.parse(path))
+                            val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
+                            mediaMetadataRetriever.release()
+                            files.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
+                        } else {
+                            val imageRequest = ImageRequest.Builder(context).data(path).build()
+                            files.add(StatusModel(path = path, imageRequest = imageRequest))
+                        }
+                    }
+                }
+            } else {
+                Log.w(TAG, "Invalid or non-existent URI: $statusUri")
+                // Fallback to path detection
+                val bestPath = StatusPathDetector.getBestStatusPath(context)
+                if (bestPath != null) {
+                    return getStatusFromPath(context, bestPath)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing status URI: $statusUri", e)
+            // Fallback to path detection
+            val bestPath = StatusPathDetector.getBestStatusPath(context)
+            if (bestPath != null) {
+                return getStatusFromPath(context, bestPath)
+            }
+        }
+        
+        // Add padding items for UI
+        files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
+        statusList.clear()
+        statusList.addAll(files)
+        return files
+    }
+    
+    /**
+     * Get status from a file path (for direct file system access)
+     */
+    private fun getStatusFromPath(context: Context, path: String): List<StatusModel> {
+        val files = mutableListOf<StatusModel>()
+        
+        try {
+            val directory = File(path)
+            if (directory.exists() && directory.isDirectory) {
+                val fileList = directory.listFiles()
+                if (fileList != null) {
+                    fileList.forEach { file ->
+                        val filePath = file.absolutePath
+                        if (isValidFile(filePath)) {
+                            if (isVideo(filePath)) {
+                                val mediaMetadataRetriever = MediaMetadataRetriever()
+                                mediaMetadataRetriever.setDataSource(filePath)
+                                val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                                mediaMetadataRetriever.release()
+                                files.add(StatusModel(path = filePath, isVideo = true, thumbnail = thumbnail))
+                            } else {
+                                val imageRequest = ImageRequest.Builder(context).data(filePath).build()
+                                files.add(StatusModel(path = filePath, imageRequest = imageRequest))
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading status from path: $path", e)
+        }
+        
+        // Add padding items for UI
         files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
         statusList.clear()
         statusList.addAll(files)
