@@ -14,6 +14,8 @@ import coil.request.ImageRequest
 import com.inningsstudio.statussaver.core.constants.Const.MP4
 import com.inningsstudio.statussaver.core.constants.Const.NO_MEDIA
 import com.inningsstudio.statussaver.data.model.StatusModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -35,7 +37,7 @@ object FileUtils {
         return (path.substring(path.length - 3) == MP4)
     }
 
-    fun getStatus(context: Context, statusUri: String): List<StatusModel> {
+    suspend fun getStatus(context: Context, statusUri: String): List<StatusModel> = withContext(Dispatchers.IO) {
         val files = mutableListOf<StatusModel>()
         
         // Check if statusUri is empty or invalid
@@ -46,10 +48,10 @@ object FileUtils {
             val bestPath = StatusPathDetector.getBestStatusPath(context)
             if (bestPath != null) {
                 Log.d(TAG, "Using detected path: $bestPath")
-                return getStatusFromPath(context, bestPath)
+                return@withContext getStatusFromPath(context, bestPath)
             } else {
                 Log.w(TAG, "No WhatsApp status paths found")
-                return files // Return empty list
+                return@withContext files // Return empty list
             }
         }
         
@@ -77,7 +79,7 @@ object FileUtils {
                 // Fallback to path detection
                 val bestPath = StatusPathDetector.getBestStatusPath(context)
                 if (bestPath != null) {
-                    return getStatusFromPath(context, bestPath)
+                    return@withContext getStatusFromPath(context, bestPath)
                 }
             }
         } catch (e: Exception) {
@@ -85,7 +87,7 @@ object FileUtils {
             // Fallback to path detection
             val bestPath = StatusPathDetector.getBestStatusPath(context)
             if (bestPath != null) {
-                return getStatusFromPath(context, bestPath)
+                return@withContext getStatusFromPath(context, bestPath)
             }
         }
         
@@ -93,13 +95,13 @@ object FileUtils {
         files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
         statusList.clear()
         statusList.addAll(files)
-        return files
+        return@withContext files
     }
     
     /**
      * Get status from a file path (for direct file system access)
      */
-    private fun getStatusFromPath(context: Context, path: String): List<StatusModel> {
+    private suspend fun getStatusFromPath(context: Context, path: String): List<StatusModel> = withContext(Dispatchers.IO) {
         val files = mutableListOf<StatusModel>()
         
         try {
@@ -132,10 +134,10 @@ object FileUtils {
         files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
         statusList.clear()
         statusList.addAll(files)
-        return files
+        return@withContext files
     }
 
-    fun getSavedStatus(context: Context): List<StatusModel> {
+    suspend fun getSavedStatus(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         val savedFiles = mutableListOf<StatusModel>()
 
         val file = File(SAVED_DIRECTORY)
@@ -157,23 +159,19 @@ object FileUtils {
 
         savedStatusList.clear()
         savedStatusList.addAll(savedFiles)
-        return savedFiles
+        return@withContext savedFiles
     }
 
     private fun isValidFile(path: String): Boolean {
         return path.substringAfterLast(".") != NO_MEDIA || path.isEmpty()
     }
 
-    fun deleteFile(
-        path: String
-    ): Boolean {
+    suspend fun deleteFile(path: String): Boolean = withContext(Dispatchers.IO) {
         val file = File(path)
-        return file.delete()
+        return@withContext file.delete()
     }
 
-    fun copyFileToInternalStorage(
-        uri: Uri, mContext: Context
-    ): String? {
+    suspend fun copyFileToInternalStorage(uri: Uri, mContext: Context): String? = withContext(Dispatchers.IO) {
         val returnCursor: Cursor? = mContext.contentResolver.query(
             uri, arrayOf<String>(
                 OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE
@@ -208,9 +206,9 @@ object FileUtils {
             } catch (e: Exception) {
                 Log.e("Exception", e.message!!)
             }
-            return output.path
+            return@withContext output.path
         }
-        return null
+        return@withContext null
     }
 
 
@@ -241,7 +239,7 @@ object FileUtils {
         }
     }
 
-    fun shareStatus(context: Context, currentPath: String) {
+    suspend fun shareStatus(context: Context, currentPath: String) = withContext(Dispatchers.IO) {
         if (isVideo(currentPath)) {
             shareVideo(path = currentPath, context = context)
         } else {

@@ -34,6 +34,7 @@ import com.inningsstudio.statussaver.core.constants.LIGHT_GREEN
 import com.inningsstudio.statussaver.core.utils.FileUtils
 import com.inningsstudio.statussaver.data.model.StatusModel
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
+import kotlinx.coroutines.launch
 
 class StatusViewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +58,7 @@ fun StatusViewScreen() {
     val isVideo = (context as? StatusViewActivity)?.intent?.getBooleanExtra("is_video", false) ?: false
     
     var statusModel by remember { mutableStateOf<StatusModel?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     
     LaunchedEffect(statusPath) {
         if (statusPath.isNotEmpty()) {
@@ -105,7 +107,9 @@ fun StatusViewScreen() {
             FloatingActionButton(
                 onClick = {
                     statusModel?.let { status ->
-                        FileUtils.copyFileToInternalStorage(Uri.parse(status.path), context)
+                        coroutineScope.launch {
+                            FileUtils.copyFileToInternalStorage(Uri.parse(status.path), context)
+                        }
                     }
                 },
                 containerColor = LIGHT_GREEN,
@@ -124,7 +128,9 @@ fun StatusViewScreen() {
             FloatingActionButton(
                 onClick = {
                     statusModel?.let { status ->
-                        FileUtils.shareStatus(context, status.path)
+                        coroutineScope.launch {
+                            FileUtils.shareStatus(context, status.path)
+                        }
                     }
                 },
                 containerColor = LIGHT_GREEN,
