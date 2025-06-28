@@ -29,7 +29,7 @@ class PermissionActivity : ComponentActivity() {
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var viewPager: ViewPager2
     private lateinit var stepCounter: TextView
-    private lateinit var backButton: TextView
+    private lateinit var backButton: ImageView
     private lateinit var nextButton: TextView
     private lateinit var step1Container: LinearLayout
     private lateinit var step2Container: LinearLayout
@@ -40,6 +40,7 @@ class PermissionActivity : ComponentActivity() {
     private var storagePermissionGranted = false
     private var permissionAttempts = 0
     private val maxPermissionAttempts = 3
+    private var permissionMaxAttemptsReached = false
 
     // Activity result launcher for folder selection
     private val folderSelectionLauncher = registerForActivityResult(
@@ -55,7 +56,10 @@ class PermissionActivity : ComponentActivity() {
                 val actualPath = treeUri.toString()
                 preferenceUtils.setUriToPreference(actualPath)
                 folderPermissionGranted = true
-                moveToNextStep()
+                updateStepIndicator()
+                updateButtonText()
+                updateStepContent()
+                Toast.makeText(this, "Folder access granted successfully!", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -67,13 +71,22 @@ class PermissionActivity : ComponentActivity() {
         val allGranted = permissions.values.all { it }
         if (allGranted) {
             storagePermissionGranted = true
-            moveToNextStep()
+            permissionMaxAttemptsReached = false
+            updateStepIndicator()
+            updateButtonText()
+            updateStepContent()
+            Toast.makeText(this, "Storage permissions granted successfully!", Toast.LENGTH_SHORT).show()
         } else {
             permissionAttempts++
             if (permissionAttempts >= maxPermissionAttempts) {
+                permissionMaxAttemptsReached = true
+                updateStepIndicator()
+                updateButtonText()
+                updateStepContent()
                 showManualPermissionDialog()
             } else {
-                Toast.makeText(this, "Permissions required to continue", Toast.LENGTH_SHORT).show()
+                updateStepContent()
+                Toast.makeText(this, "Permissions required to continue. Please try again.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -95,13 +108,15 @@ class PermissionActivity : ComponentActivity() {
             return
         }
 
-        // Restore step states when resuming onboarding
-        restoreStepStates()
-
         initializeViews()
         setupViewPager()
+        
+        // Restore step states when resuming onboarding (after views are initialized)
+        restoreStepStates()
+        
         updateStepIndicator()
         updateButtonText()
+        updateStepContent()
         
         // Navigate to the appropriate step
         viewPager.currentItem = currentStep
@@ -124,6 +139,9 @@ class PermissionActivity : ComponentActivity() {
         val onboardingAdapter = OnboardingAdapter()
         viewPager.adapter = onboardingAdapter
         
+        // Disable swiping completely to enforce step-by-step progression
+        viewPager.isUserInputEnabled = false
+        
         // Add page change callback to prevent swiping without completing current step
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
@@ -132,18 +150,6 @@ class PermissionActivity : ComponentActivity() {
                 updateStepIndicator()
                 updateButtonText()
                 updateStepCounter()
-            }
-            
-            override fun onPageScrollStateChanged(state: Int) {
-                super.onPageScrollStateChanged(state)
-                // Prevent swiping if current step is not completed
-                if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
-                    val currentStepIndex = currentStep
-                    if (!isStepCompleted(currentStepIndex)) {
-                        // Revert to current step if trying to swipe without completion
-                        viewPager.setCurrentItem(currentStepIndex, true)
-                    }
-                }
             }
         })
     }
@@ -223,16 +229,40 @@ class PermissionActivity : ComponentActivity() {
         backButton.visibility = if (currentStep > 0) View.VISIBLE else View.GONE
         
         when (currentStep) {
-            0 -> nextButton.text = "Continue"
-            1 -> nextButton.text = "Grant Permissions"
+            0 -> {
+                if (folderPermissionGranted) {
+                    nextButton.text = "Next"
+                } else {
+                    nextButton.text = "Select Folder"
+                }
+            }
+            1 -> {
+                when {
+                    storagePermissionGranted -> nextButton.text = "Next"
+                    permissionMaxAttemptsReached -> nextButton.text = "Open Settings"
+                    else -> nextButton.text = "Grant Permissions"
+                }
+            }
             2 -> nextButton.text = "Get Started"
         }
     }
 
     private fun handleNextButtonClick() {
         when (currentStep) {
-            0 -> requestFolderPermission()
-            1 -> requestStoragePermissions()
+            0 -> {
+                if (!folderPermissionGranted) {
+                    requestFolderPermission()
+                } else {
+                    moveToNextStep()
+                }
+            }
+            1 -> {
+                when {
+                    storagePermissionGranted -> moveToNextStep()
+                    permissionMaxAttemptsReached -> openAppSettings()
+                    else -> requestStoragePermissions()
+                }
+            }
             2 -> completeOnboarding()
         }
     }
@@ -278,16 +308,14 @@ class PermissionActivity : ComponentActivity() {
 
     private fun showManualPermissionDialog() {
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Permissions Required")
-            .setMessage("Please manually grant permissions in Settings:\n\n" +
-                    "1. Go to Settings > Apps > StatusSaver\n" +
-                    "2. Tap 'Permissions'\n" +
+            .setTitle("Manual Permission Required")
+            .setMessage("We couldn't get permissions automatically. Please follow these steps:\n\n" +
+                    "1. Tap 'Open Settings' below\n" +
+                    "2. Scroll down and tap 'Permissions'\n" +
                     "3. Enable 'Storage' and 'Photos & Videos'\n" +
-                    "4. Return to the app")
+                    "4. Return to the app and tap 'Next'")
             .setPositiveButton("Open Settings") { _, _ ->
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                intent.data = Uri.fromParts("package", packageName, null)
-                startActivity(intent)
+                openAppSettings()
             }
             .setNegativeButton("Cancel") { dialog, _ ->
                 dialog.dismiss()
@@ -299,10 +327,12 @@ class PermissionActivity : ComponentActivity() {
     }
 
     private fun moveToNextStep() {
-        if (currentStep < 2) {
+        if (currentStep < 2 && isStepCompleted(currentStep)) {
             currentStep++
             viewPager.currentItem = currentStep
             updateStepIndicator()
+            updateButtonText()
+            updateStepContent()
         }
     }
 
@@ -310,6 +340,9 @@ class PermissionActivity : ComponentActivity() {
         if (currentStep > 0) {
             currentStep--
             viewPager.currentItem = currentStep
+            updateStepIndicator()
+            updateButtonText()
+            updateStepContent()
         }
     }
 
@@ -320,7 +353,17 @@ class PermissionActivity : ComponentActivity() {
             navigateToMainActivity()
         } else {
             // If not all steps are completed, show appropriate message
-            Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
+            when {
+                !folderPermissionGranted -> Toast.makeText(this, "Please select a folder first", Toast.LENGTH_SHORT).show()
+                !storagePermissionGranted -> {
+                    if (permissionMaxAttemptsReached) {
+                        Toast.makeText(this, "Please grant permissions manually in Settings", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Please grant storage permissions first", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                else -> Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -348,24 +391,6 @@ class PermissionActivity : ComponentActivity() {
         return onboardingCompleted && hasFolderPermission && hasStoragePermission
     }
 
-    private fun checkStoragePermissions(): Boolean {
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO
-            )
-        } else {
-            arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-        }
-
-        return permissions.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
     private fun restoreStepStates() {
         // Check if folder permission was already granted
         val uriTree = preferenceUtils.getUriFromPreference()
@@ -386,6 +411,24 @@ class PermissionActivity : ComponentActivity() {
         }
     }
 
+    private fun checkStoragePermissions(): Boolean {
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        }
+
+        return permissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
     private fun isStepCompleted(stepIndex: Int): Boolean {
         return when (stepIndex) {
             0 -> folderPermissionGranted
@@ -393,6 +436,39 @@ class PermissionActivity : ComponentActivity() {
             2 -> true // Welcome step is always considered complete
             else -> false
         }
+    }
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        intent.data = Uri.fromParts("package", packageName, null)
+        startActivity(intent)
+    }
+
+    private fun updateStepContent() {
+        // Update the current step's content based on state
+        when (currentStep) {
+            0 -> updateFolderSelectionContent()
+            1 -> updatePermissionsContent()
+            2 -> updateWelcomeContent()
+        }
+    }
+
+    private fun updateFolderSelectionContent() {
+        // This will be handled by the ViewPager adapter
+        // We'll need to refresh the current view
+        viewPager.adapter?.notifyItemChanged(currentStep)
+    }
+
+    private fun updatePermissionsContent() {
+        // This will be handled by the ViewPager adapter
+        // We'll need to refresh the current view
+        viewPager.adapter?.notifyItemChanged(currentStep)
+    }
+
+    private fun updateWelcomeContent() {
+        // This will be handled by the ViewPager adapter
+        // We'll need to refresh the current view
+        viewPager.adapter?.notifyItemChanged(currentStep)
     }
 
     // ViewPager Adapter for onboarding steps
@@ -410,7 +486,52 @@ class PermissionActivity : ComponentActivity() {
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            // View binding logic if needed
+            when (position) {
+                0 -> bindFolderSelectionStep(holder.itemView)
+                1 -> bindPermissionsStep(holder.itemView)
+                2 -> bindWelcomeStep(holder.itemView)
+            }
+        }
+
+        private fun bindFolderSelectionStep(view: View) {
+            val titleText = view.findViewById<TextView>(R.id.stepTitle)
+            val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
+            
+            if (folderPermissionGranted) {
+                titleText?.text = "Folder Access Granted!"
+                descriptionText?.text = "Thank you for granting folder access. You can now proceed to the next step to complete the setup."
+            } else {
+                titleText?.text = "Access WhatsApp Statuses"
+                descriptionText?.text = "We need access to your WhatsApp status folder to save statuses. Please select the WhatsApp status folder to continue."
+            }
+        }
+
+        private fun bindPermissionsStep(view: View) {
+            val titleText = view.findViewById<TextView>(R.id.stepTitle)
+            val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
+            
+            when {
+                storagePermissionGranted -> {
+                    titleText?.text = "Permissions Granted!"
+                    descriptionText?.text = "Thank you for granting storage permissions. You can now proceed to complete the onboarding process."
+                }
+                permissionMaxAttemptsReached -> {
+                    titleText?.text = "Manual Permission Required"
+                    descriptionText?.text = "We couldn't get permissions automatically. Please open Settings and manually grant storage permissions to continue."
+                }
+                else -> {
+                    titleText?.text = "Grant Permissions"
+                    descriptionText?.text = "We need storage permissions to save your WhatsApp statuses to your device. Please grant the required permissions."
+                }
+            }
+        }
+
+        private fun bindWelcomeStep(view: View) {
+            val titleText = view.findViewById<TextView>(R.id.stepTitle)
+            val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
+            
+            titleText?.text = "Welcome to StatusSaver!"
+            descriptionText?.text = "You're all set! Now you can save and manage your WhatsApp statuses easily. Tap 'Get Started' to begin saving your WhatsApp statuses!"
         }
 
         override fun getItemCount(): Int = layouts.size
