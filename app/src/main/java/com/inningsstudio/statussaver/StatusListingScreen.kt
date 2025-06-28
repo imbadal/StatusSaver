@@ -1,5 +1,7 @@
 package com.inningsstudio.statussaver
 
+import android.app.Activity
+import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -50,11 +52,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
 @Composable
 fun StatusListingScreen(statusList: List<StatusModel>, onStatusClick: (Int) -> Unit) {
+    
+    // Set status bar color to match gradient top color
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        val activity = context as? Activity
+        activity?.let {
+            // Set status bar color to match gradient top color (#1A1A2E)
+            it.window.statusBarColor = android.graphics.Color.parseColor("#1A1A2E")
+            
+            // Make status bar icons light (white) for better visibility on dark background
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                it.window.decorView.systemUiVisibility = it.window.decorView.systemUiVisibility or 
+                    android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            }
+            
+            // Enable edge-to-edge display
+            WindowCompat.setDecorFitsSystemWindows(it.window, false)
+        }
+    }
     
     // Filter out empty status models (padding items)
     val validStatusList = statusList.filter { it.path.isNotEmpty() }

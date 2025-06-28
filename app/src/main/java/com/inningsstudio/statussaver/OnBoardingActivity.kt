@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.inningsstudio.statussaver.Const.STATUS_URI
 import android.widget.LinearLayout
@@ -111,8 +112,17 @@ class OnBoardingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Set status bar color to match the gradient background
-        window.statusBarColor = resources.getColor(R.color.primary_color, null)
+        // Set status bar color to match the gradient background start color
+        window.statusBarColor = android.graphics.Color.parseColor("#667eea")
+        
+        // Make status bar icons dark (black) for better visibility on light background
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility and 
+                android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+        }
+        
+        // Enable edge-to-edge display but keep content safe from status bar
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         
         setContentView(R.layout.activity_onboarding)
 
