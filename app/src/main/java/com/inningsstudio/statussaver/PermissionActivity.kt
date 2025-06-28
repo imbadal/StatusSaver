@@ -19,17 +19,21 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.inningsstudio.statussaver.Const.STATUS_URI
+import android.widget.LinearLayout
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.util.TypedValue
 
 class PermissionActivity : ComponentActivity() {
 
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var viewPager: ViewPager2
     private lateinit var stepCounter: TextView
-    private lateinit var backButton: Button
-    private lateinit var nextButton: Button
-    private lateinit var step1Indicator: View
-    private lateinit var step2Indicator: View
-    private lateinit var step3Indicator: View
+    private lateinit var backButton: TextView
+    private lateinit var nextButton: TextView
+    private lateinit var step1Container: LinearLayout
+    private lateinit var step2Container: LinearLayout
+    private lateinit var step3Container: LinearLayout
     
     private var currentStep = 0
     private var folderPermissionGranted = false
@@ -76,22 +80,31 @@ class PermissionActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Set status bar color to match the gradient background
+        window.statusBarColor = resources.getColor(R.color.primary_color, null)
+        
         setContentView(R.layout.activity_permission)
 
         preferenceUtils = PreferenceUtils(application)
         
-        // Check if onboarding is already completed
-        val uriTree = preferenceUtils.getUriFromPreference()
-        if (!uriTree.isNullOrBlank()) {
+        // Check if onboarding is already completed (all 3 steps done)
+        if (isOnboardingFullyCompleted()) {
             // Skip onboarding if already completed
-            fetchImages(uriTree)
+            navigateToMainActivity()
             return
         }
+
+        // Restore step states when resuming onboarding
+        restoreStepStates()
 
         initializeViews()
         setupViewPager()
         updateStepIndicator()
         updateButtonText()
+        
+        // Navigate to the appropriate step
+        viewPager.currentItem = currentStep
     }
 
     private fun initializeViews() {
@@ -99,9 +112,9 @@ class PermissionActivity : ComponentActivity() {
         stepCounter = findViewById(R.id.stepCounter)
         backButton = findViewById(R.id.backButton)
         nextButton = findViewById(R.id.nextButton)
-        step1Indicator = findViewById(R.id.step1Indicator)
-        step2Indicator = findViewById(R.id.step2Indicator)
-        step3Indicator = findViewById(R.id.step3Indicator)
+        step1Container = findViewById(R.id.step1Container)
+        step2Container = findViewById(R.id.step2Container)
+        step3Container = findViewById(R.id.step3Container)
 
         backButton.setOnClickListener { moveToPreviousStep() }
         nextButton.setOnClickListener { handleNextButtonClick() }
@@ -111,26 +124,95 @@ class PermissionActivity : ComponentActivity() {
         val onboardingAdapter = OnboardingAdapter()
         viewPager.adapter = onboardingAdapter
         
+        // Add page change callback to prevent swiping without completing current step
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
                 currentStep = position
                 updateStepIndicator()
                 updateButtonText()
                 updateStepCounter()
             }
+            
+            override fun onPageScrollStateChanged(state: Int) {
+                super.onPageScrollStateChanged(state)
+                // Prevent swiping if current step is not completed
+                if (state == ViewPager2.SCROLL_STATE_DRAGGING) {
+                    val currentStepIndex = currentStep
+                    if (!isStepCompleted(currentStepIndex)) {
+                        // Revert to current step if trying to swipe without completion
+                        viewPager.setCurrentItem(currentStepIndex, true)
+                    }
+                }
+            }
         })
     }
 
     private fun updateStepIndicator() {
-        step1Indicator.setBackgroundResource(
-            if (currentStep >= 0) R.color.primary_color else R.color.gray
-        )
-        step2Indicator.setBackgroundResource(
-            if (currentStep >= 1) R.color.primary_color else R.color.gray
-        )
-        step3Indicator.setBackgroundResource(
-            if (currentStep >= 2) R.color.primary_color else R.color.gray
-        )
+        updateStepIndicatorState(step1Container, 0, folderPermissionGranted)
+        updateStepIndicatorState(step2Container, 1, storagePermissionGranted)
+        updateStepIndicatorState(step3Container, 2, false) // Step 3 is always last
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), resources.displayMetrics
+        ).toInt()
+    }
+
+    private fun updateStepIndicatorState(container: LinearLayout, stepIndex: Int, isCompleted: Boolean) {
+        val frameLayout = container.getChildAt(0) as FrameLayout
+        val stepNumber = container.getChildAt(1) as TextView
+        val checkIcon = frameLayout.getChildAt(0) as ImageView
+
+        val tickSize = dpToPx(32)
+
+        when {
+            currentStep == stepIndex && isCompleted -> {
+                frameLayout.setBackgroundResource(R.drawable.step_indicator_selected_complete)
+                checkIcon.visibility = View.VISIBLE
+                stepNumber.visibility = View.GONE
+                checkIcon.setImageResource(R.drawable.tick_green_selected)
+                checkIcon.layoutParams = FrameLayout.LayoutParams(
+                    tickSize, tickSize
+                ).apply {
+                    gravity = android.view.Gravity.CENTER
+                }
+            }
+            currentStep == stepIndex && !isCompleted -> {
+                frameLayout.setBackgroundResource(R.drawable.step_indicator_selected_incomplete)
+                checkIcon.visibility = View.VISIBLE
+                stepNumber.visibility = View.GONE
+                checkIcon.setImageResource(R.drawable.tick_white_selected)
+                checkIcon.layoutParams = FrameLayout.LayoutParams(
+                    tickSize, tickSize
+                ).apply {
+                    gravity = android.view.Gravity.CENTER
+                }
+            }
+            currentStep != stepIndex && isCompleted -> {
+                frameLayout.setBackgroundResource(R.drawable.step_indicator_unselected_complete)
+                checkIcon.visibility = View.VISIBLE
+                stepNumber.visibility = View.GONE
+                checkIcon.setImageResource(R.drawable.tick_green_unselected)
+                checkIcon.layoutParams = FrameLayout.LayoutParams(
+                    tickSize, tickSize
+                ).apply {
+                    gravity = android.view.Gravity.CENTER
+                }
+            }
+            else -> {
+                frameLayout.setBackgroundResource(R.drawable.step_indicator_unselected_incomplete)
+                checkIcon.visibility = View.VISIBLE
+                stepNumber.visibility = View.GONE
+                checkIcon.setImageResource(R.drawable.tick_white)
+                checkIcon.layoutParams = FrameLayout.LayoutParams(
+                    tickSize, tickSize
+                ).apply {
+                    gravity = android.view.Gravity.CENTER
+                }
+            }
+        }
     }
 
     private fun updateStepCounter() {
@@ -220,6 +302,7 @@ class PermissionActivity : ComponentActivity() {
         if (currentStep < 2) {
             currentStep++
             viewPager.currentItem = currentStep
+            updateStepIndicator()
         }
     }
 
@@ -231,10 +314,17 @@ class PermissionActivity : ComponentActivity() {
     }
 
     private fun completeOnboarding() {
-        // Mark onboarding as completed
-        preferenceUtils.setOnboardingCompleted(true)
-        
-        // Navigate to main activity
+        // Only mark onboarding as completed if all steps are done
+        if (folderPermissionGranted && storagePermissionGranted) {
+            preferenceUtils.setOnboardingCompleted(true)
+            navigateToMainActivity()
+        } else {
+            // If not all steps are completed, show appropriate message
+            Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun navigateToMainActivity() {
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
         finish()
@@ -245,6 +335,64 @@ class PermissionActivity : ComponentActivity() {
         intent.putExtra(STATUS_URI, statusUri)
         startActivity(intent)
         finish()
+    }
+
+    private fun isOnboardingFullyCompleted(): Boolean {
+        val uriTree = preferenceUtils.getUriFromPreference()
+        val onboardingCompleted = preferenceUtils.isOnboardingCompleted()
+        
+        // Check if both folder permission and storage permission are granted
+        val hasFolderPermission = !uriTree.isNullOrBlank()
+        val hasStoragePermission = checkStoragePermissions()
+        
+        return onboardingCompleted && hasFolderPermission && hasStoragePermission
+    }
+
+    private fun checkStoragePermissions(): Boolean {
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        }
+
+        return permissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun restoreStepStates() {
+        // Check if folder permission was already granted
+        val uriTree = preferenceUtils.getUriFromPreference()
+        if (!uriTree.isNullOrBlank()) {
+            folderPermissionGranted = true
+        }
+
+        // Check if storage permissions were already granted
+        if (checkStoragePermissions()) {
+            storagePermissionGranted = true
+        }
+
+        // Determine which step to show
+        when {
+            !folderPermissionGranted -> currentStep = 0
+            !storagePermissionGranted -> currentStep = 1
+            else -> currentStep = 2
+        }
+    }
+
+    private fun isStepCompleted(stepIndex: Int): Boolean {
+        return when (stepIndex) {
+            0 -> folderPermissionGranted
+            1 -> storagePermissionGranted
+            2 -> true // Welcome step is always considered complete
+            else -> false
+        }
     }
 
     // ViewPager Adapter for onboarding steps
