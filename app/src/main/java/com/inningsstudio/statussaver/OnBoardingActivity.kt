@@ -23,6 +23,9 @@ import android.widget.LinearLayout
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.util.TypedValue
+import java.io.File
+import android.app.Dialog
+import com.google.android.material.bottomsheet.BottomSheetDialog
 
 class OnBoardingActivity : ComponentActivity() {
 
@@ -59,7 +62,9 @@ class OnBoardingActivity : ComponentActivity() {
                 updateStepIndicator()
                 updateButtonText()
                 updateStepContent()
-                Toast.makeText(this, "Folder access granted successfully!", Toast.LENGTH_SHORT).show()
+                
+                // Auto-navigate to next step
+                moveToNextStep()
             }
         }
     }
@@ -72,13 +77,26 @@ class OnBoardingActivity : ComponentActivity() {
         if (allGranted) {
             storagePermissionGranted = true
             permissionMaxAttemptsReached = false
+            permissionAttempts = 0
+            preferenceUtils.setPermissionAttempts(0)
+            
+            // Update UI to show permissions are granted
             updateStepIndicator()
             updateButtonText()
             updateStepContent()
-            Toast.makeText(this, "Storage permissions granted successfully!", Toast.LENGTH_SHORT).show()
+            
+            // Auto-navigate to next step
+            moveToNextStep()
         } else {
             permissionAttempts++
-            if (permissionAttempts >= maxPermissionAttempts) {
+            preferenceUtils.setPermissionAttempts(permissionAttempts)
+            
+            // Check if any permission was permanently denied (user checked "Don't ask again")
+            val permanentlyDenied = permissions.any { (permission, granted) ->
+                !granted && !shouldShowRequestPermissionRationale(permission)
+            }
+            
+            if (permanentlyDenied || permissionAttempts >= maxPermissionAttempts) {
                 permissionMaxAttemptsReached = true
                 updateStepIndicator()
                 updateButtonText()
@@ -86,7 +104,6 @@ class OnBoardingActivity : ComponentActivity() {
                 showManualPermissionDialog()
             } else {
                 updateStepContent()
-                Toast.makeText(this, "Permissions required to continue. Please try again.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -120,6 +137,27 @@ class OnBoardingActivity : ComponentActivity() {
         
         // Navigate to the appropriate step
         viewPager.currentItem = currentStep
+
+        permissionAttempts = preferenceUtils.getPermissionAttempts()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        
+        // Check if permissions were granted when user returns from settings
+        if (permissionMaxAttemptsReached && checkStoragePermissions()) {
+            // User granted permissions manually in settings
+            storagePermissionGranted = true
+            permissionMaxAttemptsReached = false
+            permissionAttempts = 0
+            
+            updateStepIndicator()
+            updateButtonText()
+            updateStepContent()
+            
+            // Auto-navigate to next step
+            moveToNextStep()
+        }
     }
 
     private fun initializeViews() {
@@ -155,8 +193,8 @@ class OnBoardingActivity : ComponentActivity() {
     }
 
     private fun updateStepIndicator() {
-        updateStepIndicatorState(step1Container, 0, folderPermissionGranted)
-        updateStepIndicatorState(step2Container, 1, storagePermissionGranted)
+        updateStepIndicatorState(step1Container, 0, storagePermissionGranted)
+        updateStepIndicatorState(step2Container, 1, folderPermissionGranted)
         updateStepIndicatorState(step3Container, 2, false) // Step 3 is always last
     }
 
@@ -230,17 +268,21 @@ class OnBoardingActivity : ComponentActivity() {
         
         when (currentStep) {
             0 -> {
-                if (folderPermissionGranted) {
-                    nextButton.text = "Next"
-                } else {
-                    nextButton.text = "Select Folder"
-                }
-            }
-            1 -> {
                 when {
                     storagePermissionGranted -> nextButton.text = "Next"
                     permissionMaxAttemptsReached -> nextButton.text = "Open Settings"
                     else -> nextButton.text = "Grant Permissions"
+                }
+            }
+            1 -> {
+                if (folderPermissionGranted) {
+                    nextButton.text = "Next"
+                } else {
+                    if (checkStoragePermissions()) {
+                        nextButton.text = "Create Folder"
+                    } else {
+                        nextButton.text = "Grant Permissions"
+                    }
                 }
             }
             2 -> nextButton.text = "Get Started"
@@ -250,17 +292,27 @@ class OnBoardingActivity : ComponentActivity() {
     private fun handleNextButtonClick() {
         when (currentStep) {
             0 -> {
-                if (!folderPermissionGranted) {
-                    requestFolderPermission()
-                } else {
-                    moveToNextStep()
-                }
-            }
-            1 -> {
                 when {
                     storagePermissionGranted -> moveToNextStep()
                     permissionMaxAttemptsReached -> openAppSettings()
                     else -> requestStoragePermissions()
+                }
+            }
+            1 -> {
+                if (!folderPermissionGranted) {
+                    if (checkStoragePermissions()) {
+                        // Permissions already granted, create folder
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            createAndOpenStatusWpFolder()
+                        } else {
+                            createStatusWpFolderLegacy()
+                        }
+                    } else {
+                        // Request permissions first
+                        requestStoragePermissions()
+                    }
+                } else {
+                    moveToNextStep()
                 }
             }
             2 -> completeOnboarding()
@@ -268,15 +320,142 @@ class OnBoardingActivity : ComponentActivity() {
     }
 
     private fun requestFolderPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        when {
+            // Android 10+ (API 29+) - Use SAF (Storage Access Framework)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                // For modern Android, first check if we have storage permissions
+                if (checkStoragePermissions()) {
+                    // Permissions granted, create StatusWp folder and open it
+                    createAndOpenStatusWpFolder()
+                } else {
+                    // Request permissions first
+                    requestStoragePermissions()
+                }
+            }
+            
+            // Android 9 and below (API 28-) - Use traditional storage permissions
+            else -> {
+                handleLegacyFolderAccess()
+            }
+        }
+    }
+
+    private fun createAndOpenStatusWpFolder() {
+        try {
+            // Create StatusWp folder in external storage
+            val externalDir = getExternalFilesDir(null)
+            val statusWpDir = File(externalDir, "StatusWp")
+            
+            if (!statusWpDir.exists()) {
+                val created = statusWpDir.mkdirs()
+                if (!created) {
+                    // Fallback to default external directory
+                    preferenceUtils.setUriToPreference(externalDir?.absolutePath ?: "")
+                    folderPermissionGranted = true
+                    updateStepIndicator()
+                    updateButtonText()
+                    updateStepContent()
+                    Toast.makeText(this, "Using default folder for statuses", Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
+            
+            // Now open the folder picker pointing to the StatusWp folder
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+            intent.putExtra("android.content.extra.SHOW_ADVANCE", true)
+            
+            // Try to set initial URI to the StatusWp folder
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    val statusWpUri = Uri.parse("content://com.android.externalstorage.documents/tree/primary:Android/data/${packageName}/files/StatusWp")
+                    intent.putExtra("android.content.extra.INITIAL_URI", statusWpUri)
+                } catch (e: Exception) {
+                    // Continue without INITIAL_URI
+                }
+            }
+            
+            folderSelectionLauncher.launch(intent)
+            
+        } catch (e: Exception) {
+            // Fallback to traditional folder selection
+            showFolderSelectionGuide()
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
             intent.putExtra("android.content.extra.SHOW_ADVANCE", true)
             folderSelectionLauncher.launch(intent)
+        }
+    }
+
+    private fun showFolderSelectionGuide() {
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Select Folder")
+            .setMessage("The folder picker will open. To create the StatusWp folder:\n\n" +
+                    "1. Navigate to the root directory (usually 'Internal storage')\n" +
+                    "2. Tap the '+' button to create a new folder\n" +
+                    "3. Name it 'StatusWp'\n" +
+                    "4. Select the StatusWp folder")
+            .setPositiveButton("Got it!") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .create()
+        
+        dialog.show()
+    }
+
+    private fun handleLegacyFolderAccess() {
+        // For older Android versions, we'll rely on storage permissions
+        // and create the StatusWp folder programmatically
+        if (checkStoragePermissions()) {
+            // Permissions already granted, create folder and proceed
+            createStatusWpFolderLegacy()
         } else {
-            // For older Android versions, just proceed to next step
-            // as we'll rely on storage permissions instead
-            Toast.makeText(this, "Folder access will be handled via storage permissions", Toast.LENGTH_SHORT).show()
+            // Request storage permissions first
+            requestStoragePermissions()
+        }
+    }
+
+    private fun createStatusWpFolderLegacy() {
+        try {
+            // For older Android versions, try to create StatusWp folder in external storage
+            val externalDir = getExternalFilesDir(null)
+            val statusWpDir = File(externalDir, "StatusWp")
+            
+            if (!statusWpDir.exists()) {
+                val created = statusWpDir.mkdirs()
+                if (created) {
+                    // Store the path for later use
+                    preferenceUtils.setUriToPreference(statusWpDir.absolutePath)
+                    folderPermissionGranted = true
+                    updateStepIndicator()
+                    updateButtonText()
+                    updateStepContent()
+                    moveToNextStep()
+                } else {
+                    // Fallback: use default external directory
+                    preferenceUtils.setUriToPreference(externalDir?.absolutePath ?: "")
+                    folderPermissionGranted = true
+                    updateStepIndicator()
+                    updateButtonText()
+                    updateStepContent()
+                    moveToNextStep()
+                }
+            } else {
+                // Folder already exists
+                preferenceUtils.setUriToPreference(statusWpDir.absolutePath)
+                folderPermissionGranted = true
+                updateStepIndicator()
+                updateButtonText()
+                updateStepContent()
+                moveToNextStep()
+            }
+        } catch (e: Exception) {
+            // Final fallback: use app's internal directory
+            val internalDir = filesDir
+            preferenceUtils.setUriToPreference(internalDir.absolutePath)
             folderPermissionGranted = true
+            updateStepIndicator()
+            updateButtonText()
+            updateStepContent()
             moveToNextStep()
         }
     }
@@ -302,27 +481,60 @@ class OnBoardingActivity : ComponentActivity() {
             storagePermissionGranted = true
             moveToNextStep()
         } else {
+            // Only check for permanently denied if user has actually denied at least once
+            if (permissionAttempts > 0) {
+                val permanentlyDenied = permissionsToRequest.any { permission ->
+                    !shouldShowRequestPermissionRationale(permission)
+                }
+                
+                val exceededMaxAttempts = permissionAttempts >= maxPermissionAttempts
+                
+                if (permanentlyDenied || exceededMaxAttempts) {
+                    // User has permanently denied permissions or exceeded max attempts
+                    permissionMaxAttemptsReached = true
+                    updateStepIndicator()
+                    updateButtonText()
+                    updateStepContent()
+                    showManualPermissionDialog()
+                    return
+                }
+            }
+            
+            // If permissionAttempts == 0 or user still has attempts, request permissions normally
             permissionLauncher.launch(permissionsToRequest)
         }
     }
 
     private fun showManualPermissionDialog() {
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Manual Permission Required")
-            .setMessage("We couldn't get permissions automatically. Please follow these steps:\n\n" +
-                    "1. Tap 'Open Settings' below\n" +
-                    "2. Scroll down and tap 'Permissions'\n" +
-                    "3. Enable 'Storage' and 'Photos & Videos'\n" +
-                    "4. Return to the app and tap 'Next'")
-            .setPositiveButton("Open Settings") { _, _ ->
-                openAppSettings()
+        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val view = layoutInflater.inflate(R.layout.bottom_sheet_permission_settings, null)
+        dialog.setContentView(view)
+        dialog.setCancelable(false)
+
+        // Configure dialog window for bottom sheet appearance
+        val window = dialog.window
+        window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setLayout(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setGravity(android.view.Gravity.BOTTOM)
+            
+            // Add animation for bottom sheet appearance
+            attributes = attributes.apply {
+                windowAnimations = android.R.style.Animation_Dialog
             }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setCancelable(false)
-            .create()
-        
+        }
+
+        view.findViewById<TextView>(R.id.cancelButton).setOnClickListener {
+            dialog.dismiss()
+        }
+        view.findViewById<TextView>(R.id.openSettingsButton).setOnClickListener {
+            dialog.dismiss()
+            openAppSettings()
+        }
+
         dialog.show()
     }
 
@@ -401,12 +613,42 @@ class OnBoardingActivity : ComponentActivity() {
         // Check if storage permissions were already granted
         if (checkStoragePermissions()) {
             storagePermissionGranted = true
+        } else {
+            // Only show manual permission if user has actually denied at least once
+            if (permissionAttempts > 0) {
+                val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    arrayOf(
+                        Manifest.permission.READ_MEDIA_IMAGES,
+                        Manifest.permission.READ_MEDIA_VIDEO
+                    )
+                } else {
+                    arrayOf(
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    )
+                }
+                
+                // Check if any permission is permanently denied (user checked "Don't ask again")
+                val permanentlyDenied = permissions.any { permission ->
+                    ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED &&
+                    !shouldShowRequestPermissionRationale(permission)
+                }
+                
+                // Check if user has exceeded max attempts
+                val exceededMaxAttempts = permissionAttempts >= maxPermissionAttempts
+                
+                if (permanentlyDenied || exceededMaxAttempts) {
+                    permissionMaxAttemptsReached = true
+                }
+            }
+            // If permissionAttempts == 0, user hasn't denied yet, so show normal permission request
         }
 
-        // Determine which step to show
+        // Determine which step to show (new order: permissions first, then folder)
+        // Always start from the first incomplete step
         when {
-            !folderPermissionGranted -> currentStep = 0
-            !storagePermissionGranted -> currentStep = 1
+            !storagePermissionGranted -> currentStep = 0
+            !folderPermissionGranted -> currentStep = 1
             else -> currentStep = 2
         }
     }
@@ -431,8 +673,8 @@ class OnBoardingActivity : ComponentActivity() {
 
     private fun isStepCompleted(stepIndex: Int): Boolean {
         return when (stepIndex) {
-            0 -> folderPermissionGranted
-            1 -> storagePermissionGranted
+            0 -> storagePermissionGranted
+            1 -> folderPermissionGranted
             2 -> true // Welcome step is always considered complete
             else -> false
         }
@@ -447,8 +689,8 @@ class OnBoardingActivity : ComponentActivity() {
     private fun updateStepContent() {
         // Update the current step's content based on state
         when (currentStep) {
-            0 -> updateFolderSelectionContent()
-            1 -> updatePermissionsContent()
+            0 -> updatePermissionsContent()
+            1 -> updateFolderSelectionContent()
             2 -> updateWelcomeContent()
         }
     }
@@ -475,8 +717,8 @@ class OnBoardingActivity : ComponentActivity() {
     private inner class OnboardingAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<OnboardingAdapter.ViewHolder>() {
         
         private val layouts = listOf(
-            R.layout.step_folder_selection,
             R.layout.step_permissions,
+            R.layout.step_folder_selection,
             R.layout.step_welcome
         )
 
@@ -487,8 +729,8 @@ class OnBoardingActivity : ComponentActivity() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             when (position) {
-                0 -> bindFolderSelectionStep(holder.itemView)
-                1 -> bindPermissionsStep(holder.itemView)
+                0 -> bindPermissionsStep(holder.itemView)
+                1 -> bindFolderSelectionStep(holder.itemView)
                 2 -> bindWelcomeStep(holder.itemView)
             }
         }
@@ -498,30 +740,40 @@ class OnBoardingActivity : ComponentActivity() {
             val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
             
             if (folderPermissionGranted) {
-                titleText?.text = "Folder Access Granted!"
-                descriptionText?.text = "Thank you for granting folder access. You can now proceed to the next step to complete the setup."
+                titleText?.text = "Folder Selected!"
+                descriptionText?.text = "Thank you for choosing a folder. You can now proceed to the next step."
             } else {
-                titleText?.text = "Access WhatsApp Statuses"
-                descriptionText?.text = "We need access to your WhatsApp status folder to save statuses. Please select the WhatsApp status folder to continue."
+                titleText?.text = "Choose a Folder"
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    descriptionText?.text = "We'll create a 'StatusWp' folder for you and open it for confirmation. Please grant storage permissions first."
+                } else {
+                    descriptionText?.text = "We'll create a 'StatusWp' folder for you automatically. Please grant storage permissions to continue."
+                }
             }
         }
 
         private fun bindPermissionsStep(view: View) {
             val titleText = view.findViewById<TextView>(R.id.stepTitle)
             val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
+            val manualStepsLayout = view.findViewById<LinearLayout>(R.id.manualPermissionSteps)
             
             when {
                 storagePermissionGranted -> {
                     titleText?.text = "Permissions Granted!"
-                    descriptionText?.text = "Thank you for granting storage permissions. You can now proceed to complete the onboarding process."
+                    descriptionText?.text = "Thank you for granting storage permissions. You can now proceed to create your StatusWp folder."
+                    manualStepsLayout?.visibility = View.GONE
+                    descriptionText?.visibility = View.VISIBLE
                 }
                 permissionMaxAttemptsReached -> {
                     titleText?.text = "Manual Permission Required"
-                    descriptionText?.text = "We couldn't get permissions automatically. Please open Settings and manually grant storage permissions to continue."
+                    descriptionText?.visibility = View.GONE
+                    manualStepsLayout?.visibility = View.VISIBLE
                 }
                 else -> {
                     titleText?.text = "Grant Permissions"
-                    descriptionText?.text = "We need storage permissions to save your WhatsApp statuses to your device. Please grant the required permissions."
+                    descriptionText?.text = "We need storage permissions to save your WhatsApp statuses. Please grant the required permissions to continue."
+                    manualStepsLayout?.visibility = View.GONE
+                    descriptionText?.visibility = View.VISIBLE
                 }
             }
         }

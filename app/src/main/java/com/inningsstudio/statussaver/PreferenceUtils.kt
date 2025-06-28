@@ -33,4 +33,16 @@ class PreferenceUtils(private val application: Application) {
             .apply()
     }
 
+    fun getPermissionAttempts(): Int {
+        return application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .getInt("permission_attempts", 0)
+    }
+
+    fun setPermissionAttempts(attempts: Int) {
+        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .edit()
+            .putInt("permission_attempts", attempts)
+            .apply()
+    }
+
 }

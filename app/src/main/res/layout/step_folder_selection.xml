@@ -8,7 +8,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp"
+        android:padding="16dp"
+        android:paddingTop="8dp"
         android:gravity="center">
 
         <ImageView
@@ -23,7 +24,7 @@
             android:id="@+id/stepTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:text="Access WhatsApp Statuses"
             android:textSize="22sp"
             android:textStyle="bold"
@@ -36,7 +37,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:layout_marginBottom="24dp"
-            android:text="We need access to your WhatsApp status folder to save statuses. The next step will help you grant the necessary permissions."
+            android:text="Please choose a folder where you want to save the statuses."
             android:textSize="15sp"
             android:textColor="@color/white"
             android:gravity="center"

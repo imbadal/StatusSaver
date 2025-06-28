@@ -8,22 +8,25 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp"
+        android:padding="16dp"
+        android:paddingTop="8dp"
         android:gravity="center">
 
         <ImageView
             android:layout_width="100dp"
             android:layout_height="100dp"
-            android:src="@drawable/baseline_check_circle_24"
-            android:background="@drawable/success_circle_background"
-            android:padding="20dp"
-            android:contentDescription="Success icon" />
+            android:src="@mipmap/ic_launcher_round"
+            android:background="@drawable/circle_background"
+            android:padding="0dp"
+            android:scaleType="centerCrop"
+            android:clipToOutline="true"
+            android:contentDescription="@string/app_name" />
 
         <TextView
             android:id="@+id/stepTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:text="Welcome to StatusSaver!"
             android:textSize="22sp"
             android:textStyle="bold"

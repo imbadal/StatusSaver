@@ -8,7 +8,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp"
+        android:padding="16dp"
+        android:paddingTop="8dp"
         android:gravity="center">
 
         <ImageView
@@ -23,13 +24,14 @@
             android:id="@+id/stepTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:text="Grant Permissions"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/white"
             android:gravity="center" />
 
+        <!-- Normal permission description (centered) -->
         <TextView
             android:id="@+id/stepDescription"
             android:layout_width="match_parent"
@@ -42,6 +44,145 @@
             android:gravity="center"
             android:lineSpacingExtra="4dp"
             android:alpha="0.9" />
+
+        <!-- Manual permission steps (left-aligned, numbered) -->
+        <LinearLayout
+            android:id="@+id/manualPermissionSteps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Follow these steps to enable permissions:"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:gravity="start"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Step 1 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:text="1"
+                    android:textSize="14sp"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:background="@drawable/step_number_background"
+                    android:layout_marginEnd="12dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tap 'Open Settings' below"
+                    android:textSize="15sp"
+                    android:textColor="@color/white"
+                    android:alpha="0.9"
+                    android:gravity="start" />
+            </LinearLayout>
+
+            <!-- Step 2 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:text="2"
+                    android:textSize="14sp"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:background="@drawable/step_number_background"
+                    android:layout_marginEnd="12dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Find 'Permissions' section"
+                    android:textSize="15sp"
+                    android:textColor="@color/white"
+                    android:alpha="0.9"
+                    android:gravity="start" />
+            </LinearLayout>
+
+            <!-- Step 3 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:text="3"
+                    android:textSize="14sp"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:background="@drawable/step_number_background"
+                    android:layout_marginEnd="12dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tap 'Photos &amp; Videos' → Allow"
+                    android:textSize="15sp"
+                    android:textColor="@color/white"
+                    android:alpha="0.9"
+                    android:gravity="start" />
+            </LinearLayout>
+
+            <!-- Step 4 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:text="4"
+                    android:textSize="14sp"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:background="@drawable/step_number_background"
+                    android:layout_marginEnd="12dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Return to this app"
+                    android:textSize="15sp"
+                    android:textColor="@color/white"
+                    android:alpha="0.9"
+                    android:gravity="start" />
+            </LinearLayout>
+
+        </LinearLayout>
 
     </LinearLayout>
 

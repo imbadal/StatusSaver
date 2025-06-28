@@ -7,7 +7,7 @@
     android:background="@drawable/gradient_background"
     tools:context=".OnBoardingActivity">
 
-    <!-- Header with app logo and title -->
+    <!-- Header with app title -->
     <LinearLayout
         android:id="@+id/headerLayout"
         android:layout_width="0dp"
@@ -20,20 +20,10 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintWidth_percent="0.9">
 
-        <ImageView
-            android:id="@+id/appLogo"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:src="@drawable/ic_logo"
-            android:background="@drawable/circle_background"
-            android:padding="12dp"
-            android:contentDescription="@string/app_name" />
-
         <TextView
             android:id="@+id/appTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
             android:text="@string/app_name"
             android:textSize="20sp"
             android:textStyle="bold"
@@ -195,7 +185,7 @@
         android:id="@+id/stepCounter"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
         android:text="Step 1 of 3"
         android:textSize="13sp"
         android:textColor="@color/white"
@@ -209,7 +199,7 @@
         android:id="@+id/onboardingViewPager"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
         android:layout_marginBottom="12dp"
         app:layout_constraintTop_toBottomOf="@id/stepCounter"
         app:layout_constraintBottom_toTopOf="@id/buttonLayout"
