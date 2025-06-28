@@ -46,8 +46,6 @@ class StatusRepositoryImpl(
     
     override suspend fun isWhatsAppInstalled(): Boolean {
         return StatusPathDetector.isWhatsAppInstalled(context) ||
-               StatusPathDetector.isWhatsAppBusinessInstalled(context) ||
-               StatusPathDetector.isGBWhatsAppInstalled(context) ||
-               StatusPathDetector.isYoWhatsAppInstalled(context)
+               StatusPathDetector.isWhatsAppBusinessInstalled(context)
     }
 } 

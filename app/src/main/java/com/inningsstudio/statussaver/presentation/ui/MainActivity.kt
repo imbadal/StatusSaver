@@ -37,6 +37,7 @@ import androidx.navigation.compose.rememberNavController
 import com.inningsstudio.statussaver.core.constants.Const.STATUS_URI
 import com.inningsstudio.statussaver.core.constants.BottomNavItem
 import com.inningsstudio.statussaver.core.constants.LIGHT_GREEN
+import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.presentation.ui.settings.SettingsScreen
 import com.inningsstudio.statussaver.presentation.ui.status.SavedStatusScreen
 import com.inningsstudio.statussaver.presentation.ui.status.StatusListingScreen
@@ -54,13 +55,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // Check permissions before proceeding
+        if (!StorageAccessHelper.hasRequiredPermissions(this)) {
+            // Redirect to permission request activity
+            startActivity(Intent(this, PermissionRequestActivity::class.java))
+            finish()
+            return
+        }
+        
         setContent {
             StatusSaverTheme {
                 val context = LocalContext.current.applicationContext
                 val repository = StatusRepositoryImpl(StatusLocalDataSource(context), context)
                 val getStatusesUseCase = GetStatusesUseCase(repository)
                 val detectStatusPathsUseCase = DetectStatusPathsUseCase(repository)
-                val factory = MainViewModelFactory(getStatusesUseCase, detectStatusPathsUseCase)
+                val factory = MainViewModelFactory(getStatusesUseCase, detectStatusPathsUseCase, context)
                 val viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = factory)
                 val navController = rememberNavController()
                 Scaffold(bottomBar = {

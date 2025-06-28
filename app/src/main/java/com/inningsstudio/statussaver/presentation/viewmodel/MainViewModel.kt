@@ -1,7 +1,9 @@
 package com.inningsstudio.statussaver.presentation.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.inningsstudio.statussaver.core.utils.StatusPathDetector
 import com.inningsstudio.statussaver.domain.usecase.DetectStatusPathsUseCase
 import com.inningsstudio.statussaver.domain.usecase.GetStatusesUseCase
 import com.inningsstudio.statussaver.presentation.state.StatusUiState
@@ -16,7 +18,8 @@ import kotlinx.coroutines.launch
  */
 class MainViewModel(
     private val getStatusesUseCase: GetStatusesUseCase,
-    private val detectStatusPathsUseCase: DetectStatusPathsUseCase
+    private val detectStatusPathsUseCase: DetectStatusPathsUseCase,
+    private val context: Context
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<StatusUiState>(StatusUiState.Loading)
@@ -57,6 +60,30 @@ class MainViewModel(
             _isRefreshing.value = true
             loadStatuses()
             _isRefreshing.value = false
+        }
+    }
+    
+    fun debugStatusPaths() {
+        viewModelScope.launch {
+            try {
+                // Check permissions first
+                StatusPathDetector.checkPermissions(context)
+                
+                // Check if there are any WhatsApp statuses
+                StatusPathDetector.checkWhatsAppStatuses(context)
+                
+                // Check specifically for received statuses from contacts
+                StatusPathDetector.checkReceivedStatuses(context)
+                
+                // This will trigger the debug logging in StatusPathDetector
+                val statusPaths = detectStatusPathsUseCase()
+                println("Debug: Found ${statusPaths.size} status paths")
+                statusPaths.forEach { path ->
+                    println("Debug: Status path: $path")
+                }
+            } catch (e: Exception) {
+                println("Debug: Error detecting status paths: ${e.message}")
+            }
         }
     }
 } 

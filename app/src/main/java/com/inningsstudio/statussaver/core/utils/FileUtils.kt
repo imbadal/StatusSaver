@@ -40,56 +40,73 @@ object FileUtils {
     suspend fun getStatus(context: Context, statusUri: String): List<StatusModel> = withContext(Dispatchers.IO) {
         val files = mutableListOf<StatusModel>()
         
+        Log.d(TAG, "=== STARTING STATUS DETECTION ===")
+        Log.d(TAG, "Android version: ${android.os.Build.VERSION.SDK_INT}")
+        Log.d(TAG, "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+        
+        // Check if we have required permissions
+        if (!StorageAccessHelper.hasRequiredPermissions(context)) {
+            Log.w(TAG, "Missing required permissions for Android ${android.os.Build.VERSION.SDK_INT}")
+            return@withContext files
+        }
+        
         // Check if statusUri is empty or invalid
         if (statusUri.isBlank()) {
-            Log.w(TAG, "Status URI is empty, trying to detect WhatsApp status paths")
+            Log.w(TAG, "Status URI is empty, trying multiple detection methods")
             
-            // Try to detect WhatsApp status paths automatically
+            // Method 1: Try MediaStore API (Android 10+)
+            Log.d(TAG, "Method 1: Trying MediaStore API")
+            val mediaStoreStatuses = StorageAccessHelper.getStatusesViaMediaStore(context)
+            if (mediaStoreStatuses.isNotEmpty()) {
+                Log.d(TAG, "Found ${mediaStoreStatuses.size} statuses via MediaStore")
+                files.addAll(mediaStoreStatuses)
+            }
+            
+            // Method 2: Try path detection and direct file access
+            Log.d(TAG, "Method 2: Trying path detection")
             val bestPath = StatusPathDetector.getBestStatusPath(context)
             if (bestPath != null) {
                 Log.d(TAG, "Using detected path: $bestPath")
-                return@withContext getStatusFromPath(context, bestPath)
+                val pathStatuses = getStatusFromPath(context, bestPath)
+                files.addAll(pathStatuses)
             } else {
                 Log.w(TAG, "No WhatsApp status paths found")
-                return@withContext files // Return empty list
+            }
+            
+            // Method 3: Try alternative paths for Android 15
+            if (android.os.Build.VERSION.SDK_INT >= 34) { // Android 15
+                Log.d(TAG, "Method 3: Trying Android 15 specific paths")
+                val android15Paths = StorageAccessHelper.getAndroid15StatusPaths()
+                for (path in android15Paths) {
+                    val externalStorageDir = android.os.Environment.getExternalStorageDirectory()
+                    val fullPath = "$externalStorageDir/$path"
+                    Log.d(TAG, "Checking Android 15 path: $fullPath")
+                    
+                    val pathStatuses = getStatusFromPath(context, fullPath)
+                    if (pathStatuses.isNotEmpty()) {
+                        Log.d(TAG, "Found statuses in Android 15 path: $fullPath")
+                        files.addAll(pathStatuses)
+                        break
+                    }
+                }
+            }
+        } else {
+            // Check if the input is a file path or a URI
+            val isFilePath = statusUri.startsWith("/") || !statusUri.contains("://")
+            
+            if (isFilePath) {
+                // Handle as file path
+                Log.d(TAG, "Treating input as file path: $statusUri")
+                return@withContext getStatusFromPath(context, statusUri)
+            } else {
+                // Handle as URI - try SAF
+                Log.d(TAG, "Treating input as URI: $statusUri")
+                val safStatuses = StorageAccessHelper.getStatusesViaSAF(context, statusUri)
+                files.addAll(safStatuses)
             }
         }
         
-        // Try to use the provided URI
-        try {
-            val fileDoc = DocumentFile.fromTreeUri(context, Uri.parse(statusUri))
-            if (fileDoc != null && fileDoc.exists()) {
-                fileDoc.listFiles()?.forEach { file ->
-                    val path = file.uri.toString()
-                    if (isValidFile(path)) {
-                        if (isVideo(path)) {
-                            val mediaMetadataRetriever = MediaMetadataRetriever()
-                            mediaMetadataRetriever.setDataSource(context, Uri.parse(path))
-                            val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
-                            mediaMetadataRetriever.release()
-                            files.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
-                        } else {
-                            val imageRequest = ImageRequest.Builder(context).data(path).build()
-                            files.add(StatusModel(path = path, imageRequest = imageRequest))
-                        }
-                    }
-                }
-            } else {
-                Log.w(TAG, "Invalid or non-existent URI: $statusUri")
-                // Fallback to path detection
-                val bestPath = StatusPathDetector.getBestStatusPath(context)
-                if (bestPath != null) {
-                    return@withContext getStatusFromPath(context, bestPath)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing status URI: $statusUri", e)
-            // Fallback to path detection
-            val bestPath = StatusPathDetector.getBestStatusPath(context)
-            if (bestPath != null) {
-                return@withContext getStatusFromPath(context, bestPath)
-            }
-        }
+        Log.d(TAG, "Total statuses found: ${files.size}")
         
         // Add padding items for UI
         files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
@@ -106,29 +123,73 @@ object FileUtils {
         
         try {
             val directory = File(path)
+            Log.d(TAG, "Checking directory: ${directory.absolutePath}")
+            Log.d(TAG, "Directory exists: ${directory.exists()}")
+            Log.d(TAG, "Is directory: ${directory.isDirectory}")
+            
             if (directory.exists() && directory.isDirectory) {
-                val fileList = directory.listFiles()
-                if (fileList != null) {
-                    fileList.forEach { file ->
+                // First, try to list all files including hidden ones
+                val allFiles = directory.listFiles { file ->
+                    // Accept all files for debugging received statuses
+                    true
+                }
+                Log.d(TAG, "All files (including hidden): ${allFiles?.size ?: 0}")
+                
+                if (!allFiles.isNullOrEmpty()) {
+                    Log.d(TAG, "=== ALL FILES IN STATUS DIRECTORY ===")
+                    allFiles.forEach { file ->
+                        Log.d(TAG, "File: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}, size: ${file.length()}")
+                    }
+                    Log.d(TAG, "=== END ALL FILES ===")
+                    
+                    // Process all files (including hidden ones) for received statuses
+                    allFiles.forEach { file ->
+                        Log.d(TAG, "Processing file: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}")
                         val filePath = file.absolutePath
                         if (isValidFile(filePath)) {
+                            Log.d(TAG, "Processing valid status file: $filePath")
                             if (isVideo(filePath)) {
-                                val mediaMetadataRetriever = MediaMetadataRetriever()
-                                mediaMetadataRetriever.setDataSource(filePath)
-                                val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
-                                mediaMetadataRetriever.release()
-                                files.add(StatusModel(path = filePath, isVideo = true, thumbnail = thumbnail))
+                                try {
+                                    val mediaMetadataRetriever = MediaMetadataRetriever()
+                                    mediaMetadataRetriever.setDataSource(filePath)
+                                    val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                                    mediaMetadataRetriever.release()
+                                    files.add(StatusModel(path = filePath, isVideo = true, thumbnail = thumbnail))
+                                    Log.d(TAG, "Added video status: $filePath")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error processing video status: $filePath", e)
+                                }
                             } else {
                                 val imageRequest = ImageRequest.Builder(context).data(filePath).build()
                                 files.add(StatusModel(path = filePath, imageRequest = imageRequest))
+                                Log.d(TAG, "Added image status: $filePath")
                             }
+                        } else {
+                            Log.d(TAG, "Skipping invalid status file: $filePath")
                         }
                     }
+                } else {
+                    Log.d(TAG, "No files found in status directory (including hidden files)")
+                    
+                    // Try alternative approach - list files without filter
+                    try {
+                        val rawFiles = directory.listFiles()
+                        Log.d(TAG, "Raw file listing: ${rawFiles?.size ?: 0} files")
+                        rawFiles?.forEach { file ->
+                            Log.d(TAG, "Raw file: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error listing raw files", e)
+                    }
                 }
+            } else {
+                Log.w(TAG, "Directory does not exist or is not a directory: $path")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error reading status from path: $path", e)
         }
+        
+        Log.d(TAG, "Total received status files found: ${files.size}")
         
         // Add padding items for UI
         files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
@@ -145,11 +206,15 @@ object FileUtils {
             val path = it.path
             if (isValidFile(path)) {
                 if (isVideo(path)) {
-                    val mediaMetadataRetriever = MediaMetadataRetriever()
-                    mediaMetadataRetriever.setDataSource(context, Uri.parse(path))
-                    val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
-                    mediaMetadataRetriever.release()
-                    savedFiles.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
+                    try {
+                        val mediaMetadataRetriever = MediaMetadataRetriever()
+                        mediaMetadataRetriever.setDataSource(path) // Use file path directly
+                        val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
+                        mediaMetadataRetriever.release()
+                        savedFiles.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing saved video: $path", e)
+                    }
                 } else {
                     val imageRequest = ImageRequest.Builder(context).data(path).build()
                     savedFiles.add(StatusModel(path = path, imageRequest = imageRequest))
@@ -163,7 +228,28 @@ object FileUtils {
     }
 
     private fun isValidFile(path: String): Boolean {
-        return path.substringAfterLast(".") != NO_MEDIA || path.isEmpty()
+        if (path.isEmpty()) {
+            Log.d(TAG, "Skipping empty path")
+            return false
+        }
+        
+        val extension = path.substringAfterLast(".", "").lowercase()
+        val isNoMedia = extension == NO_MEDIA.lowercase()
+        
+        // Check if it's a media file - expanded list
+        val isMediaFile = extension in listOf(
+            "jpg", "jpeg", "png", "gif", "bmp", "webp", 
+            "mp4", "avi", "mov", "mkv", "3gp", "m4v", "wmv", "flv",
+            "heic", "heif", "tiff", "tif"
+        )
+        
+        Log.d(TAG, "File: $path, Extension: '$extension', IsNoMedia: $isNoMedia, IsMediaFile: $isMediaFile")
+        
+        // Accept all media files, reject only .nomedia files
+        val isValid = !isNoMedia && isMediaFile
+        Log.d(TAG, "File validation result: $isValid")
+        
+        return isValid
     }
 
     suspend fun deleteFile(path: String): Boolean = withContext(Dispatchers.IO) {

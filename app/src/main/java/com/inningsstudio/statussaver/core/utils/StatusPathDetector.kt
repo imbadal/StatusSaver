@@ -10,172 +10,34 @@ object StatusPathDetector {
     
     private const val TAG = "StatusPathDetector"
     
-    // Common WhatsApp status paths across different devices and OS versions
-    private val WHATSAPP_STATUS_PATHS = listOf(
-        // Standard WhatsApp paths (Android 10+)
+    // Updated paths for Android 15 and Samsung devices
+    private val STATUS_PATHS = listOf(
+        // Primary Android 15 paths
         "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
         "Android/data/com.whatsapp/files/Statuses",
         
-        // Standard WhatsApp paths (Android 9 and below)
+        // Alternative paths
         "WhatsApp/Media/.Statuses",
-        "WhatsApp/Media/WhatsApp Statuses",
         "WhatsApp/Media/Statuses",
         "WhatsApp/Statuses",
         
-        // Samsung specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "Samsung/WhatsApp/Media/.Statuses",
-        "Samsung/WhatsApp/Statuses",
-        
-        // Xiaomi specific paths
-        "MIUI/Media/WhatsApp/Media/.Statuses",
-        "MIUI/Media/WhatsApp/Statuses",
+        // Samsung-specific paths
         "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
         "Android/data/com.whatsapp/files/Statuses",
         
-        // OnePlus specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "OnePlus/WhatsApp/Media/.Statuses",
-        "OnePlus/WhatsApp/Statuses",
-        
-        // Huawei specific paths
-        "Huawei/Media/WhatsApp/Media/.Statuses",
-        "Huawei/Media/WhatsApp/Statuses",
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        
-        // Oppo/Vivo specific paths
-        "ColorOS/Media/WhatsApp/Media/.Statuses",
-        "ColorOS/Media/WhatsApp/Statuses",
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        
-        // Motorola specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "Motorola/WhatsApp/Media/.Statuses",
-        "Motorola/WhatsApp/Statuses",
-        
-        // LG specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "LG/WhatsApp/Media/.Statuses",
-        "LG/WhatsApp/Statuses",
-        
-        // Sony specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "Sony/WhatsApp/Media/.Statuses",
-        "Sony/WhatsApp/Statuses",
-        
-        // Nokia specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "Nokia/WhatsApp/Media/.Statuses",
-        "Nokia/WhatsApp/Statuses",
-        
-        // Realme specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "Realme/WhatsApp/Media/.Statuses",
-        "Realme/WhatsApp/Statuses",
-        
-        // Poco specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "Poco/WhatsApp/Media/.Statuses",
-        "Poco/WhatsApp/Statuses",
-        
-        // Legacy paths for older Android versions
-        "WhatsApp/Media/.Statuses",
-        "WhatsApp/Statuses",
-        
-        // Internal storage variations
-        "0/WhatsApp/Media/.Statuses",
+        // Internal storage paths (for some devices)
         "0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
         "0/Android/data/com.whatsapp/files/Statuses",
         
-        // SD card variations (if available)
-        "1/WhatsApp/Media/.Statuses",
-        "1/Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "1/Android/data/com.whatsapp/files/Statuses",
-        
-        // Additional variations for newer Android versions
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        
-        // Some devices use different folder names
+        // Legacy paths (for older devices)
         "WhatsApp/Media/.Statuses",
-        "WhatsApp/Media/Statuses",
         "WhatsApp/Statuses",
         
-        // Additional manufacturer-specific paths
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        "Android/media/com.whatsapp/WhatsApp/Media/Statuses",
-        "Android/data/com.whatsapp/files/Statuses",
-        
-        // Some devices use different folder names
-        "WhatsApp/Media/.Statuses",
-        "WhatsApp/Media/Statuses",
-        "WhatsApp/Statuses",
-        
-        // Additional variations for newer Android versions
-        "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-        "Android/data/com.whatsapp/files/Statuses"
-    )
-    
-    // WhatsApp Business paths
-    private val WHATSAPP_BUSINESS_STATUS_PATHS = listOf(
-        "WhatsApp Business/Media/.Statuses",
+        // WhatsApp Business paths
         "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses",
         "Android/data/com.whatsapp.w4b/files/Statuses",
-        "WhatsApp Business/Media/Statuses",
-        "WhatsApp Business/Statuses",
-        "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/Statuses",
-        "Android/data/com.whatsapp.w4b/files/Statuses"
-    )
-    
-    // GBWhatsApp paths (if installed)
-    private val GBWHATSAPP_STATUS_PATHS = listOf(
-        "GBWhatsApp/Media/.Statuses",
-        "Android/media/com.gbwhatsapp/GBWhatsApp/Media/.Statuses",
-        "Android/data/com.gbwhatsapp/files/Statuses",
-        "GBWhatsApp/Media/Statuses",
-        "GBWhatsApp/Statuses",
-        "Android/media/com.gbwhatsapp/GBWhatsApp/Media/Statuses",
-        "Android/data/com.gbwhatsapp/files/Statuses"
-    )
-    
-    // YoWhatsApp paths (if installed)
-    private val YOWHATSAPP_STATUS_PATHS = listOf(
-        "YoWhatsApp/Media/.Statuses",
-        "Android/media/com.yowhatsapp/YoWhatsApp/Media/.Statuses",
-        "Android/data/com.yowhatsapp/files/Statuses",
-        "YoWhatsApp/Media/Statuses",
-        "YoWhatsApp/Statuses",
-        "Android/media/com.yowhatsapp/YoWhatsApp/Media/Statuses",
-        "Android/data/com.yowhatsapp/files/Statuses"
-    )
-    
-    // Additional WhatsApp mods
-    private val WHATSAPP_MOD_STATUS_PATHS = listOf(
-        // FMWhatsApp
-        "FMWhatsApp/Media/.Statuses",
-        "Android/media/com.fmwhatsapp/FMWhatsApp/Media/.Statuses",
-        "Android/data/com.fmwhatsapp/files/Statuses",
-        
-        // WhatsApp Plus
-        "WhatsApp Plus/Media/.Statuses",
-        "Android/media/com.whatsapp.plus/WhatsApp Plus/Media/.Statuses",
-        "Android/data/com.whatsapp.plus/files/Statuses",
-        
-        // Fouad WhatsApp
-        "Fouad WhatsApp/Media/.Statuses",
-        "Android/media/com.fouad.whatsapp/Fouad WhatsApp/Media/.Statuses",
-        "Android/data/com.fouad.whatsapp/files/Statuses"
+        "WhatsApp Business/Media/.Statuses",
+        "WhatsApp Business/Statuses"
     )
     
     data class StatusPathInfo(
@@ -192,31 +54,29 @@ object StatusPathDetector {
     fun detectAllStatusPaths(context: Context): List<StatusPathInfo> {
         val allPaths = mutableListOf<StatusPathInfo>()
         
-        // Check external storage paths
+        // Check external storage paths (primary storage)
         val externalStorageDir = Environment.getExternalStorageDirectory()
         val externalStoragePath = externalStorageDir.absolutePath
         
-        // Check all WhatsApp variants
-        allPaths.addAll(checkPathsForApp(externalStoragePath, WHATSAPP_STATUS_PATHS, "WhatsApp"))
-        allPaths.addAll(checkPathsForApp(externalStoragePath, WHATSAPP_BUSINESS_STATUS_PATHS, "WhatsApp Business"))
-        allPaths.addAll(checkPathsForApp(externalStoragePath, GBWHATSAPP_STATUS_PATHS, "GBWhatsApp"))
-        allPaths.addAll(checkPathsForApp(externalStoragePath, YOWHATSAPP_STATUS_PATHS, "YoWhatsApp"))
-        allPaths.addAll(checkPathsForApp(externalStoragePath, WHATSAPP_MOD_STATUS_PATHS, "WhatsApp Mod"))
+        Log.d(TAG, "Checking external storage path: $externalStoragePath")
         
-        // Check internal storage paths
+        // Check official WhatsApp paths
+        allPaths.addAll(checkPathsForApp(externalStoragePath, STATUS_PATHS, "WhatsApp"))
+        
+        // Check internal storage paths (some devices store data here)
         val internalStorageDir = context.filesDir.parentFile
         if (internalStorageDir != null) {
             val internalStoragePath = internalStorageDir.absolutePath
-            allPaths.addAll(checkPathsForApp(internalStoragePath, WHATSAPP_STATUS_PATHS, "WhatsApp (Internal)"))
-            allPaths.addAll(checkPathsForApp(internalStoragePath, WHATSAPP_BUSINESS_STATUS_PATHS, "WhatsApp Business (Internal)"))
+            Log.d(TAG, "Checking internal storage path: $internalStoragePath")
+            allPaths.addAll(checkPathsForApp(internalStoragePath, STATUS_PATHS, "WhatsApp (Internal)"))
         }
         
         // Check if there's an SD card
         val sdCardDir = getSDCardDirectory(context)
         if (sdCardDir != null) {
             val sdCardPath = sdCardDir.absolutePath
-            allPaths.addAll(checkPathsForApp(sdCardPath, WHATSAPP_STATUS_PATHS, "WhatsApp (SD Card)"))
-            allPaths.addAll(checkPathsForApp(sdCardPath, WHATSAPP_BUSINESS_STATUS_PATHS, "WhatsApp Business (SD Card)"))
+            Log.d(TAG, "Checking SD card path: $sdCardPath")
+            allPaths.addAll(checkPathsForApp(sdCardPath, STATUS_PATHS, "WhatsApp (SD Card)"))
         }
         
         Log.d(TAG, "Found ${allPaths.size} potential status paths")
@@ -227,32 +87,130 @@ object StatusPathDetector {
      * Gets the best available status path (one that exists and has files)
      */
     fun getBestStatusPath(context: Context): String? {
-        val allPaths = detectAllStatusPaths(context)
+        Log.d(TAG, "=== STATUS PATH DETECTION STARTED ===")
+        Log.d(TAG, "Android version: ${Build.VERSION.SDK_INT}")
+        Log.d(TAG, "Device: ${Build.MANUFACTURER} ${Build.MODEL}")
         
-        // First priority: paths that exist and have files
-        val validPaths = allPaths.filter { it.exists && it.hasFiles }
-        if (validPaths.isNotEmpty()) {
-            // Prefer WhatsApp over other variants
-            val whatsappPath = validPaths.find { it.appName.contains("WhatsApp") && !it.appName.contains("Business") && !it.appName.contains("GB") && !it.appName.contains("Yo") && !it.appName.contains("Mod") }
-            if (whatsappPath != null) {
-                Log.d(TAG, "Using WhatsApp status path: ${whatsappPath.path}")
-                return whatsappPath.path
-            }
+        val externalStorageDir = Environment.getExternalStorageDirectory()
+        Log.d(TAG, "External storage directory: $externalStorageDir")
+        
+        // Check if external storage is available
+        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+            Log.w(TAG, "External storage is not mounted")
+            return null
+        }
+        
+        for (path in STATUS_PATHS) {
+            val fullPath = "$externalStorageDir/$path"
+            Log.d(TAG, "Checking path: $fullPath")
             
-            // Fallback to any valid path
-            Log.d(TAG, "Using status path: ${validPaths.first().path}")
-            return validPaths.first().path
+            val directory = File(fullPath)
+            if (directory.exists() && directory.isDirectory) {
+                Log.d(TAG, "Found existing directory: $fullPath")
+                
+                // Check if directory is readable
+                if (directory.canRead()) {
+                    Log.d(TAG, "Directory is readable: $fullPath")
+                    
+                    // List files to verify it's not empty
+                    val files = directory.listFiles()
+                    if (files != null && files.isNotEmpty()) {
+                        Log.d(TAG, "Directory contains ${files.size} files")
+                        
+                        // Log some file names for debugging
+                        files.take(5).forEach { file ->
+                            Log.d(TAG, "Sample file: ${file.name} (hidden: ${file.isHidden})")
+                        }
+                        
+                        return fullPath
+                    } else {
+                        Log.d(TAG, "Directory is empty: $fullPath")
+                    }
+                } else {
+                    Log.w(TAG, "Directory is not readable: $fullPath")
+                }
+            } else {
+                Log.d(TAG, "Directory does not exist: $fullPath")
+            }
         }
         
-        // Second priority: paths that exist but might be empty
-        val existingPaths = allPaths.filter { it.exists }
-        if (existingPaths.isNotEmpty()) {
-            Log.d(TAG, "Using existing but empty path: ${existingPaths.first().path}")
-            return existingPaths.first().path
+        // Try alternative storage locations
+        val alternativePaths = listOf(
+            "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
+            "/storage/emulated/0/WhatsApp/Media/.Statuses",
+            "/sdcard/Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
+            "/sdcard/WhatsApp/Media/.Statuses"
+        )
+        
+        for (path in alternativePaths) {
+            Log.d(TAG, "Checking alternative path: $path")
+            val directory = File(path)
+            if (directory.exists() && directory.isDirectory && directory.canRead()) {
+                val files = directory.listFiles()
+                if (files != null && files.isNotEmpty()) {
+                    Log.d(TAG, "Found statuses in alternative path: $path")
+                    return path
+                }
+            }
         }
         
-        Log.d(TAG, "No valid status paths found")
+        Log.w(TAG, "No valid WhatsApp status path found")
         return null
+    }
+    
+    /**
+     * Debug function to find any WhatsApp-related directories
+     */
+    private fun debugWhatsAppDirectories(context: Context) {
+        Log.d(TAG, "=== DEBUGGING WHATSAPP DIRECTORIES ===")
+        
+        val externalStorageDir = Environment.getExternalStorageDirectory()
+        Log.d(TAG, "External storage: ${externalStorageDir.absolutePath}")
+        
+        // Check for WhatsApp directory
+        val whatsappDir = File(externalStorageDir, "WhatsApp")
+        if (whatsappDir.exists()) {
+            Log.d(TAG, "WhatsApp directory exists: ${whatsappDir.absolutePath}")
+            listDirectoryContents(whatsappDir, "WhatsApp")
+        } else {
+            Log.d(TAG, "WhatsApp directory does not exist")
+        }
+        
+        // Check for Android/media/com.whatsapp
+        val androidMediaWhatsapp = File(externalStorageDir, "Android/media/com.whatsapp")
+        if (androidMediaWhatsapp.exists()) {
+            Log.d(TAG, "Android/media/com.whatsapp exists: ${androidMediaWhatsapp.absolutePath}")
+            listDirectoryContents(androidMediaWhatsapp, "Android/media/com.whatsapp")
+        } else {
+            Log.d(TAG, "Android/media/com.whatsapp does not exist")
+        }
+        
+        // Check for Android/data/com.whatsapp
+        val androidDataWhatsapp = File(externalStorageDir, "Android/data/com.whatsapp")
+        if (androidDataWhatsapp.exists()) {
+            Log.d(TAG, "Android/data/com.whatsapp exists: ${androidDataWhatsapp.absolutePath}")
+            listDirectoryContents(androidDataWhatsapp, "Android/data/com.whatsapp")
+        } else {
+            Log.d(TAG, "Android/data/com.whatsapp does not exist")
+        }
+        
+        Log.d(TAG, "=== END DEBUGGING ===")
+    }
+    
+    private fun listDirectoryContents(directory: File, prefix: String) {
+        try {
+            val files = directory.listFiles()
+            if (files != null) {
+                files.forEach { file ->
+                    Log.d(TAG, "$prefix: ${file.name} (${if (file.isDirectory) "dir" else "file"})")
+                    if (file.isDirectory && (file.name.contains("Media") || file.name.contains("Status"))) {
+                        listDirectoryContents(file, "$prefix/${file.name}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error listing directory: ${directory.absolutePath}", e)
+        }
     }
     
     /**
@@ -273,30 +231,6 @@ object StatusPathDetector {
     fun isWhatsAppBusinessInstalled(context: Context): Boolean {
         return try {
             context.packageManager.getPackageInfo("com.whatsapp.w4b", 0)
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
-    
-    /**
-     * Checks if GBWhatsApp is installed
-     */
-    fun isGBWhatsAppInstalled(context: Context): Boolean {
-        return try {
-            context.packageManager.getPackageInfo("com.gbwhatsapp", 0)
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
-    
-    /**
-     * Checks if YoWhatsApp is installed
-     */
-    fun isYoWhatsAppInstalled(context: Context): Boolean {
-        return try {
-            context.packageManager.getPackageInfo("com.yowhatsapp", 0)
             true
         } catch (e: Exception) {
             false
@@ -335,6 +269,29 @@ object StatusPathDetector {
                 files?.size ?: 0
             } else 0
             
+            // Additional debugging for the most common paths
+            if (path.contains("Android/media/com.whatsapp") || path.contains("WhatsApp/Media")) {
+                Log.d(TAG, "=== DETAILED DEBUG FOR: $fullPath ===")
+                Log.d(TAG, "File exists: ${file.exists()}")
+                Log.d(TAG, "Is directory: ${file.isDirectory}")
+                Log.d(TAG, "Can read: ${file.canRead()}")
+                Log.d(TAG, "Can write: ${file.canWrite()}")
+                Log.d(TAG, "Absolute path: ${file.absolutePath}")
+                
+                if (file.exists()) {
+                    try {
+                        val files = file.listFiles()
+                        Log.d(TAG, "Files in directory: ${files?.size ?: 0}")
+                        files?.take(5)?.forEach { f ->
+                            Log.d(TAG, "  - ${f.name} (${if (f.isDirectory) "dir" else "file"})")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error listing directory contents: ${file.absolutePath}", e)
+                    }
+                }
+                Log.d(TAG, "=== END DETAILED DEBUG ===")
+            }
+            
             results.add(StatusPathInfo(fullPath, appName, exists, hasFiles, fileCount))
             
             Log.d(TAG, "Path: $fullPath, Exists: $exists, HasFiles: $hasFiles, FileCount: $fileCount")
@@ -358,5 +315,128 @@ object StatusPathDetector {
         } catch (e: Exception) {
             null
         }
+    }
+    
+    /**
+     * Checks if the app has necessary permissions to access WhatsApp status
+     */
+    fun checkPermissions(context: Context): Boolean {
+        Log.d(TAG, "=== CHECKING PERMISSIONS ===")
+        
+        // Check if we can access external storage
+        val externalStorageDir = Environment.getExternalStorageDirectory()
+        Log.d(TAG, "External storage accessible: ${externalStorageDir.canRead()}")
+        Log.d(TAG, "External storage path: ${externalStorageDir.absolutePath}")
+        
+        // Check if we can access WhatsApp directory
+        val whatsappDir = File(externalStorageDir, "WhatsApp")
+        Log.d(TAG, "WhatsApp directory accessible: ${whatsappDir.canRead()}")
+        
+        // Check if we can access Android/media/com.whatsapp
+        val androidMediaWhatsapp = File(externalStorageDir, "Android/media/com.whatsapp")
+        Log.d(TAG, "Android/media/com.whatsapp accessible: ${androidMediaWhatsapp.canRead()}")
+        
+        // Check if we can access Android/data/com.whatsapp
+        val androidDataWhatsapp = File(externalStorageDir, "Android/data/com.whatsapp")
+        Log.d(TAG, "Android/data/com.whatsapp accessible: ${androidDataWhatsapp.canRead()}")
+        
+        Log.d(TAG, "=== END PERMISSIONS CHECK ===")
+        
+        return externalStorageDir.canRead()
+    }
+    
+    /**
+     * Checks if there are any WhatsApp statuses available
+     */
+    fun checkWhatsAppStatuses(context: Context): Boolean {
+        Log.d(TAG, "=== CHECKING WHATSAPP STATUSES ===")
+        
+        val externalStorageDir = Environment.getExternalStorageDirectory()
+        
+        // Check the most common status directory for received statuses
+        val statusDir = File(externalStorageDir, "Android/media/com.whatsapp/WhatsApp/Media/.Statuses")
+        Log.d(TAG, "Status directory exists: ${statusDir.exists()}")
+        Log.d(TAG, "Status directory path: ${statusDir.absolutePath}")
+        
+        if (statusDir.exists()) {
+            // List all files including hidden ones
+            val allFiles = statusDir.listFiles { file ->
+                true // Accept all files to see received statuses
+            }
+            Log.d(TAG, "Number of files in status directory (including hidden): ${allFiles?.size ?: 0}")
+            
+            if (!allFiles.isNullOrEmpty()) {
+                Log.d(TAG, "Received status files found:")
+                allFiles.take(10).forEach { file ->
+                    Log.d(TAG, "  - ${file.name} (${file.length()} bytes, hidden: ${file.isHidden})")
+                }
+                return true
+            } else {
+                Log.d(TAG, "Status directory is empty - no received statuses found")
+            }
+        } else {
+            Log.d(TAG, "Status directory does not exist")
+        }
+        
+        // Check alternative locations for received statuses
+        val alternativePaths = listOf(
+            "WhatsApp/Media/.Statuses",
+            "WhatsApp/Media/Statuses",
+            "Android/data/com.whatsapp/files/Statuses",
+            "Android/data/com.whatsapp/files/.Statuses"
+        )
+        
+        alternativePaths.forEach { path ->
+            val altDir = File(externalStorageDir, path)
+            if (altDir.exists()) {
+                val files = altDir.listFiles { file ->
+                    true // Accept all files
+                }
+                Log.d(TAG, "Alternative path $path has ${files?.size ?: 0} files")
+                if (!files.isNullOrEmpty()) {
+                    files.take(5).forEach { file ->
+                        Log.d(TAG, "  - ${file.name} (${file.length()} bytes, hidden: ${file.isHidden})")
+                    }
+                }
+            }
+        }
+        
+        Log.d(TAG, "=== END WHATSAPP STATUSES CHECK ===")
+        return false
+    }
+    
+    /**
+     * Checks specifically for received WhatsApp statuses from contacts
+     */
+    fun checkReceivedStatuses(context: Context): Boolean {
+        Log.d(TAG, "=== CHECKING FOR RECEIVED STATUSES FROM CONTACTS ===")
+        
+        val externalStorageDir = Environment.getExternalStorageDirectory()
+        val statusDir = File(externalStorageDir, "Android/media/com.whatsapp/WhatsApp/Media/.Statuses")
+        
+        if (statusDir.exists()) {
+            Log.d(TAG, "Found status directory: ${statusDir.absolutePath}")
+            
+            // List all files to see received statuses
+            val allFiles = statusDir.listFiles { file ->
+                true // Accept all files including hidden ones
+            }
+            
+            if (!allFiles.isNullOrEmpty()) {
+                Log.d(TAG, "Found ${allFiles.size} received status files:")
+                allFiles.forEach { file ->
+                    Log.d(TAG, "  Status: ${file.name} (${file.length()} bytes, hidden: ${file.isHidden})")
+                }
+                return true
+            } else {
+                Log.d(TAG, "No received statuses found - directory is empty")
+                Log.d(TAG, "Note: Statuses expire after 24 hours and are automatically deleted by WhatsApp")
+            }
+        } else {
+            Log.d(TAG, "Status directory not found")
+        }
+        
+        Log.d(TAG, "=== END RECEIVED STATUSES CHECK ===")
+        return false
     }
 } 
