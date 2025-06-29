@@ -3,7 +3,9 @@ package com.inningsstudio.statussaver.presentation.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -34,19 +36,20 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.inningsstudio.statussaver.core.constants.Const.STATUS_URI
 import com.inningsstudio.statussaver.core.constants.BottomNavItem
 import com.inningsstudio.statussaver.core.constants.LIGHT_GREEN
+import com.inningsstudio.statussaver.core.service.WhatsAppStatusService
+import com.inningsstudio.statussaver.core.utils.WhatsAppStatusReader
 import com.inningsstudio.statussaver.presentation.ui.settings.SettingsScreen
 import com.inningsstudio.statussaver.presentation.ui.status.SavedStatusScreen
 import com.inningsstudio.statussaver.presentation.ui.status.StatusListingScreen
 import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModel
+import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModelFactory
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
 import com.inningsstudio.statussaver.data.datasource.StatusLocalDataSource
 import com.inningsstudio.statussaver.data.repository.StatusRepositoryImpl
 import com.inningsstudio.statussaver.domain.usecase.DetectStatusPathsUseCase
 import com.inningsstudio.statussaver.domain.usecase.GetStatusesUseCase
-import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModelFactory
 
 class MainActivity : ComponentActivity() {
 
@@ -54,6 +57,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // Start the app directly since permissions are already handled
+        startApp()
         
         setContent {
             StatusSaverTheme {
@@ -89,8 +95,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun getUriFromExtras(): String {
-        return intent.extras?.getString(STATUS_URI) ?: ""
+    private fun startApp() {
+        try {
+            // Use the WhatsAppStatusReader for direct file access
+            val statusReader = WhatsAppStatusReader()
+            val statusPath = statusReader.getStatusFolderPath()
+            
+            if (statusPath != null) {
+                Toast.makeText(this, "Accessing WhatsApp .Statuses at: $statusPath", Toast.LENGTH_LONG).show()
+                
+                // Start the background service for real-time monitoring
+                startWhatsAppStatusService()
+                
+                // The ViewModel will handle reading statuses using direct file access
+                // This is exactly how the decompiled app works with requestLegacyExternalStorage="true"
+            } else {
+                Toast.makeText(this, "No WhatsApp .Statuses folders found", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error detecting statuses: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun startWhatsAppStatusService() {
+        try {
+            val serviceIntent = Intent(this, WhatsAppStatusService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error starting status service: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 }
 

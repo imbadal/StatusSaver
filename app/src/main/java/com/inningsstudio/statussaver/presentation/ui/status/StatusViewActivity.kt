@@ -62,7 +62,14 @@ fun StatusViewScreen() {
     
     LaunchedEffect(statusPath) {
         if (statusPath.isNotEmpty()) {
-            statusModel = StatusModel(path = statusPath, isVideo = isVideo)
+            statusModel = StatusModel(
+                id = statusPath.hashCode().toLong(),
+                filePath = statusPath,
+                fileName = statusPath.substringAfterLast("/", statusPath),
+                fileSize = 0L,
+                lastModified = 0L,
+                isVideo = isVideo
+            )
         }
     }
     
@@ -78,7 +85,7 @@ fun StatusViewScreen() {
                     factory = { context ->
                         StyledPlayerView(context).apply {
                             player = ExoPlayer.Builder(context).build().apply {
-                                val mediaItem = MediaItem.fromUri(status.path)
+                                val mediaItem = MediaItem.fromUri(status.filePath)
                                 setMediaItem(mediaItem)
                                 prepare()
                             }
@@ -89,7 +96,7 @@ fun StatusViewScreen() {
             } else {
                 // Image viewer
                 AsyncImage(
-                    model = status.path,
+                    model = status.filePath,
                     contentDescription = "Status image",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
@@ -108,7 +115,7 @@ fun StatusViewScreen() {
                 onClick = {
                     statusModel?.let { status ->
                         coroutineScope.launch {
-                            FileUtils.copyFileToInternalStorage(Uri.parse(status.path), context)
+                            FileUtils.copyFileToInternalStorage(Uri.parse(status.filePath), context)
                         }
                     }
                 },
@@ -129,7 +136,7 @@ fun StatusViewScreen() {
                 onClick = {
                     statusModel?.let { status ->
                         coroutineScope.launch {
-                            FileUtils.shareStatus(context, status.path)
+                            FileUtils.shareStatus(context, status.filePath)
                         }
                     }
                 },

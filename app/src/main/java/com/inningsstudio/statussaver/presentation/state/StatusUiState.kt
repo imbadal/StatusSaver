@@ -1,16 +1,15 @@
 package com.inningsstudio.statussaver.presentation.state
 
-import com.inningsstudio.statussaver.domain.entity.StatusEntity
+import com.inningsstudio.statussaver.data.model.StatusModel
 
 /**
  * UI state for status listing screen
  */
 sealed class StatusUiState {
     object Loading : StatusUiState()
-    data class Success(val statuses: List<StatusEntity>) : StatusUiState()
+    data class Success(val statuses: List<StatusModel>) : StatusUiState()
+    data class Empty(val message: String) : StatusUiState()
     data class Error(val message: String) : StatusUiState()
-    object Empty : StatusUiState()
-    object NoWhatsAppInstalled : StatusUiState()
 }
 
 /**

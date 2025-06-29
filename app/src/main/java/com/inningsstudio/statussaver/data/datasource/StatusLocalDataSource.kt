@@ -3,6 +3,7 @@ package com.inningsstudio.statussaver.data.datasource
 import android.content.Context
 import com.inningsstudio.statussaver.data.model.StatusModel
 import com.inningsstudio.statussaver.core.utils.FileUtils
+import com.inningsstudio.statussaver.core.utils.WhatsAppStatusReader
 
 /**
  * Local data source for status operations
@@ -11,8 +12,11 @@ import com.inningsstudio.statussaver.core.utils.FileUtils
 class StatusLocalDataSource(
     private val context: Context
 ) {
+    private val statusReader = WhatsAppStatusReader()
+    
     suspend fun getStatuses(statusUri: String): List<StatusModel> {
-        return FileUtils.getStatus(context, statusUri)
+        // Use direct file access with WhatsAppStatusReader
+        return statusReader.readAllStatuses()
     }
     
     suspend fun getSavedStatuses(): List<StatusModel> {

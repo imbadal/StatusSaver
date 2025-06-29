@@ -5,7 +5,7 @@ import com.inningsstudio.statussaver.data.datasource.StatusLocalDataSource
 import com.inningsstudio.statussaver.data.model.StatusModel
 import com.inningsstudio.statussaver.domain.entity.StatusEntity
 import com.inningsstudio.statussaver.domain.repository.StatusRepository
-import com.inningsstudio.statussaver.core.utils.StatusPathDetector
+import com.inningsstudio.statussaver.core.utils.WhatsAppStatusReader
 
 /**
  * Repository implementation for status operations
@@ -16,8 +16,11 @@ class StatusRepositoryImpl(
     private val context: Context
 ) : StatusRepository {
     
+    private val statusReader = WhatsAppStatusReader()
+    
     override suspend fun getStatuses(statusUri: String): List<StatusEntity> {
-        val statusModels = localDataSource.getStatuses(statusUri)
+        // Use direct file access instead of URI
+        val statusModels = statusReader.readAllStatuses()
         return statusModels.map { it.toEntity() }
     }
     
@@ -40,12 +43,11 @@ class StatusRepositoryImpl(
     }
     
     override suspend fun detectStatusPaths(): List<String> {
-        val bestPath = StatusPathDetector.getBestStatusPath(context)
-        return if (bestPath != null) listOf(bestPath) else emptyList()
+        val statusPath = statusReader.getStatusFolderPath()
+        return if (statusPath != null) listOf(statusPath) else emptyList()
     }
     
     override suspend fun isWhatsAppInstalled(): Boolean {
-        return StatusPathDetector.isWhatsAppInstalled(context) ||
-               StatusPathDetector.isWhatsAppBusinessInstalled(context)
+        return statusReader.isStatusFolderAccessible()
     }
 } 

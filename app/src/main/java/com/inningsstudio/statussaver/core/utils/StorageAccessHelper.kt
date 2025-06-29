@@ -24,46 +24,20 @@ object StorageAccessHelper {
     private const val TAG = "StorageAccessHelper"
     
     /**
-     * Check if app has MANAGE_EXTERNAL_STORAGE permission
-     */
-    fun hasManageExternalStoragePermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Environment.isExternalStorageManager()
-        } else {
-            true
-        }
-    }
-    
-    /**
-     * Request MANAGE_EXTERNAL_STORAGE permission
-     */
-    fun requestManageExternalStoragePermission(activity: FragmentActivity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                intent.addCategory("android.intent.category.DEFAULT")
-                intent.data = Uri.parse("package:${activity.packageName}")
-                activity.startActivity(intent)
-            } catch (e: Exception) {
-                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                activity.startActivity(intent)
-            }
-        }
-    }
-    
-    /**
      * Check if app has required permissions
      */
     fun hasRequiredPermissions(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ - Check media permissions
-            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11+ - Check MANAGE_EXTERNAL_STORAGE
-            hasManageExternalStoragePermission()
+            // Android 13+ (API 33+) - Check media permissions
+            val img = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES)
+            val vid = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO)
+            val aud = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO)
+            
+            img == PackageManager.PERMISSION_GRANTED &&
+            vid == PackageManager.PERMISSION_GRANTED &&
+            aud == PackageManager.PERMISSION_GRANTED
         } else {
-            // Android 10 and below - Check READ_EXTERNAL_STORAGE
+            // Android 12 and below (API < 33) - Check READ_EXTERNAL_STORAGE
             ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         }
     }
@@ -103,7 +77,14 @@ object StorageAccessHelper {
                     if (path.contains("Status") && isValidStatusFile(path)) {
                         Log.d(TAG, "Found status image: $path")
                         val imageRequest = coil.request.ImageRequest.Builder(context).data(path).build()
-                        statuses.add(StatusModel(path = path, imageRequest = imageRequest))
+                        statuses.add(StatusModel(
+                            id = path.hashCode().toLong(),
+                            filePath = path,
+                            fileName = path.substringAfterLast("/", path),
+                            fileSize = 0L, // Will be set when reading from file
+                            lastModified = 0L, // Will be set when reading from file
+                            imageRequest = imageRequest
+                        ))
                     }
                 }
             }
@@ -138,7 +119,15 @@ object StorageAccessHelper {
                             mediaMetadataRetriever.setDataSource(path)
                             val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
                             mediaMetadataRetriever.release()
-                            statuses.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
+                            statuses.add(StatusModel(
+                                id = path.hashCode().toLong(),
+                                filePath = path,
+                                fileName = path.substringAfterLast("/", path),
+                                fileSize = 0L, // Will be set when reading from file
+                                lastModified = 0L, // Will be set when reading from file
+                                isVideo = true,
+                                thumbnail = thumbnail
+                            ))
                         } catch (e: Exception) {
                             Log.e(TAG, "Error processing video: $path", e)
                         }
@@ -178,14 +167,29 @@ object StorageAccessHelper {
                                 mediaMetadataRetriever.setDataSource(context, file.uri)
                                 val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
                                 mediaMetadataRetriever.release()
-                                statuses.add(StatusModel(path = filePath, isVideo = true, thumbnail = thumbnail))
+                                statuses.add(StatusModel(
+                                    id = filePath.hashCode().toLong(),
+                                    filePath = filePath,
+                                    fileName = file.name ?: filePath.substringAfterLast("/", filePath),
+                                    fileSize = file.length(),
+                                    lastModified = file.lastModified(),
+                                    isVideo = true,
+                                    thumbnail = thumbnail
+                                ))
                                 Log.d(TAG, "Added video status via SAF: ${file.name}")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error processing video via SAF: ${file.name}", e)
                             }
                         } else {
                             val imageRequest = coil.request.ImageRequest.Builder(context).data(filePath).build()
-                            statuses.add(StatusModel(path = filePath, imageRequest = imageRequest))
+                            statuses.add(StatusModel(
+                                id = filePath.hashCode().toLong(),
+                                filePath = filePath,
+                                fileName = file.name ?: filePath.substringAfterLast("/", filePath),
+                                fileSize = file.length(),
+                                lastModified = file.lastModified(),
+                                imageRequest = imageRequest
+                            ))
                             Log.d(TAG, "Added image status via SAF: ${file.name}")
                         }
                     }
@@ -226,29 +230,5 @@ object StorageAccessHelper {
     private fun isVideoFile(path: String): Boolean {
         val extension = path.substringAfterLast(".", "").lowercase()
         return extension in listOf("mp4", "avi", "mov", "mkv", "3gp", "m4v", "wmv", "flv")
-    }
-    
-    /**
-     * Get all possible WhatsApp status paths for Android 15
-     */
-    fun getAndroid15StatusPaths(): List<String> {
-        return listOf(
-            // Primary paths for Android 15
-            "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-            "Android/data/com.whatsapp/files/Statuses",
-            
-            // Alternative paths
-            "WhatsApp/Media/.Statuses",
-            "WhatsApp/Media/Statuses",
-            "WhatsApp/Statuses",
-            
-            // Samsung-specific paths
-            "Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-            "Android/data/com.whatsapp/files/Statuses",
-            
-            // Internal storage paths
-            "0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses",
-            "0/Android/data/com.whatsapp/files/Statuses"
-        )
     }
 } 

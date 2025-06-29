@@ -35,6 +35,7 @@ import com.inningsstudio.statussaver.presentation.viewmodel.OnboardingViewModel
 import com.inningsstudio.statussaver.ui.theme.StatusSaverTheme
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.FragmentActivity
+import com.inningsstudio.statussaver.core.utils.StatusPathDetector
 
 class OnBoardingActivity : FragmentActivity() {
 
@@ -46,23 +47,16 @@ class OnBoardingActivity : FragmentActivity() {
     private lateinit var step1Container: LinearLayout
     private lateinit var step2Container: LinearLayout
     private lateinit var step3Container: LinearLayout
-    private lateinit var step4Container: LinearLayout
     
     private var currentStep = 0
-    private var folderPermissionGranted = false
     private var storagePermissionGranted = false
-    private var android15PermissionGranted = false
+    private var folderPermissionGranted = false
     private var permissionAttempts = 0
     private val maxPermissionAttempts = 3
     private var permissionMaxAttemptsReached = false
     
-    // Check if Android 15 permission step is needed
-    private val isAndroid15StepNeeded: Boolean
-        get() = Build.VERSION.SDK_INT >= 34 // Android 15
-    
-    // Total number of steps (3 for older devices, 4 for Android 15+)
-    private val totalSteps: Int
-        get() = if (isAndroid15StepNeeded) 4 else 3
+    // 3 steps: permissions, folder picker, welcome
+    private val totalSteps: Int = 3
 
     // Activity result launcher for folder selection
     private val folderSelectionLauncher = registerForActivityResult(
@@ -186,15 +180,6 @@ class OnBoardingActivity : FragmentActivity() {
             // Auto-navigate to next step
             moveToNextStep()
         }
-        
-        // Check if Android 15 permission was granted when user returns from settings
-        if (isAndroid15StepNeeded && !android15PermissionGranted && StorageAccessHelper.hasManageExternalStoragePermission()) {
-            android15PermissionGranted = true
-            updateStepIndicator()
-            updateButtonText()
-            updateStepContent()
-            moveToNextStep()
-        }
     }
 
     private fun initializeViews() {
@@ -205,25 +190,9 @@ class OnBoardingActivity : FragmentActivity() {
         step1Container = findViewById(R.id.step1Container)
         step2Container = findViewById(R.id.step2Container)
         step3Container = findViewById(R.id.step3Container)
-        step4Container = findViewById(R.id.step4Container)
 
         backButton.setOnClickListener { moveToPreviousStep() }
         nextButton.setOnClickListener { handleNextButtonClick() }
-        
-        // Show/hide Android 15 step based on device version
-        updateStepVisibility()
-    }
-
-    private fun updateStepVisibility() {
-        val android15StepDivider = findViewById<View>(R.id.android15StepDivider)
-        
-        if (isAndroid15StepNeeded) {
-            step4Container.visibility = View.VISIBLE
-            android15StepDivider.visibility = View.VISIBLE
-        } else {
-            step4Container.visibility = View.GONE
-            android15StepDivider.visibility = View.GONE
-        }
     }
 
     private fun setupViewPager() {
@@ -248,13 +217,7 @@ class OnBoardingActivity : FragmentActivity() {
     private fun updateStepIndicator() {
         updateStepIndicatorState(step1Container, 0, storagePermissionGranted)
         updateStepIndicatorState(step2Container, 1, folderPermissionGranted)
-        
-        if (isAndroid15StepNeeded) {
-            updateStepIndicatorState(step3Container, 2, android15PermissionGranted)
-            updateStepIndicatorState(step4Container, 3, false) // Welcome step is always last
-        } else {
-            updateStepIndicatorState(step3Container, 2, false) // Welcome step for older devices
-        }
+        updateStepIndicatorState(step3Container, 2, false) // Welcome step is always last
     }
 
     private fun dpToPx(dp: Int): Int {
@@ -324,7 +287,6 @@ class OnBoardingActivity : FragmentActivity() {
 
     private fun updateButtonText() {
         backButton.visibility = if (currentStep > 0) View.VISIBLE else View.GONE
-        
         when (currentStep) {
             0 -> {
                 when {
@@ -333,25 +295,8 @@ class OnBoardingActivity : FragmentActivity() {
                     else -> nextButton.text = "Grant Permissions"
                 }
             }
-            1 -> {
-                if (folderPermissionGranted) {
-                    nextButton.text = "Next"
-                } else {
-                    if (checkStoragePermissions()) {
-                        nextButton.text = "Create Folder"
-                    } else {
-                        nextButton.text = "Grant Permissions"
-                    }
-                }
-            }
-            2 -> {
-                if (android15PermissionGranted) {
-                    nextButton.text = "Next"
-                } else {
-                    nextButton.text = "Grant Permissions"
-                }
-            }
-            3 -> nextButton.text = "Get Started"
+            1 -> nextButton.text = "Pick .Statuses Folder"
+            2 -> nextButton.text = "Get Started"
         }
     }
 
@@ -364,182 +309,21 @@ class OnBoardingActivity : FragmentActivity() {
                     else -> requestStoragePermissions()
                 }
             }
-            1 -> {
-                if (!folderPermissionGranted) {
-                    if (checkStoragePermissions()) {
-                        // Permissions already granted, create folder
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            createAndOpenStatusWpFolder()
-                        } else {
-                            createStatusWpFolderLegacy()
-                        }
-                    } else {
-                        // Request permissions first
-                        requestStoragePermissions()
-                    }
-                } else {
-                    moveToNextStep()
-                }
-            }
-            2 -> {
-                if (!android15PermissionGranted) {
-                    requestAndroid15Permissions()
-                } else {
-                    moveToNextStep()
-                }
-            }
-            3 -> completeOnboarding()
-        }
-    }
-
-    private fun requestFolderPermission() {
-        when {
-            // Android 10+ (API 29+) - Use SAF (Storage Access Framework)
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                // For modern Android, first check if we have storage permissions
-                if (checkStoragePermissions()) {
-                    // Permissions granted, create StatusWp folder and open it
-                    createAndOpenStatusWpFolder()
-                } else {
-                    // Request permissions first
-                    requestStoragePermissions()
-                }
-            }
-            
-            // Android 9 and below (API 28-) - Use traditional storage permissions
-            else -> {
-                handleLegacyFolderAccess()
-            }
-        }
-    }
-
-    private fun createAndOpenStatusWpFolder() {
-        try {
-            // Create StatusWp folder in external storage
-            val externalDir = getExternalFilesDir(null)
-            val statusWpDir = File(externalDir, "StatusWp")
-            
-            if (!statusWpDir.exists()) {
-                val created = statusWpDir.mkdirs()
-                if (!created) {
-                    // Fallback to default external directory
-                    preferenceUtils.setUriToPreference(externalDir?.absolutePath ?: "")
-                    folderPermissionGranted = true
-                    updateStepIndicator()
-                    updateButtonText()
-                    updateStepContent()
-                    Toast.makeText(this, "Using default folder for statuses", Toast.LENGTH_SHORT).show()
-                    return
-                }
-            }
-            
-            // Now open the folder picker pointing to the StatusWp folder
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-            intent.putExtra("android.content.extra.SHOW_ADVANCE", true)
-            
-            // Try to set initial URI to the StatusWp folder
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                try {
-                    val statusWpUri = Uri.parse("content://com.android.externalstorage.documents/tree/primary:Android/data/${packageName}/files/StatusWp")
-                    intent.putExtra("android.content.extra.INITIAL_URI", statusWpUri)
-                } catch (e: Exception) {
-                    // Continue without INITIAL_URI
-                }
-            }
-            
-            folderSelectionLauncher.launch(intent)
-            
-        } catch (e: Exception) {
-            // Fallback to traditional folder selection
-            showFolderSelectionGuide()
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-            intent.putExtra("android.content.extra.SHOW_ADVANCE", true)
-            folderSelectionLauncher.launch(intent)
-        }
-    }
-
-    private fun showFolderSelectionGuide() {
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Select Folder")
-            .setMessage("The folder picker will open. To create the StatusWp folder:\n\n" +
-                    "1. Navigate to the root directory (usually 'Internal storage')\n" +
-                    "2. Tap the '+' button to create a new folder\n" +
-                    "3. Name it 'StatusWp'\n" +
-                    "4. Select the StatusWp folder")
-            .setPositiveButton("Got it!") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setCancelable(false)
-            .create()
-        
-        dialog.show()
-    }
-
-    private fun handleLegacyFolderAccess() {
-        // For older Android versions, we'll rely on storage permissions
-        // and create the StatusWp folder programmatically
-        if (checkStoragePermissions()) {
-            // Permissions already granted, create folder and proceed
-            createStatusWpFolderLegacy()
-        } else {
-            // Request storage permissions first
-            requestStoragePermissions()
-        }
-    }
-
-    private fun createStatusWpFolderLegacy() {
-        try {
-            // For older Android versions, try to create StatusWp folder in external storage
-            val externalDir = getExternalFilesDir(null)
-            val statusWpDir = File(externalDir, "StatusWp")
-            
-            if (!statusWpDir.exists()) {
-                val created = statusWpDir.mkdirs()
-                if (created) {
-                    // Store the path for later use
-                    preferenceUtils.setUriToPreference(statusWpDir.absolutePath)
-                    folderPermissionGranted = true
-                    updateStepIndicator()
-                    updateButtonText()
-                    updateStepContent()
-                    moveToNextStep()
-                } else {
-                    // Fallback: use default external directory
-                    preferenceUtils.setUriToPreference(externalDir?.absolutePath ?: "")
-                    folderPermissionGranted = true
-                    updateStepIndicator()
-                    updateButtonText()
-                    updateStepContent()
-                    moveToNextStep()
-                }
-            } else {
-                // Folder already exists
-                preferenceUtils.setUriToPreference(statusWpDir.absolutePath)
-                folderPermissionGranted = true
-                updateStepIndicator()
-                updateButtonText()
-                updateStepContent()
-                moveToNextStep()
-            }
-        } catch (e: Exception) {
-            // Final fallback: use app's internal directory
-            val internalDir = filesDir
-            preferenceUtils.setUriToPreference(internalDir.absolutePath)
-            folderPermissionGranted = true
-            updateStepIndicator()
-            updateButtonText()
-            updateStepContent()
-            moveToNextStep()
+            1 -> pickFolder()
+            2 -> completeOnboarding()
         }
     }
 
     private fun requestStoragePermissions() {
         val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ (API 33+) - Request media permissions
             arrayOf(
                 Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_AUDIO
             )
         } else {
+            // Android 12 and below (API < 33) - Request storage permissions
             arrayOf(
                 Manifest.permission.READ_EXTERNAL_STORAGE,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
@@ -632,17 +416,10 @@ class OnBoardingActivity : FragmentActivity() {
     }
 
     private fun completeOnboarding() {
-        // Check if all required steps are completed
-        val allStepsCompleted = when {
-            isAndroid15StepNeeded -> folderPermissionGranted && storagePermissionGranted && android15PermissionGranted
-            else -> folderPermissionGranted && storagePermissionGranted
-        }
-        
-        if (allStepsCompleted) {
+        if (storagePermissionGranted && folderPermissionGranted) {
             preferenceUtils.setOnboardingCompleted(true)
             navigateToMainActivity()
         } else {
-            // If not all steps are completed, show appropriate message
             when {
                 !storagePermissionGranted -> {
                     if (permissionMaxAttemptsReached) {
@@ -651,8 +428,7 @@ class OnBoardingActivity : FragmentActivity() {
                         Toast.makeText(this, "Please grant storage permissions first", Toast.LENGTH_SHORT).show()
                     }
                 }
-                !folderPermissionGranted -> Toast.makeText(this, "Please select a folder first", Toast.LENGTH_SHORT).show()
-                isAndroid15StepNeeded && !android15PermissionGranted -> Toast.makeText(this, "Please grant Android 15+ permissions first", Toast.LENGTH_SHORT).show()
+                !folderPermissionGranted -> Toast.makeText(this, "Please pick the .Statuses folder first", Toast.LENGTH_SHORT).show()
                 else -> Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
             }
         }
@@ -679,77 +455,45 @@ class OnBoardingActivity : FragmentActivity() {
         
         // Check if all required permissions are granted
         val storagePermissionsGranted = checkStoragePermissions()
-        val folderSelected = !preferenceUtils.getUriFromPreference().isNullOrBlank()
-        val android15PermissionGranted = if (isAndroid15StepNeeded) {
-            StorageAccessHelper.hasManageExternalStoragePermission()
-        } else {
-            true
-        }
         
-        return storagePermissionsGranted && folderSelected && android15PermissionGranted
+        return storagePermissionsGranted
     }
 
     private fun restoreStepStates() {
-        // Check if folder permission was already granted
-        val uriTree = preferenceUtils.getUriFromPreference()
-        if (!uriTree.isNullOrBlank()) {
-            folderPermissionGranted = true
-        }
-
-        // Check if storage permissions were already granted
         if (checkStoragePermissions()) {
             storagePermissionGranted = true
         } else {
-            // Only show manual permission if user has actually denied at least once
             if (permissionAttempts > 0) {
-                val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    arrayOf(
-                        Manifest.permission.READ_MEDIA_IMAGES,
-                        Manifest.permission.READ_MEDIA_VIDEO
-                    )
-                } else {
-                    arrayOf(
-                        Manifest.permission.READ_EXTERNAL_STORAGE,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    )
-                }
-                
-                // Check if any permission is permanently denied (user checked "Don't ask again")
-                val permanentlyDenied = permissions.any { permission ->
-                    ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED &&
-                    !shouldShowRequestPermissionRationale(permission)
-                }
-                
-                // Check if user has exceeded max attempts
+                val permanentlyDenied = !shouldShowRequestPermissionRationale(Manifest.permission.READ_EXTERNAL_STORAGE)
                 val exceededMaxAttempts = permissionAttempts >= maxPermissionAttempts
-                
                 if (permanentlyDenied || exceededMaxAttempts) {
                     permissionMaxAttemptsReached = true
                 }
             }
         }
         
-        // Check if Android 15 permission was already granted
-        if (isAndroid15StepNeeded && StorageAccessHelper.hasManageExternalStoragePermission()) {
-            android15PermissionGranted = true
+        // Check if folder permission is granted
+        if (storagePermissionGranted) {
+            folderPermissionGranted = true
         }
-
-        // Determine which step to show based on completion status
+        
         currentStep = when {
             !storagePermissionGranted -> 0
             !folderPermissionGranted -> 1
-            isAndroid15StepNeeded && !android15PermissionGranted -> 2
-            else -> if (isAndroid15StepNeeded) 3 else 2
+            else -> 2
         }
     }
 
     private fun checkStoragePermissions(): Boolean {
         val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ (API 33+) - Check media permissions
             arrayOf(
                 Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_AUDIO
             )
         } else {
+            // Android 12 and below (API < 33) - Check storage permissions
             arrayOf(
                 Manifest.permission.READ_EXTERNAL_STORAGE,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
@@ -765,8 +509,7 @@ class OnBoardingActivity : FragmentActivity() {
         return when (step) {
             0 -> storagePermissionGranted
             1 -> folderPermissionGranted
-            2 -> if (isAndroid15StepNeeded) android15PermissionGranted else true
-            3 -> true // Welcome step is always considered complete
+            2 -> true // Welcome step is always considered complete
             else -> false
         }
     }
@@ -781,16 +524,9 @@ class OnBoardingActivity : FragmentActivity() {
         // Update the current step's content based on state
         when (currentStep) {
             0 -> updatePermissionsContent()
-            1 -> updateFolderSelectionContent()
-            2 -> updateAndroid15Content()
-            3 -> updateWelcomeContent()
+            1 -> updateFolderContent()
+            2 -> updateWelcomeContent()
         }
-    }
-
-    private fun updateFolderSelectionContent() {
-        // This will be handled by the ViewPager adapter
-        // We'll need to refresh the current view
-        viewPager.adapter?.notifyItemChanged(currentStep)
     }
 
     private fun updatePermissionsContent() {
@@ -799,7 +535,7 @@ class OnBoardingActivity : FragmentActivity() {
         viewPager.adapter?.notifyItemChanged(currentStep)
     }
 
-    private fun updateAndroid15Content() {
+    private fun updateFolderContent() {
         // This will be handled by the ViewPager adapter
         // We'll need to refresh the current view
         viewPager.adapter?.notifyItemChanged(currentStep)
@@ -811,43 +547,21 @@ class OnBoardingActivity : FragmentActivity() {
         viewPager.adapter?.notifyItemChanged(currentStep)
     }
 
-    private fun requestAndroid15Permissions() {
-        if (Build.VERSION.SDK_INT >= 34) {
-            // Check if permission is already granted
-            if (StorageAccessHelper.hasManageExternalStoragePermission()) {
-                android15PermissionGranted = true
-                updateStepIndicator()
-                updateButtonText()
-                updateStepContent()
-                moveToNextStep()
-            } else {
-                // Request the permission
-                StorageAccessHelper.requestManageExternalStoragePermission(this)
-            }
-        } else {
-            // For older devices, skip this step
-            android15PermissionGranted = true
-            moveToNextStep()
-        }
+    private fun pickFolder() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "*/*"
+        folderSelectionLauncher.launch(intent)
     }
 
     // ViewPager Adapter for onboarding steps
     private inner class OnboardingAdapter : androidx.recyclerview.widget.RecyclerView.Adapter<OnboardingAdapter.OnboardingViewHolder>() {
         
-        private val layouts = if (isAndroid15StepNeeded) {
-            listOf(
-                R.layout.step_permissions,
-                R.layout.step_folder_selection,
-                R.layout.step_android15,
-                R.layout.step_welcome
-            )
-        } else {
-            listOf(
-                R.layout.step_permissions,
-                R.layout.step_folder_selection,
-                R.layout.step_welcome
-            )
-        }
+        private val layouts = listOf(
+            R.layout.step_permissions,
+            R.layout.step_folder_picker,
+            R.layout.step_welcome
+        )
 
         override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): OnboardingViewHolder {
             val view = layoutInflater.inflate(viewType, parent, false)
@@ -857,9 +571,8 @@ class OnBoardingActivity : FragmentActivity() {
         override fun onBindViewHolder(holder: OnboardingViewHolder, position: Int) {
             when (position) {
                 0 -> bindPermissionsStep(holder.itemView)
-                1 -> bindFolderSelectionStep(holder.itemView)
-                2 -> if (isAndroid15StepNeeded) bindAndroid15Step(holder.itemView) else bindWelcomeStep(holder.itemView)
-                3 -> bindWelcomeStep(holder.itemView)
+                1 -> bindFolderStep(holder.itemView)
+                2 -> bindWelcomeStep(holder.itemView)
             }
         }
 
@@ -877,7 +590,7 @@ class OnBoardingActivity : FragmentActivity() {
             when {
                 storagePermissionGranted -> {
                     titleText?.text = "Permissions Granted!"
-                    descriptionText?.text = "Thank you for granting storage permissions. You can now proceed to create your StatusWp folder."
+                    descriptionText?.text = "Thank you for granting permissions. The app will now automatically detect and access your WhatsApp .Statuses folder."
                     manualStepsLayout?.visibility = View.GONE
                     descriptionText?.visibility = View.VISIBLE
                 }
@@ -888,40 +601,23 @@ class OnBoardingActivity : FragmentActivity() {
                 }
                 else -> {
                     titleText?.text = "Grant Permissions"
-                    descriptionText?.text = "We need storage permissions to save your WhatsApp statuses. Please grant the required permissions to continue."
+                    descriptionText?.text = "We need media permissions to access your WhatsApp .Statuses folder and save statuses. The app will automatically detect the correct folder location."
                     manualStepsLayout?.visibility = View.GONE
                     descriptionText?.visibility = View.VISIBLE
                 }
             }
         }
 
-        private fun bindFolderSelectionStep(view: View) {
+        private fun bindFolderStep(view: View) {
             val titleText = view.findViewById<TextView>(R.id.stepTitle)
             val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
             
             if (folderPermissionGranted) {
                 titleText?.text = "Folder Selected!"
-                descriptionText?.text = "Thank you for choosing a folder. You can now proceed to the next step."
+                descriptionText?.text = "Great! You've selected the WhatsApp .Statuses folder. You can now proceed to save your statuses."
             } else {
-                titleText?.text = "Choose a Folder"
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    descriptionText?.text = "We'll create a 'StatusWp' folder for you and open it for confirmation. Please grant storage permissions first."
-                } else {
-                    descriptionText?.text = "We'll create a 'StatusWp' folder for you automatically. Please grant storage permissions to continue."
-                }
-            }
-        }
-
-        private fun bindAndroid15Step(view: View) {
-            val titleText = view.findViewById<TextView>(R.id.stepTitle)
-            val descriptionText = view.findViewById<TextView>(R.id.stepDescription)
-            
-            if (android15PermissionGranted) {
-                titleText?.text = "Android 15+ Permissions Granted!"
-                descriptionText?.text = "Thank you for granting Android 15+ permissions. You can now proceed to the next step."
-            } else {
-                titleText?.text = "Android 15+ Permissions"
-                descriptionText?.text = "We need additional permissions for Android 15+ devices. Please grant the required permissions to continue."
+                titleText?.text = "Pick .Statuses Folder"
+                descriptionText?.text = "We need access to your WhatsApp .Statuses folder to save your statuses. Please pick the folder using the system folder picker."
             }
         }
 

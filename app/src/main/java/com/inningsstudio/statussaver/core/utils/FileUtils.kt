@@ -62,33 +62,23 @@ object FileUtils {
                 files.addAll(mediaStoreStatuses)
             }
             
-            // Method 2: Try path detection and direct file access
-            Log.d(TAG, "Method 2: Trying path detection")
-            val bestPath = StatusPathDetector.getBestStatusPath(context)
-            if (bestPath != null) {
-                Log.d(TAG, "Using detected path: $bestPath")
-                val pathStatuses = getStatusFromPath(context, bestPath)
-                files.addAll(pathStatuses)
-            } else {
-                Log.w(TAG, "No WhatsApp status paths found")
-            }
-            
-            // Method 3: Try alternative paths for Android 15
-            if (android.os.Build.VERSION.SDK_INT >= 34) { // Android 15
-                Log.d(TAG, "Method 3: Trying Android 15 specific paths")
-                val android15Paths = StorageAccessHelper.getAndroid15StatusPaths()
-                for (path in android15Paths) {
-                    val externalStorageDir = android.os.Environment.getExternalStorageDirectory()
-                    val fullPath = "$externalStorageDir/$path"
-                    Log.d(TAG, "Checking Android 15 path: $fullPath")
-                    
-                    val pathStatuses = getStatusFromPath(context, fullPath)
+            // Method 2: Try comprehensive path detection
+            Log.d(TAG, "Method 2: Trying comprehensive path detection")
+            val detector = StatusPathDetector()
+            val availablePaths = detector.getAllPossibleStatusPaths()
+            if (availablePaths.isNotEmpty()) {
+                Log.d(TAG, "Found ${availablePaths.size} available status paths")
+                for (path in availablePaths) {
+                    Log.d(TAG, "Using detected path: $path")
+                    val pathStatuses = getStatusFromPath(context, path)
                     if (pathStatuses.isNotEmpty()) {
-                        Log.d(TAG, "Found statuses in Android 15 path: $fullPath")
+                        Log.d(TAG, "Found ${pathStatuses.size} statuses in path: $path")
                         files.addAll(pathStatuses)
-                        break
+                        break // Use the first path that has statuses
                     }
                 }
+            } else {
+                Log.w(TAG, "No WhatsApp status paths found")
             }
         } else {
             // Check if the input is a file path or a URI
@@ -109,7 +99,29 @@ object FileUtils {
         Log.d(TAG, "Total statuses found: ${files.size}")
         
         // Add padding items for UI
-        files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
+        files.addAll(listOf(
+            StatusModel(
+                id = 0L,
+                filePath = "",
+                fileName = "",
+                fileSize = 0L,
+                lastModified = 0L
+            ),
+            StatusModel(
+                id = 0L,
+                filePath = "",
+                fileName = "",
+                fileSize = 0L,
+                lastModified = 0L
+            ),
+            StatusModel(
+                id = 0L,
+                filePath = "",
+                fileName = "",
+                fileSize = 0L,
+                lastModified = 0L
+            )
+        ))
         statusList.clear()
         statusList.addAll(files)
         return@withContext files
@@ -154,14 +166,29 @@ object FileUtils {
                                     mediaMetadataRetriever.setDataSource(filePath)
                                     val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
                                     mediaMetadataRetriever.release()
-                                    files.add(StatusModel(path = filePath, isVideo = true, thumbnail = thumbnail))
+                                    files.add(StatusModel(
+                                        id = filePath.hashCode().toLong(),
+                                        filePath = filePath,
+                                        fileName = file.name,
+                                        fileSize = file.length(),
+                                        lastModified = file.lastModified(),
+                                        isVideo = true,
+                                        thumbnail = thumbnail
+                                    ))
                                     Log.d(TAG, "Added video status: $filePath")
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error processing video status: $filePath", e)
                                 }
                             } else {
                                 val imageRequest = ImageRequest.Builder(context).data(filePath).build()
-                                files.add(StatusModel(path = filePath, imageRequest = imageRequest))
+                                files.add(StatusModel(
+                                    id = filePath.hashCode().toLong(),
+                                    filePath = filePath,
+                                    fileName = file.name,
+                                    fileSize = file.length(),
+                                    lastModified = file.lastModified(),
+                                    imageRequest = imageRequest
+                                ))
                                 Log.d(TAG, "Added image status: $filePath")
                             }
                         } else {
@@ -192,7 +219,29 @@ object FileUtils {
         Log.d(TAG, "Total received status files found: ${files.size}")
         
         // Add padding items for UI
-        files.addAll(listOf(StatusModel(""), StatusModel(""), StatusModel("")))
+        files.addAll(listOf(
+            StatusModel(
+                id = 0L,
+                filePath = "",
+                fileName = "",
+                fileSize = 0L,
+                lastModified = 0L
+            ),
+            StatusModel(
+                id = 0L,
+                filePath = "",
+                fileName = "",
+                fileSize = 0L,
+                lastModified = 0L
+            ),
+            StatusModel(
+                id = 0L,
+                filePath = "",
+                fileName = "",
+                fileSize = 0L,
+                lastModified = 0L
+            )
+        ))
         statusList.clear()
         statusList.addAll(files)
         return@withContext files
@@ -211,13 +260,28 @@ object FileUtils {
                         mediaMetadataRetriever.setDataSource(path) // Use file path directly
                         val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
                         mediaMetadataRetriever.release()
-                        savedFiles.add(StatusModel(path = path, isVideo = true, thumbnail = thumbnail))
+                        savedFiles.add(StatusModel(
+                            id = path.hashCode().toLong(),
+                            filePath = path,
+                            fileName = it.name,
+                            fileSize = it.length(),
+                            lastModified = it.lastModified(),
+                            isVideo = true,
+                            thumbnail = thumbnail
+                        ))
                     } catch (e: Exception) {
                         Log.e(TAG, "Error processing saved video: $path", e)
                     }
                 } else {
                     val imageRequest = ImageRequest.Builder(context).data(path).build()
-                    savedFiles.add(StatusModel(path = path, imageRequest = imageRequest))
+                    savedFiles.add(StatusModel(
+                        id = path.hashCode().toLong(),
+                        filePath = path,
+                        fileName = it.name,
+                        fileSize = it.length(),
+                        lastModified = it.lastModified(),
+                        imageRequest = imageRequest
+                    ))
                 }
             }
         }
@@ -297,6 +361,35 @@ object FileUtils {
         return@withContext null
     }
 
+    /**
+     * Copy a file from source to destination
+     */
+    fun copyFile(sourceFile: File, destinationFile: File): Boolean {
+        return try {
+            if (!destinationFile.parentFile?.exists()!!) {
+                destinationFile.parentFile?.mkdirs()
+            }
+            
+            val inputStream = sourceFile.inputStream()
+            val outputStream = destinationFile.outputStream()
+            
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            
+            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                outputStream.write(buffer, 0, bytesRead)
+            }
+            
+            inputStream.close()
+            outputStream.close()
+            
+            Log.d(TAG, "File copied successfully: ${sourceFile.name} -> ${destinationFile.absolutePath}")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error copying file: ${sourceFile.name}", e)
+            false
+        }
+    }
 
     private fun shareVideo(title: String? = "", path: String, context: Context) {
         MediaScannerConnection.scanFile(

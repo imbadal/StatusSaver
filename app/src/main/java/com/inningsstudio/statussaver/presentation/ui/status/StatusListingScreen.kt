@@ -36,8 +36,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.inningsstudio.statussaver.core.utils.StatusPathDetector
-import com.inningsstudio.statussaver.domain.entity.StatusEntity
+import com.inningsstudio.statussaver.data.model.StatusModel
 import com.inningsstudio.statussaver.presentation.ui.status.StatusViewActivity
 import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModel
 import kotlinx.coroutines.delay
@@ -68,16 +67,15 @@ fun StatusListingScreen(
     }
     
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     
     when (val currentState = uiState) {
         is com.inningsstudio.statussaver.presentation.state.StatusUiState.Loading -> {
             LoadingView()
         }
         is com.inningsstudio.statussaver.presentation.state.StatusUiState.Success -> {
-            val statusList = currentState.statuses.filter { it.path.isNotEmpty() }
+            val statusList = currentState.statuses.filter { it.filePath.isNotEmpty() }
             if (statusList.isEmpty()) {
-                EmptyStateView(isRefreshing) {
+                EmptyStateView {
                     viewModel.refreshStatuses()
                 }
             } else {
@@ -85,8 +83,10 @@ fun StatusListingScreen(
                     // Handle status click
                     val status = statusList[index]
                     val intent = Intent(context, StatusViewActivity::class.java).apply {
-                        putExtra("status_path", status.path)
-                        putExtra("is_video", status.isVideo)
+                        putExtra("status_path", status.filePath)
+                        putExtra("is_video", status.fileName.lowercase().endsWith(".mp4") || 
+                                               status.fileName.lowercase().endsWith(".3gp") ||
+                                               status.fileName.lowercase().endsWith(".mkv"))
                     }
                     context.startActivity(intent)
                 }
@@ -98,12 +98,7 @@ fun StatusListingScreen(
             }
         }
         is com.inningsstudio.statussaver.presentation.state.StatusUiState.Empty -> {
-            EmptyStateView(isRefreshing) {
-                viewModel.refreshStatuses()
-            }
-        }
-        is com.inningsstudio.statussaver.presentation.state.StatusUiState.NoWhatsAppInstalled -> {
-            NoWhatsAppInstalledView(isRefreshing) {
+            EmptyStateView {
                 viewModel.refreshStatuses()
             }
         }
@@ -111,7 +106,7 @@ fun StatusListingScreen(
 }
 
 @Composable
-fun StatusGridView(statusList: List<StatusEntity>, onStatusClick: (Int) -> Unit) {
+fun StatusGridView(statusList: List<StatusModel>, onStatusClick: (Int) -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3)
@@ -131,41 +126,35 @@ fun StatusGridView(statusList: List<StatusEntity>, onStatusClick: (Int) -> Unit)
 }
 
 @Composable
-fun ImageItemView(status: StatusEntity, modifier: Modifier) {
+fun ImageItemView(status: StatusModel, modifier: Modifier) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        if (status.isVideo) {
-            // Video thumbnail
-            status.thumbnail?.let { bitmap ->
-                AsyncImage(
-                    model = bitmap,
-                    contentDescription = "Video thumbnail",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+        val isVideo = status.fileName.lowercase().endsWith(".mp4") || 
+                     status.fileName.lowercase().endsWith(".3gp") ||
+                     status.fileName.lowercase().endsWith(".mkv")
+        
+        if (isVideo) {
+            // Video thumbnail - for now just show a play icon
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Gray),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "Video",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
-            } ?: run {
-                // Fallback for video without thumbnail
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Gray),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = "Video",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
             }
         } else {
             // Image
             AsyncImage(
-                model = status.imageRequest ?: status.path,
+                model = status.filePath,
                 contentDescription = "Status image",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -198,29 +187,7 @@ fun LoadingView() {
 }
 
 @Composable
-fun EmptyStateView(isRefreshing: Boolean, onRefresh: () -> Unit) {
-    // Shimmer animation
-    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-    val shimmerAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmer"
-    )
-    
-    // Rotation animation for refresh icon
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing)
-        ),
-        label = "rotation"
-    )
-    
+fun EmptyStateView(onRefresh: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -244,14 +211,14 @@ fun EmptyStateView(isRefreshing: Boolean, onRefresh: () -> Unit) {
                 imageVector = Icons.Filled.Info,
                 contentDescription = "Info",
                 modifier = Modifier.size(64.dp),
-                tint = if (isRefreshing) Color(0xFF6366F1).copy(alpha = shimmerAlpha) else Color(0xFF6366F1)
+                tint = Color(0xFF6366F1)
             )
             
             Text(
                 text = "No Statuses Found",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isRefreshing) Color.White.copy(alpha = shimmerAlpha) else Color.White,
+                color = Color.White,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 24.dp)
             )
@@ -259,7 +226,7 @@ fun EmptyStateView(isRefreshing: Boolean, onRefresh: () -> Unit) {
             Text(
                 text = "No new statuses available at the moment. Pull to refresh to check for new ones.",
                 fontSize = 16.sp,
-                color = if (isRefreshing) Color(0xFFB0BEC5).copy(alpha = shimmerAlpha) else Color(0xFFB0BEC5),
+                color = Color(0xFFB0BEC5),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp)
             )
@@ -269,116 +236,18 @@ fun EmptyStateView(isRefreshing: Boolean, onRefresh: () -> Unit) {
                 onClick = onRefresh,
                 modifier = Modifier.padding(top = 32.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRefreshing) Color(0xFF6366F1).copy(alpha = shimmerAlpha) else Color(0xFF6366F1)
+                    containerColor = Color(0xFF6366F1)
                 ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = !isRefreshing
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Refresh,
                     contentDescription = "Refresh",
-                    modifier = Modifier
-                        .size(20.dp)
-                        .rotate(if (isRefreshing) rotation else 0f),
+                    modifier = Modifier.size(20.dp),
                     tint = Color.White
                 )
                 Text(
-                    text = if (isRefreshing) "Refreshing..." else "Refresh",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun NoWhatsAppInstalledView(isRefreshing: Boolean, onRefresh: () -> Unit) {
-    // Similar to EmptyStateView but with different text
-    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-    val shimmerAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmer"
-    )
-    
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing)
-        ),
-        label = "rotation"
-    )
-    
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF1A1A2E),
-                        Color(0xFF16213E),
-                        Color(0xFF0F3460)
-                    )
-                )
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Info,
-                contentDescription = "Info",
-                modifier = Modifier.size(64.dp),
-                tint = if (isRefreshing) Color(0xFF6366F1).copy(alpha = shimmerAlpha) else Color(0xFF6366F1)
-            )
-            
-            Text(
-                text = "No Status App Found",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isRefreshing) Color.White.copy(alpha = shimmerAlpha) else Color.White,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 24.dp)
-            )
-            
-            Text(
-                text = "Please install a messaging app that supports status features to view and save statuses.",
-                fontSize = 16.sp,
-                color = if (isRefreshing) Color(0xFFB0BEC5).copy(alpha = shimmerAlpha) else Color(0xFFB0BEC5),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp)
-            )
-            
-            Button(
-                onClick = onRefresh,
-                modifier = Modifier.padding(top = 32.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRefreshing) Color(0xFF6366F1).copy(alpha = shimmerAlpha) else Color(0xFF6366F1)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = !isRefreshing
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = "Refresh",
-                    modifier = Modifier
-                        .size(20.dp)
-                        .rotate(if (isRefreshing) rotation else 0f),
-                    tint = Color.White
-                )
-                Text(
-                    text = if (isRefreshing) "Refreshing..." else "Refresh",
+                    text = "Refresh",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White,

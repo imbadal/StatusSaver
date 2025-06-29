@@ -7,25 +7,17 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Android 13+ Media Permissions -->
+    <!-- For Android 12 and below -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    
+    <!-- For Android 13+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    
-    <!-- Legacy Storage Permissions -->
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28"
-        tools:ignore="ScopedStorage" />
-    
-    <!-- Android 11+ All Files Access Permission -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
-    
-    <!-- Samsung-specific permissions -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    
+    <!-- Additional permissions for edge cases -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
     <application
@@ -38,10 +30,12 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.StatusSaver.Splash"
-        tools:targetApi="31">
+        android:requestLegacyExternalStorage="true"
+        android:preserveLegacyExternalStorage="true"
+        tools:targetApi="34">
         
         <activity
-            android:name=".presentation.ui.onboarding.OnBoardingActivity"
+            android:name=".presentation.ui.StatusFolderPermissionActivity"
             android:exported="true"
             android:theme="@style/Theme.StatusSaver">
             <intent-filter>
@@ -51,14 +45,31 @@
         </activity>
         
         <activity
+            android:name=".presentation.ui.MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.StatusSaver" />
+        
+        <activity
             android:name=".presentation.ui.status.StatusViewActivity"
             android:exported="false"
             android:theme="@style/Theme.StatusSaver" />
-        <activity
-            android:name=".presentation.ui.MainActivity"
+            
+        <!-- WhatsApp Status Monitoring Service -->
+        <service
+            android:name=".core.service.WhatsAppStatusService"
+            android:exported="false" />
+            
+        <!-- FileProvider for sharing files -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
             android:exported="false"
-            android:theme="@style/Theme.StatusSaver">
-        </activity>
+            android:authorities="com.inningsstudio.statussaver.provider"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
+        
     </application>
 
 </manifest>

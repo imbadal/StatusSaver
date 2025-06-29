@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp">
+
+    <ImageView
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@drawable/baseline_folder_24"
+        android:contentDescription="WhatsApp Detection"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/stepTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Detect WhatsApp"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/stepDescription"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="We need to detect your WhatsApp .Statuses folder. This helps us save your statuses more accurately."
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:layout_marginBottom="32dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/instruction_background"
+        android:padding="16dp"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="What we're looking for:"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="• Official WhatsApp: .Statuses folder\n• WhatsApp Business: .Statuses folder\n• GB WhatsApp: .Statuses folder\n• Other variants: .Statuses folder"
+            android:textSize="12sp"
+            android:textColor="@color/white"
+            android:lineSpacingExtra="2dp" />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Make sure you have viewed at least one status in WhatsApp for the folder to be created."
+        android:textSize="12sp"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:alpha="0.8" />
+
+</LinearLayout> 
