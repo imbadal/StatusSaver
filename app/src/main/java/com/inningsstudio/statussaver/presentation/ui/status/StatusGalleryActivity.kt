@@ -68,6 +68,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.rounded.Done
 import androidx.compose.runtime.DisposableEffect
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -173,6 +176,49 @@ fun StatusView(
     
     // Track ExoPlayer instances to terminate them on back press
     val players = remember { mutableListOf<ExoPlayer>() }
+    
+    // Get lifecycle owner for app background detection
+    val lifecycleOwner = LocalLifecycleOwner.current
+    
+    // Observe lifecycle to pause/resume media
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    // Pause all players when app goes to background
+                    players.forEach { player ->
+                        try {
+                            if (player.isPlaying) {
+                                player.pause()
+                            }
+                        } catch (e: Exception) {
+                            // Ignore errors
+                        }
+                    }
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    // Optionally resume players when app comes to foreground
+                    // Uncomment the following if you want auto-resume:
+                    // players.forEach { player ->
+                    //     try {
+                    //         if (!player.isPlaying) {
+                    //             player.play()
+                    //         }
+                    //     } catch (e: Exception) {
+                    //         // Ignore errors
+                    //     }
+                    // }
+                }
+                else -> {}
+            }
+        }
+        
+        lifecycleOwner.lifecycle.addObserver(observer)
+        
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Track current index when user swipes - improved tracking
     LaunchedEffect(lazyListState.firstVisibleItemIndex) {
