@@ -67,6 +67,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.rounded.Done
 import androidx.compose.runtime.DisposableEffect
+import androidx.activity.compose.BackHandler
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -169,6 +170,9 @@ fun StatusView(
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val flingBehavior = rememberSnapFlingBehavior(lazyListState)
+    
+    // Track ExoPlayer instances to terminate them on back press
+    val players = remember { mutableListOf<ExoPlayer>() }
 
     // Track current index when user swipes - improved tracking
     LaunchedEffect(lazyListState.firstVisibleItemIndex) {
@@ -193,12 +197,33 @@ fun StatusView(
         }
     }
 
+    // Handle back press - terminate all players and navigate back
+    fun handleBackPress() {
+        // Release all ExoPlayer instances
+        players.forEach { player ->
+            try {
+                player.release()
+            } catch (e: Exception) {
+                // Ignore errors during release
+            }
+        }
+        players.clear()
+        
+        // Navigate back to home screen
+        onBackPressed()
+    }
+
+    // Handle system back gesture
+    BackHandler {
+        handleBackPress()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
+                    IconButton(onClick = { handleBackPress() }) {
                         Icon(
                             imageVector = Icons.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -231,16 +256,34 @@ fun StatusView(
                             .fillMaxSize()
                     ) {
                         if (status.isVideo) {
-                            // Simple video player - back to working version
+                            // Simple video player with cleanup
+                            var player by remember { mutableStateOf<ExoPlayer?>(null) }
+                            
+                            DisposableEffect(status.filePath) {
+                                val newPlayer = ExoPlayer.Builder(context).build().apply {
+                                    val mediaItem = MediaItem.fromUri(status.filePath)
+                                    setMediaItem(mediaItem)
+                                    prepare()
+                                }
+                                player = newPlayer
+                                players.add(newPlayer)
+                                
+                                onDispose {
+                                    try {
+                                        newPlayer.release()
+                                        players.remove(newPlayer)
+                                    } catch (e: Exception) {
+                                        // Ignore errors during release
+                                    }
+                                }
+                            }
+                            
                             AndroidView(
                                 factory = { context ->
-                                    StyledPlayerView(context).apply {
-                                        player = ExoPlayer.Builder(context).build().apply {
-                                            val mediaItem = MediaItem.fromUri(status.filePath)
-                                            setMediaItem(mediaItem)
-                                            prepare()
-                                        }
-                                    }
+                                    StyledPlayerView(context)
+                                },
+                                update = { playerView ->
+                                    playerView.player = player
                                 },
                                 modifier = Modifier.fillMaxSize()
                             )
