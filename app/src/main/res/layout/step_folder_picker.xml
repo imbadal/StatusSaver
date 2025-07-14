@@ -71,4 +71,11 @@
         android:gravity="center"
         android:alpha="0.8" />
 
+    <Button
+        android:id="@+id/pickFolderButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pick .Statuses Folder"
+        android:layout_marginTop="24dp" />
+
 </LinearLayout> 

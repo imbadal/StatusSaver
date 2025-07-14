@@ -35,7 +35,7 @@
         tools:targetApi="34">
         
         <activity
-            android:name=".presentation.ui.StatusFolderPermissionActivity"
+            android:name=".presentation.ui.status.StatusGalleryActivity"
             android:exported="true"
             android:theme="@style/Theme.StatusSaver">
             <intent-filter>
@@ -43,6 +43,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <activity
+            android:name=".presentation.ui.StatusFolderPermissionActivity"
+            android:exported="false" />
         
         <activity
             android:name=".presentation.ui.MainActivity"
@@ -54,11 +58,13 @@
             android:exported="false"
             android:theme="@style/Theme.StatusSaver" />
             
-        <!-- WhatsApp Status Monitoring Service -->
-        <service
-            android:name=".core.service.WhatsAppStatusService"
-            android:exported="false" />
-            
+        <activity
+            android:name=".presentation.ui.onboarding.OnBoardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.StatusSaver" />
+        
+        <activity android:name=".presentation.ui.status.SimpleImageViewerActivity" />
+        
         <!-- FileProvider for sharing files -->
         <provider
             android:name="androidx.core.content.FileProvider"

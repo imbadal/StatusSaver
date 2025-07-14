@@ -93,14 +93,25 @@ fun StatusListingScreen(
             }
         }
         is com.inningsstudio.statussaver.presentation.state.StatusUiState.Error -> {
-            ErrorView(currentState.message) {
-                viewModel.refreshStatuses()
-            }
+            ErrorView(
+                message = currentState.message,
+                onRetry = {
+                    viewModel.refreshStatuses()
+                },
+                onDebug = {
+                    viewModel.debugStatusReading()
+                }
+            )
         }
         is com.inningsstudio.statussaver.presentation.state.StatusUiState.Empty -> {
-            EmptyStateView {
-                viewModel.refreshStatuses()
-            }
+            EmptyStateView(
+                onRefresh = {
+                    viewModel.refreshStatuses()
+                },
+                onDebug = {
+                    viewModel.debugStatusReading()
+                }
+            )
         }
     }
 }
@@ -187,7 +198,7 @@ fun LoadingView() {
 }
 
 @Composable
-fun EmptyStateView(onRefresh: () -> Unit) {
+fun EmptyStateView(onRefresh: () -> Unit, onDebug: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -231,10 +242,38 @@ fun EmptyStateView(onRefresh: () -> Unit) {
                 modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp)
             )
             
+            // Debug button
+            Button(
+                onClick = { 
+                    // This will be handled by the parent component
+                    // For now, we'll just call refresh which will trigger debug logs
+                    onDebug()
+                },
+                modifier = Modifier.padding(top = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.BugReport,
+                    contentDescription = "Debug",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.White
+                )
+                Text(
+                    text = "Debug Status Reading",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            
             // Refresh button
             Button(
                 onClick = onRefresh,
-                modifier = Modifier.padding(top = 32.dp),
+                modifier = Modifier.padding(top = 16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF6366F1)
                 ),
@@ -259,7 +298,7 @@ fun EmptyStateView(onRefresh: () -> Unit) {
 }
 
 @Composable
-fun ErrorView(message: String, onRetry: () -> Unit) {
+fun ErrorView(message: String, onRetry: () -> Unit, onDebug: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -303,9 +342,33 @@ fun ErrorView(message: String, onRetry: () -> Unit) {
                 modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp)
             )
             
+            // Debug button
+            Button(
+                onClick = onDebug,
+                modifier = Modifier.padding(top = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.BugReport,
+                    contentDescription = "Debug",
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.White
+                )
+                Text(
+                    text = "Debug Status Reading",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            
             Button(
                 onClick = onRetry,
-                modifier = Modifier.padding(top = 32.dp),
+                modifier = Modifier.padding(top = 16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF6366F1)
                 ),

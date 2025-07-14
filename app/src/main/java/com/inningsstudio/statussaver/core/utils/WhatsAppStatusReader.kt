@@ -32,9 +32,26 @@ class WhatsAppStatusReader {
         val statusPath = getStatusPath()
         if (statusPath != null) {
             val statusFolder = File(statusPath)
+            Log.d(TAG, "Checking status folder: ${statusFolder.absolutePath}")
+            Log.d(TAG, "Folder exists: ${statusFolder.exists()}")
+            Log.d(TAG, "Is directory: ${statusFolder.isDirectory()}")
+            Log.d(TAG, "Can read: ${statusFolder.canRead()}")
+            
             if (statusFolder.exists() && statusFolder.isDirectory()) {
-                val files = statusFolder.listFiles()
+                // List all files including hidden ones
+                val files = statusFolder.listFiles { file ->
+                    // Accept all files for debugging
+                    true
+                }
+                
+                Log.d(TAG, "Total files found (including hidden): ${files?.size ?: 0}")
+                
                 if (files != null) {
+                    // Log all files for debugging
+                    files.forEach { file ->
+                        Log.d(TAG, "File: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}, size: ${file.length()}")
+                    }
+                    
                     for (file in files) {
                         if (isValidStatusFile(file)) {
                             val status = StatusModel(
@@ -46,11 +63,19 @@ class WhatsAppStatusReader {
                                 isVideo = isVideoFile(file)
                             )
                             statuses.add(status)
-                            Log.d(TAG, "Found status: ${file.name}")
+                            Log.d(TAG, "✅ Found valid status: ${file.name}")
+                        } else {
+                            Log.d(TAG, "❌ Skipping invalid file: ${file.name}")
                         }
                     }
+                } else {
+                    Log.w(TAG, "Failed to list files in status directory")
                 }
+            } else {
+                Log.w(TAG, "Status folder does not exist or is not accessible")
             }
+        } else {
+            Log.w(TAG, "No WhatsApp status folder found")
         }
         
         Log.d(TAG, "Total statuses found: ${statuses.size}")
@@ -90,13 +115,43 @@ class WhatsAppStatusReader {
     }
     
     private fun isValidStatusFile(file: File): Boolean {
-        if (!file.isFile) return false
+        if (!file.isFile) {
+            Log.d(TAG, "Skipping non-file: ${file.name}")
+            return false
+        }
         
         val name = file.name.lowercase()
-        return name.endsWith(".jpg") || name.endsWith(".jpeg") || 
+        
+        // Skip .nomedia files
+        if (name == ".nomedia") {
+            Log.d(TAG, "Skipping .nomedia file")
+            return false
+        }
+        
+        // Check for valid media file extensions
+        val isValidExtension = name.endsWith(".jpg") || name.endsWith(".jpeg") || 
                name.endsWith(".png") || name.endsWith(".mp4") || 
                name.endsWith(".3gp") || name.endsWith(".mkv") ||
-               name.endsWith(".webp") || name.endsWith(".gif")
+               name.endsWith(".webp") || name.endsWith(".gif") ||
+               name.endsWith(".bmp") || name.endsWith(".heic") ||
+               name.endsWith(".heif") || name.endsWith(".tiff") ||
+               name.endsWith(".tif") || name.endsWith(".avi") ||
+               name.endsWith(".mov") || name.endsWith(".wmv") ||
+               name.endsWith(".flv") || name.endsWith(".m4v")
+        
+        if (!isValidExtension) {
+            Log.d(TAG, "Skipping file with invalid extension: ${file.name}")
+            return false
+        }
+        
+        // Check if file has content (size > 0)
+        if (file.length() == 0L) {
+            Log.d(TAG, "Skipping empty file: ${file.name}")
+            return false
+        }
+        
+        Log.d(TAG, "✅ Valid status file: ${file.name} (size: ${file.length()})")
+        return true
     }
     
     private fun isVideoFile(file: File): Boolean {

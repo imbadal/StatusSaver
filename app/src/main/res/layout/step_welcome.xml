@@ -56,6 +56,13 @@
             android:textStyle="bold"
             android:gravity="center" />
 
+        <Button
+            android:id="@+id/getStartedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Get Started"
+            android:layout_marginTop="32dp" />
+
     </LinearLayout>
 
 </ScrollView> 
