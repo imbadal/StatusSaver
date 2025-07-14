@@ -71,6 +71,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -220,18 +222,12 @@ fun StatusView(
         }
     }
 
-    // Track current index when user swipes - improved tracking
-    LaunchedEffect(lazyListState.firstVisibleItemIndex) {
-        val newIndex = lazyListState.firstVisibleItemIndex
-        if (newIndex >= 0 && newIndex < statusList.size && newIndex != currentIndex) {
-            currentIndex = newIndex
-        }
-    }
+    val pagerState = rememberPagerState(initialPage = initialIndex)
 
-    // Ensure currentIndex stays in sync with list state
-    LaunchedEffect(currentIndex) {
-        if (lazyListState.firstVisibleItemIndex != currentIndex) {
-            lazyListState.animateScrollToItem(currentIndex)
+    // Track current index when user swipes
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != currentIndex) {
+            currentIndex = pagerState.currentPage
         }
     }
 
@@ -289,59 +285,66 @@ fun StatusView(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Horizontal LazyRow for swipe functionality
-            LazyRow(
-                state = lazyListState,
-                modifier = Modifier.fillMaxSize(),
-                flingBehavior = flingBehavior
-            ) {
-                itemsIndexed(statusList) { index, status ->
-                    Box(
-                        modifier = Modifier
-                            .fillParentMaxSize()
-                            .fillMaxSize()
-                    ) {
-                        if (status.isVideo) {
-                            // Simple video player with cleanup
-                            var player by remember { mutableStateOf<ExoPlayer?>(null) }
+            HorizontalPager(
+                pageCount = statusList.size,
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { index ->
+                val status = statusList[index]
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                ) {
+                    if (status.isVideo) {
+                        // Video player with playback control based on current page
+                        var player by remember { mutableStateOf<ExoPlayer?>(null) }
+                        
+                        DisposableEffect(key1 = index) {
+                            val newPlayer = ExoPlayer.Builder(context).build().apply {
+                                val mediaItem = MediaItem.fromUri(status.filePath)
+                                setMediaItem(mediaItem)
+                                prepare()
+                            }
+                            player = newPlayer
+                            players.add(newPlayer)
                             
-                            DisposableEffect(status.filePath) {
-                                val newPlayer = ExoPlayer.Builder(context).build().apply {
-                                    val mediaItem = MediaItem.fromUri(status.filePath)
-                                    setMediaItem(mediaItem)
-                                    prepare()
-                                }
-                                player = newPlayer
-                                players.add(newPlayer)
-                                
-                                onDispose {
-                                    try {
-                                        newPlayer.release()
-                                        players.remove(newPlayer)
-                                    } catch (e: Exception) {
-                                        // Ignore errors during release
-                                    }
+                            onDispose {
+                                try {
+                                    newPlayer.release()
+                                    players.remove(newPlayer)
+                                } catch (e: Exception) {
+                                    // Ignore errors during release
                                 }
                             }
-                            
-                            AndroidView(
-                                factory = { context ->
-                                    StyledPlayerView(context)
-                                },
-                                update = { playerView ->
-                                    playerView.player = player
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            // Image viewer
-                            AsyncImage(
-                                model = status.filePath,
-                                contentDescription = "Status image",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
                         }
+                        
+                        // Pause if not the current page, play if current
+                        LaunchedEffect(pagerState.currentPage) {
+                            if (pagerState.currentPage == index) {
+                                player?.playWhenReady = true
+                                player?.play()
+                            } else {
+                                player?.pause()
+                            }
+                        }
+                        
+                        AndroidView(
+                            factory = { context ->
+                                StyledPlayerView(context)
+                            },
+                            update = { playerView ->
+                                playerView.player = player
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        // Image viewer
+                        AsyncImage(
+                            model = status.filePath,
+                            contentDescription = "Status image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
                     }
                 }
             }
