@@ -174,10 +174,11 @@ fun StatusView(
         currentIndex = lazyListState.firstVisibleItemIndex
     }
 
-    // Enable edge-to-edge display
+    // Enable edge-to-edge display and set black status bar
     SideEffect {
         (context as? Activity)?.let { activity ->
             WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+            activity.window.statusBarColor = Color.Black.toArgb()
         }
     }
 
@@ -228,16 +229,17 @@ fun StatusView(
         // Back button
         FloatingActionButton(
             onClick = onBackPressed,
-            containerColor = Color.Black.copy(alpha = 0.5f),
+            containerColor = Color.Black.copy(alpha = 0.6f),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
-                .size(48.dp)
+                .size(56.dp)
         ) {
             Icon(
                 imageVector = Icons.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = Color.White
+                tint = Color.White,
+                modifier = Modifier.size(28.dp)
             )
         }
         
