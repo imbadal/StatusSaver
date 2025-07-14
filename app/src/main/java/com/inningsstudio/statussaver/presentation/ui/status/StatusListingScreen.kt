@@ -97,9 +97,6 @@ fun StatusListingScreen(
                 message = currentState.message,
                 onRetry = {
                     viewModel.refreshStatuses()
-                },
-                onDebug = {
-                    viewModel.debugStatusReading()
                 }
             )
         }
@@ -107,9 +104,6 @@ fun StatusListingScreen(
             EmptyStateView(
                 onRefresh = {
                     viewModel.refreshStatuses()
-                },
-                onDebug = {
-                    viewModel.debugStatusReading()
                 }
             )
         }
@@ -198,7 +192,7 @@ fun LoadingView() {
 }
 
 @Composable
-fun EmptyStateView(onRefresh: () -> Unit, onDebug: () -> Unit) {
+fun EmptyStateView(onRefresh: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -241,35 +235,6 @@ fun EmptyStateView(onRefresh: () -> Unit, onDebug: () -> Unit) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp)
             )
-            
-            // Debug button
-            Button(
-                onClick = { 
-                    // This will be handled by the parent component
-                    // For now, we'll just call refresh which will trigger debug logs
-                    onDebug()
-                },
-                modifier = Modifier.padding(top = 16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4CAF50)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.BugReport,
-                    contentDescription = "Debug",
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.White
-                )
-                Text(
-                    text = "Debug Status Reading",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-            
             // Refresh button
             Button(
                 onClick = onRefresh,
@@ -298,7 +263,7 @@ fun EmptyStateView(onRefresh: () -> Unit, onDebug: () -> Unit) {
 }
 
 @Composable
-fun ErrorView(message: String, onRetry: () -> Unit, onDebug: () -> Unit) {
+fun ErrorView(message: String, onRetry: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -341,30 +306,7 @@ fun ErrorView(message: String, onRetry: () -> Unit, onDebug: () -> Unit) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 12.dp, start = 16.dp, end = 16.dp)
             )
-            
-            // Debug button
-            Button(
-                onClick = onDebug,
-                modifier = Modifier.padding(top = 16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4CAF50)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.BugReport,
-                    contentDescription = "Debug",
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.White
-                )
-                Text(
-                    text = "Debug Status Reading",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
+
             
             Button(
                 onClick = onRetry,

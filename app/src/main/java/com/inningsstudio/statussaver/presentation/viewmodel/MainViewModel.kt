@@ -1,15 +1,15 @@
 package com.inningsstudio.statussaver.presentation.viewmodel
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.inningsstudio.statussaver.core.utils.StatusPathDetector
+import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.FileUtils
 import com.inningsstudio.statussaver.data.model.StatusModel
-import com.inningsstudio.statussaver.domain.entity.StatusEntity
-import com.inningsstudio.statussaver.domain.repository.StatusRepository
 import com.inningsstudio.statussaver.domain.usecase.DetectStatusPathsUseCase
 import com.inningsstudio.statussaver.domain.usecase.GetStatusesUseCase
 import com.inningsstudio.statussaver.presentation.state.StatusUiState
@@ -19,10 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
-/**
- * Main ViewModel for the status listing screen
- * Handles business logic and UI state management
- */
 class MainViewModel(
     private val getStatusesUseCase: GetStatusesUseCase,
     private val detectStatusPathsUseCase: DetectStatusPathsUseCase,
@@ -37,65 +33,138 @@ class MainViewModel(
     private var currentStatusPath: String? = null
     
     init {
-        loadStatuses()
+        Log.d("MainViewModel", "=== INITIALIZING MAIN VIEW MODEL ===")
+        Log.d("MainViewModel", "Android Version: ${Build.VERSION.SDK_INT}")
+        Log.d("MainViewModel", "Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+        
+        // Check permissions first
+        checkPermissionsAndLoadStatuses()
     }
     
-    fun loadStatuses() {
+    private fun checkPermissionsAndLoadStatuses() {
         viewModelScope.launch {
-            try {
-                _uiState.value = StatusUiState.Loading
-                Log.d("MainViewModel", "=== STARTING STATUS LOADING ===")
-                
-                // First, try to use SAF URI from onboarding
-                val safUri = preferenceUtils.getUriFromPreference()
-                Log.d("MainViewModel", "SAF URI from preferences: $safUri")
-                
-                if (!safUri.isNullOrBlank()) {
-                    Log.d("MainViewModel", "Using SAF URI: $safUri")
-                    val statuses = FileUtils.getStatus(context, safUri)
-                    Log.d("MainViewModel", "Statuses loaded via SAF: ${statuses.size}")
-                    
-                    if (statuses.isNotEmpty()) {
-                        _uiState.value = StatusUiState.Success(statuses)
-                        Log.d("MainViewModel", "Successfully loaded ${statuses.size} statuses via SAF")
-                        return@launch
-                    } else {
-                        Log.w("MainViewModel", "No statuses found via SAF, trying fallback")
-                    }
-                } else {
-                    Log.w("MainViewModel", "No SAF URI found in preferences")
-                }
-                
-                // Fallback to direct file access if SAF fails or is not available
-                Log.d("MainViewModel", "Using fallback: direct file access")
-                val availablePaths = statusPathDetector.getAllPossibleStatusPaths()
-                Log.d("MainViewModel", "Available paths: $availablePaths")
-                
-                if (availablePaths.isNotEmpty()) {
-                    // Use the first available path
-                    currentStatusPath = availablePaths.first()
-                    Log.d("MainViewModel", "Using status path: $currentStatusPath")
-                    
-                    // Read statuses from this path
-                    val statuses = readStatusesFromPath(currentStatusPath!!)
-                    Log.d("MainViewModel", "Statuses loaded via direct access: ${statuses.size}")
-                    
-                    if (statuses.isNotEmpty()) {
-                        _uiState.value = StatusUiState.Success(statuses)
-                        Log.d("MainViewModel", "Successfully loaded ${statuses.size} statuses via direct access")
-                    } else {
-                        _uiState.value = StatusUiState.Empty("No statuses found in the detected folder")
-                        Log.d("MainViewModel", "No statuses found in path: $currentStatusPath")
-                    }
-                } else {
-                    _uiState.value = StatusUiState.Error("No WhatsApp status folders found")
-                    Log.e("MainViewModel", "No WhatsApp status folders found")
-                }
-                
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Error loading statuses", e)
-                _uiState.value = StatusUiState.Error("Failed to load statuses: ${e.message}")
+            Log.d("MainViewModel", "=== CHECKING PERMISSIONS AND LOADING STATUSES ===")
+            
+            // Step 1: Check if we have required permissions
+            val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
+            Log.d("MainViewModel", "Has required permissions: $hasPermissions")
+            
+            if (!hasPermissions) {
+                Log.w("MainViewModel", "❌ PERMISSIONS NOT GRANTED - Cannot proceed")
+                _uiState.value = StatusUiState.Error("Media permissions are required. Please grant permissions in app settings.")
+                return@launch
             }
+            
+            Log.d("MainViewModel", "✅ PERMISSIONS GRANTED - Proceeding with status detection")
+            
+            // Step 2: Check for SAF URI from onboarding
+            val safUri = preferenceUtils.getUriFromPreference()
+            Log.d("MainViewModel", "SAF URI from preferences: $safUri")
+            
+            // Step 3: Detect all possible WhatsApp status paths
+            val allPossiblePaths = statusPathDetector.getAllPossibleStatusPaths()
+            Log.d("MainViewModel", "All possible WhatsApp status paths:")
+            allPossiblePaths.forEachIndexed { index, path ->
+                Log.d("MainViewModel", "  Path $index: $path")
+            }
+            
+            // Step 4: Check each path for existence and accessibility
+            Log.d("MainViewModel", "=== CHECKING PATH ACCESSIBILITY ===")
+            var foundValidPath = false
+            
+            for (path in allPossiblePaths) {
+                val folder = File(path)
+                Log.d("MainViewModel", "Checking path: $path")
+                Log.d("MainViewModel", "  - Exists: ${folder.exists()}")
+                Log.d("MainViewModel", "  - Is directory: ${folder.isDirectory}")
+                Log.d("MainViewModel", "  - Can read: ${folder.canRead()}")
+                Log.d("MainViewModel", "  - Is hidden: ${folder.isHidden}")
+                Log.d("MainViewModel", "  - Absolute path: ${folder.absolutePath}")
+                
+                if (folder.exists() && folder.isDirectory && folder.canRead()) {
+                    Log.d("MainViewModel", "✅ VALID PATH FOUND: $path")
+                    foundValidPath = true
+                    currentStatusPath = path
+                    
+                    // Check for hidden files in the folder
+                    checkHiddenFilesInFolder(folder)
+                    break
+                } else {
+                    Log.d("MainViewModel", "❌ Path not accessible: $path")
+                }
+            }
+            
+            if (!foundValidPath) {
+                Log.w("MainViewModel", "❌ NO VALID WHATSAPP STATUS PATHS FOUND")
+                _uiState.value = StatusUiState.Error("No WhatsApp status folder found. Please make sure WhatsApp is installed and has status files.")
+                return@launch
+            }
+            
+            // Step 5: Load statuses from the valid path
+            Log.d("MainViewModel", "=== LOADING STATUSES FROM VALID PATH ===")
+            loadStatusesFromPath(currentStatusPath!!)
+        }
+    }
+    
+    private fun checkHiddenFilesInFolder(folder: File) {
+        Log.d("MainViewModel", "=== CHECKING HIDDEN FILES IN FOLDER ===")
+        Log.d("MainViewModel", "Folder: ${folder.absolutePath}")
+        
+        try {
+            // List all files including hidden ones
+            val allFiles = folder.listFiles { file ->
+                // Accept all files for debugging
+                true
+            }
+            
+            Log.d("MainViewModel", "Total files found (including hidden): ${allFiles?.size ?: 0}")
+            
+            if (allFiles != null) {
+                allFiles.forEach { file ->
+                    Log.d("MainViewModel", "  File: ${file.name}")
+                    Log.d("MainViewModel", "    - Is hidden: ${file.isHidden}")
+                    Log.d("MainViewModel", "    - Size: ${file.length()} bytes")
+                    Log.d("MainViewModel", "    - Can read: ${file.canRead()}")
+                    Log.d("MainViewModel", "    - Is file: ${file.isFile}")
+                    Log.d("MainViewModel", "    - Extension: ${getFileExtension(file.name)}")
+                }
+                
+                // Count by type
+                val images = allFiles.filter { isImageFile(it) }
+                val videos = allFiles.filter { isVideoFile(it) }
+                val hiddenFiles = allFiles.filter { it.isHidden }
+                
+                Log.d("MainViewModel", "File summary:")
+                Log.d("MainViewModel", "  - Total files: ${allFiles.size}")
+                Log.d("MainViewModel", "  - Image files: ${images.size}")
+                Log.d("MainViewModel", "  - Video files: ${videos.size}")
+                Log.d("MainViewModel", "  - Hidden files: ${hiddenFiles.size}")
+            } else {
+                Log.w("MainViewModel", "❌ Could not list files in folder")
+            }
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "❌ Error checking files in folder", e)
+        }
+    }
+    
+    private fun loadStatusesFromPath(path: String) {
+        Log.d("MainViewModel", "=== LOADING STATUSES FROM PATH ===")
+        Log.d("MainViewModel", "Path: $path")
+        
+        try {
+            val statuses = readStatusesFromPath(path)
+            Log.d("MainViewModel", "Statuses loaded: ${statuses.size}")
+            
+            if (statuses.isNotEmpty()) {
+                Log.d("MainViewModel", "✅ SUCCESS: Loaded ${statuses.size} statuses")
+                _uiState.value = StatusUiState.Success(statuses)
+            } else {
+                Log.w("MainViewModel", "❌ No statuses found in path")
+                _uiState.value = StatusUiState.Error("No statuses found. Please make sure you have viewed some WhatsApp statuses.")
+            }
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "❌ Error loading statuses", e)
+            _uiState.value = StatusUiState.Error("Error loading statuses: ${e.message}")
         }
     }
     
@@ -117,90 +186,71 @@ class MainViewModel(
             
             Log.d("MainViewModel", "Total files found (including hidden): ${files?.size ?: 0}")
             
-            if (files != null) {
-                // Log all files for debugging
-                files.forEach { file ->
-                    Log.d("MainViewModel", "File: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}, size: ${file.length()}")
-                }
+            files?.forEach { file ->
+                Log.d("MainViewModel", "Processing file: ${file.name}")
+                Log.d("MainViewModel", "  - Is hidden: ${file.isHidden}")
+                Log.d("MainViewModel", "  - Size: ${file.length()}")
+                Log.d("MainViewModel", "  - Extension: ${getFileExtension(file.name)}")
                 
-                for (file in files) {
-                    if (isValidStatusFile(file)) {
-                        val statusModel = StatusModel(
-                            id = file.absolutePath.hashCode().toLong(),
-                            filePath = file.absolutePath,
-                            fileName = file.name,
-                            fileSize = file.length(),
-                            lastModified = file.lastModified(),
-                            isSelected = false,
-                            isVideo = isVideoFile(file)
-                        )
-                        statuses.add(statusModel)
-                        Log.d("MainViewModel", "✅ Added status: ${file.name}")
-                    } else {
-                        Log.d("MainViewModel", "❌ Skipping invalid file: ${file.name}")
-                    }
+                if (isValidStatusFile(file)) {
+                    Log.d("MainViewModel", "✅ Valid status file: ${file.name}")
+                    val statusModel = StatusModel(
+                        id = file.absolutePath.hashCode().toLong(),
+                        filePath = file.absolutePath,
+                        fileName = file.name,
+                        fileSize = file.length(),
+                        lastModified = file.lastModified(),
+                        isSelected = false,
+                        isVideo = isVideoFile(file)
+                    )
+                    statuses.add(statusModel)
+                } else {
+                    Log.d("MainViewModel", "❌ Not a valid status file: ${file.name}")
                 }
-            } else {
-                Log.w("MainViewModel", "Failed to list files in status directory")
             }
-        } else {
-            Log.w("MainViewModel", "Status folder does not exist or is not accessible")
         }
         
-        Log.d("MainViewModel", "Total valid statuses found: ${statuses.size}")
-        return statuses.sortedByDescending { it.lastModified }
+        return statuses
     }
     
     private fun isValidStatusFile(file: File): Boolean {
-        if (!file.isFile) {
-            Log.d("MainViewModel", "Skipping non-file: ${file.name}")
-            return false
-        }
+        if (!file.isFile || !file.canRead()) return false
         
         val name = file.name.lowercase()
+        val extension = getFileExtension(name)
         
-        // Skip .nomedia files
-        if (name == ".nomedia") {
-            Log.d("MainViewModel", "Skipping .nomedia file")
-            return false
-        }
+        // Check for valid media extensions
+        val validExtensions = listOf("jpg", "jpeg", "png", "webp", "gif", "mp4", "3gp", "mkv")
         
-        // Check for valid media file extensions
-        val isValidExtension = name.endsWith(".jpg") || name.endsWith(".jpeg") || 
-               name.endsWith(".png") || name.endsWith(".mp4") || 
-               name.endsWith(".3gp") || name.endsWith(".mkv") ||
-               name.endsWith(".webp") || name.endsWith(".gif") ||
-               name.endsWith(".bmp") || name.endsWith(".heic") ||
-               name.endsWith(".heif") || name.endsWith(".tiff") ||
-               name.endsWith(".tif") || name.endsWith(".avi") ||
-               name.endsWith(".mov") || name.endsWith(".wmv") ||
-               name.endsWith(".flv") || name.endsWith(".m4v")
-        
-        if (!isValidExtension) {
-            Log.d("MainViewModel", "Skipping file with invalid extension: ${file.name}")
-            return false
-        }
-        
-        // Check if file has content (size > 0)
-        if (file.length() == 0L) {
-            Log.d("MainViewModel", "Skipping empty file: ${file.name}")
-            return false
-        }
-        
-        Log.d("MainViewModel", "✅ Valid status file: ${file.name} (size: ${file.length()})")
-        return true
+        return validExtensions.contains(extension) && file.length() > 0
+    }
+    
+    private fun isImageFile(file: File): Boolean {
+        val extension = getFileExtension(file.name.lowercase())
+        return listOf("jpg", "jpeg", "png", "webp", "gif").contains(extension)
     }
     
     private fun isVideoFile(file: File): Boolean {
-        val name = file.name.lowercase()
-        return name.endsWith(".mp4") || name.endsWith(".3gp") || 
-               name.endsWith(".mkv") || name.endsWith(".avi") ||
-               name.endsWith(".mov") || name.endsWith(".wmv") ||
-               name.endsWith(".flv") || name.endsWith(".m4v")
+        val extension = getFileExtension(file.name.lowercase())
+        return listOf("mp4", "3gp", "mkv", "avi", "mov").contains(extension)
+    }
+    
+    private fun getFileExtension(fileName: String): String {
+        return if (fileName.contains(".")) {
+            fileName.substringAfterLast(".", "")
+        } else {
+            ""
+        }
+    }
+    
+    fun loadStatuses() {
+        Log.d("MainViewModel", "=== MANUAL STATUS LOADING TRIGGERED ===")
+        checkPermissionsAndLoadStatuses()
     }
     
     fun refreshStatuses() {
-        loadStatuses()
+        Log.d("MainViewModel", "=== REFRESH STATUSES TRIGGERED ===")
+        checkPermissionsAndLoadStatuses()
     }
     
     fun getAvailableWhatsAppTypes(): List<String> {
@@ -212,7 +262,18 @@ class MainViewModel(
     }
     
     fun debugPaths() {
-        statusPathDetector.debugWhatsAppPaths()
+        Log.d("MainViewModel", "=== DEBUGGING PATHS ===")
+        val allPaths = statusPathDetector.getAllPossibleStatusPaths()
+        Log.d("MainViewModel", "All possible paths: $allPaths")
+        
+        allPaths.forEach { path ->
+            val folder = File(path)
+            Log.d("MainViewModel", "Path: $path")
+            Log.d("MainViewModel", "  - Exists: ${folder.exists()}")
+            Log.d("MainViewModel", "  - Is directory: ${folder.isDirectory}")
+            Log.d("MainViewModel", "  - Can read: ${folder.canRead()}")
+            Log.d("MainViewModel", "  - Is hidden: ${folder.isHidden}")
+        }
     }
     
     fun debugStatusReading() {
@@ -220,7 +281,7 @@ class MainViewModel(
             Log.d("MainViewModel", "=== DEBUGGING STATUS READING ===")
             
             // Check permissions
-            val hasPermissions = com.inningsstudio.statussaver.core.utils.StorageAccessHelper.hasRequiredPermissions(context)
+            val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
             Log.d("MainViewModel", "Has required permissions: $hasPermissions")
             
             // Check SAF URI
@@ -238,9 +299,10 @@ class MainViewModel(
                 Log.d("MainViewModel", "  - Exists: ${folder.exists()}")
                 Log.d("MainViewModel", "  - Is directory: ${folder.isDirectory}")
                 Log.d("MainViewModel", "  - Can read: ${folder.canRead()}")
+                Log.d("MainViewModel", "  - Is hidden: ${folder.isHidden}")
                 
                 if (folder.exists() && folder.isDirectory) {
-                    val files = folder.listFiles { true }
+                    val files = folder.listFiles { file -> true }
                     Log.d("MainViewModel", "  - Total files: ${files?.size ?: 0}")
                     files?.forEach { file ->
                         Log.d("MainViewModel", "    - ${file.name} (hidden: ${file.isHidden}, size: ${file.length()})")
@@ -251,4 +313,4 @@ class MainViewModel(
             Log.d("MainViewModel", "=== END DEBUGGING ===")
         }
     }
-} 
+}

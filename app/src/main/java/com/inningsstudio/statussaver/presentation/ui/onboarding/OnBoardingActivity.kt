@@ -1,5 +1,6 @@
 package com.inningsstudio.statussaver.presentation.ui.onboarding
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -18,6 +19,7 @@ import androidx.core.view.WindowCompat
 import androidx.appcompat.app.AppCompatActivity
 import com.inningsstudio.statussaver.R
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
+import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import androidx.documentfile.provider.DocumentFile
 
 class OnBoardingActivity : AppCompatActivity() {
@@ -31,7 +33,8 @@ class OnBoardingActivity : AppCompatActivity() {
 
     private var currentStep = 0
     private var folderPermissionGranted = false
-    private val totalSteps: Int = 2
+    private var mediaPermissionsGranted = false
+    private val totalSteps: Int = 3
 
     // Activity result launcher for folder selection
     private val folderSelectionLauncher = registerForActivityResult(
@@ -58,22 +61,46 @@ class OnBoardingActivity : AppCompatActivity() {
         }
     }
 
+    // Activity result launcher for permissions
+    private val permissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            mediaPermissionsGranted = true
+            Toast.makeText(this, "Media permissions granted!", Toast.LENGTH_SHORT).show()
+            updateStepUI()
+        } else {
+            Toast.makeText(this, "Media permissions are required to access WhatsApp statuses", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = ContextCompat.getColor(this, R.color.purple_700)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         preferenceUtils = PreferenceUtils(application)
+        
+        // Check if we already have everything we need
         val safUri = preferenceUtils.getUriFromPreference()
         val onboardingCompleted = preferenceUtils.isOnboardingCompleted()
-        if (!safUri.isNullOrBlank() && onboardingCompleted) {
-            // Permission already granted and onboarding completed, skip onboarding
+        val hasRequiredPermissions = StorageAccessHelper.hasRequiredPermissions(this)
+        
+        if (!safUri.isNullOrBlank() && onboardingCompleted && hasRequiredPermissions) {
+            // Everything is already set up, go to main activity
             val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.MainActivity::class.java)
             startActivity(intent)
             finish()
             return
         }
+        
         setContentView(R.layout.activity_onboarding)
         initializeViews()
+        
+        // Check current permission status
+        mediaPermissionsGranted = StorageAccessHelper.hasRequiredPermissions(this)
+        folderPermissionGranted = !safUri.isNullOrBlank()
+        
         updateStepUI()
     }
 
@@ -94,6 +121,22 @@ class OnBoardingActivity : AppCompatActivity() {
         // Update content and button
         when (currentStep) {
             0 -> {
+                onboardingTitle.text = if (mediaPermissionsGranted) "Permissions Granted!" else "Grant Media Permissions"
+                onboardingDescription.text = if (mediaPermissionsGranted)
+                    "Great! You've granted the necessary media permissions. Let's continue to the next step."
+                else
+                    "We need access to your media files to read WhatsApp statuses. Please grant the required permissions."
+                onboardingActionButton.text = if (mediaPermissionsGranted) "Continue" else "Grant Permissions"
+                onboardingActionButton.isEnabled = true
+                onboardingActionButton.setOnClickListener {
+                    if (mediaPermissionsGranted) {
+                        moveToNextStep()
+                    } else {
+                        requestMediaPermissions()
+                    }
+                }
+            }
+            1 -> {
                 onboardingTitle.text = if (folderPermissionGranted) "Folder Selected!" else "Pick .Statuses Folder"
                 onboardingDescription.text = if (folderPermissionGranted)
                     "Great! You've selected the WhatsApp .Statuses folder. You can now proceed."
@@ -109,7 +152,7 @@ class OnBoardingActivity : AppCompatActivity() {
                     }
                 }
             }
-            1 -> {
+            2 -> {
                 onboardingTitle.text = "Welcome to StatusSaver!"
                 onboardingDescription.text = "You're all set! Now you can save and manage your WhatsApp statuses easily. Tap 'Get Started' to begin!"
                 onboardingActionButton.text = "Get Started"
@@ -121,6 +164,25 @@ class OnBoardingActivity : AppCompatActivity() {
         }
     }
 
+    private fun requestMediaPermissions() {
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ (API 33+)
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_AUDIO
+            )
+        } else {
+            // Android 12 and below
+            arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        }
+        
+        permissionLauncher.launch(permissions)
+    }
+
     private fun updateStepIndicators() {
         stepIndicatorContainer.removeAllViews()
         for (i in 0 until totalSteps) {
@@ -130,10 +192,9 @@ class OnBoardingActivity : AppCompatActivity() {
             params.marginEnd = resources.getDimensionPixelSize(R.dimen.step_indicator_margin)
             indicator.layoutParams = params
             when {
-                i < currentStep -> indicator.setImageResource(R.drawable.baseline_check_circle_24)
-                i == currentStep -> indicator.setImageResource(R.drawable.baseline_check_24)
-                else -> indicator.setImageResource(R.drawable.baseline_check_circle_24)
-                // You can use a different icon for pending if you want
+                i < currentStep -> indicator.setImageResource(R.drawable.step_indicator_completed)
+                i == currentStep -> indicator.setImageResource(R.drawable.step_indicator_current)
+                else -> indicator.setImageResource(R.drawable.step_indicator_pending)
             }
             indicator.alpha = if (i == currentStep) 1.0f else 0.5f
             stepIndicatorContainer.addView(indicator)
@@ -148,16 +209,16 @@ class OnBoardingActivity : AppCompatActivity() {
     }
 
     private fun completeOnboarding() {
-        if (folderPermissionGranted) {
+        if (mediaPermissionsGranted && folderPermissionGranted) {
             preferenceUtils.setOnboardingCompleted(true)
             navigateToMainActivity()
         } else {
-            Toast.makeText(this, "Please pick the .Statuses folder first", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun navigateToMainActivity() {
-        val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.status.StatusGalleryActivity::class.java)
+        val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.MainActivity::class.java)
         startActivity(intent)
         finish()
     }

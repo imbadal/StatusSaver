@@ -36,6 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import com.inningsstudio.statussaver.core.constants.BottomNavItem
 import com.inningsstudio.statussaver.core.constants.LIGHT_GREEN
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
+import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.presentation.ui.settings.SettingsScreen
 import com.inningsstudio.statussaver.presentation.ui.status.StatusListingScreen
 import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModel
@@ -53,49 +54,24 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         
-        // Onboarding skip logic
+        // Check if we have folder permissions and onboarding is completed
         val preferenceUtils = PreferenceUtils(application)
         val safUri = preferenceUtils.getUriFromPreference()
         val onboardingCompleted = preferenceUtils.isOnboardingCompleted()
-        if (safUri.isNullOrBlank() || !onboardingCompleted) {
-            // Launch onboarding if permission not given or onboarding not completed
+        val hasRequiredPermissions = StorageAccessHelper.hasRequiredPermissions(this)
+        
+        // Check if we need to request permissions or show onboarding
+        if (!hasRequiredPermissions || safUri.isNullOrBlank() || !onboardingCompleted) {
+            // If no permissions or no folder access, start onboarding
             startActivity(Intent(this, com.inningsstudio.statussaver.presentation.ui.onboarding.OnBoardingActivity::class.java))
             finish()
             return
         }
 
-        setContent {
-            StatusSaverTheme {
-                val context = LocalContext.current.applicationContext
-                val repository = StatusRepositoryImpl(StatusLocalDataSource(context), context)
-                val getStatusesUseCase = GetStatusesUseCase(repository)
-                val detectStatusPathsUseCase = DetectStatusPathsUseCase(repository)
-                val factory = MainViewModelFactory(getStatusesUseCase, detectStatusPathsUseCase, context)
-                val viewModel: MainViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = factory)
-                val navController = rememberNavController()
-                Scaffold(bottomBar = {
-                    BottomNavigationBar(items = listOf(
-                        BottomNavItem(
-                            name = "Home", route = "home", icon = Icons.Default.Home
-                        ),
-                        BottomNavItem(
-                            name = "Saved",
-                            route = "saved",
-                            icon =Icons.Filled.Favorite
-                        ),
-                        BottomNavItem(
-                            name = "More",
-                            route = "more",
-                            icon = Icons.Default.MoreVert
-                        ),
-                    ), navController = navController, onItemClick = {
-                        navController.navigate(it.route)
-                    })
-                }) {
-                    Navigation(navHostController = navController, viewModel, LocalContext.current)
-                }
-            }
-        }
+        // If we have all required permissions and folder access, proceed to StatusGalleryActivity
+        // (as mentioned by user, StatusGalleryActivity is the main activity after permissions)
+        startActivity(Intent(this, com.inningsstudio.statussaver.presentation.ui.status.StatusGalleryActivity::class.java))
+        finish()
     }
 }
 
