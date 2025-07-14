@@ -21,6 +21,12 @@ import com.inningsstudio.statussaver.R
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import androidx.documentfile.provider.DocumentFile
+import com.inningsstudio.statussaver.core.utils.FileUtils
+import com.inningsstudio.statussaver.core.utils.StatusPathDetector
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class OnBoardingActivity : AppCompatActivity() {
     private lateinit var preferenceUtils: PreferenceUtils
@@ -218,7 +224,7 @@ class OnBoardingActivity : AppCompatActivity() {
     }
 
     private fun navigateToMainActivity() {
-        val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.MainActivity::class.java)
+        val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.status.StatusGalleryActivity::class.java)
         startActivity(intent)
         finish()
     }

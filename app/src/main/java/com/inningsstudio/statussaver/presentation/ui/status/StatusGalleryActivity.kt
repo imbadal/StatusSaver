@@ -293,9 +293,9 @@ fun StandaloneStatusGallery(context: Context) {
                         itemsIndexed(statusList) { index, status ->
                             StandaloneStatusItem(status) {
                                 Log.d("StatusGalleryActivity", "Status clicked: ${status.fileName}")
-                                // Simple image viewer - just show the image in a new activity
-                                val intent = Intent(context, SimpleImageViewerActivity::class.java).apply {
-                                    putExtra("image_path", status.filePath)
+                                // Open StatusViewActivity to show/play the status
+                                val intent = Intent(context, StatusViewActivity::class.java).apply {
+                                    putExtra("status_path", status.filePath)
                                     putExtra("is_video", status.fileName.lowercase().endsWith(".mp4") || 
                                                            status.fileName.lowercase().endsWith(".3gp") ||
                                                            status.fileName.lowercase().endsWith(".mkv"))

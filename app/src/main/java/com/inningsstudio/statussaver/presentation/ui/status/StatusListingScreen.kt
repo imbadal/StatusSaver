@@ -37,7 +37,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.inningsstudio.statussaver.data.model.StatusModel
-import com.inningsstudio.statussaver.presentation.ui.status.StatusViewActivity
 import com.inningsstudio.statussaver.presentation.viewmodel.MainViewModel
 import kotlinx.coroutines.delay
 
