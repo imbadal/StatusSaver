@@ -66,6 +66,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.rounded.Done
+import androidx.compose.runtime.DisposableEffect
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -79,7 +80,7 @@ class StatusGalleryActivity : ComponentActivity() {
         Log.d(TAG, "=== STATUS GALLERY ACTIVITY STARTED ===")
         Log.d(TAG, "Android Version: ${android.os.Build.VERSION.SDK_INT}")
         Log.d(TAG, "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-
+        
         // Check if permission is granted
         val preferenceUtils = PreferenceUtils(application)
         val safUri = preferenceUtils.getUriFromPreference()
@@ -91,7 +92,7 @@ class StatusGalleryActivity : ComponentActivity() {
         // Check permissions
         val hasPermissions = StorageAccessHelper.hasRequiredPermissions(this)
         Log.d(TAG, "Has required permissions: $hasPermissions")
-
+        
         if (safUri.isNullOrBlank() || !onboardingCompleted) {
             Log.w(TAG, "❌ Permission not granted or onboarding not completed - launching onboarding")
             // Permission not granted, launch onboarding
@@ -102,7 +103,7 @@ class StatusGalleryActivity : ComponentActivity() {
         }
 
         Log.d(TAG, "✅ Permission granted and onboarding completed - showing status gallery")
-
+        
         // Permission granted, show status gallery
         setContent {
             MaterialTheme {
@@ -169,9 +170,19 @@ fun StatusView(
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val flingBehavior = rememberSnapFlingBehavior(lazyListState)
 
-    // Track current index when user swipes
+    // Track current index when user swipes - improved tracking
     LaunchedEffect(lazyListState.firstVisibleItemIndex) {
-        currentIndex = lazyListState.firstVisibleItemIndex
+        val newIndex = lazyListState.firstVisibleItemIndex
+        if (newIndex >= 0 && newIndex < statusList.size && newIndex != currentIndex) {
+            currentIndex = newIndex
+        }
+    }
+
+    // Ensure currentIndex stays in sync with list state
+    LaunchedEffect(currentIndex) {
+        if (lazyListState.firstVisibleItemIndex != currentIndex) {
+            lazyListState.animateScrollToItem(currentIndex)
+        }
     }
 
     // Enable edge-to-edge display and set black status bar
@@ -220,7 +231,7 @@ fun StatusView(
                             .fillMaxSize()
                     ) {
                         if (status.isVideo) {
-                            // Video player
+                            // Simple video player - back to working version
                             AndroidView(
                                 factory = { context ->
                                     StyledPlayerView(context).apply {
@@ -354,11 +365,11 @@ fun StandaloneStatusGallery(context: Context) {
     fun loadStatuses() {
         coroutineScope.launch {
             Log.d("StatusGalleryActivity", "=== STARTING STATUS LOADING ===")
-            isLoading = true
-            errorMessage = null
+        isLoading = true
+        errorMessage = null
 
-            val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-            val safUri = pref.getUriFromPreference()
+        val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+        val safUri = pref.getUriFromPreference()
 
             Log.d("StatusGalleryActivity", "Loading statuses with SAF URI: $safUri")
 
@@ -398,7 +409,7 @@ fun StandaloneStatusGallery(context: Context) {
                 }
 
                 Log.d("StatusGalleryActivity", "Calling FileUtils.getStatus()...")
-                val statuses = FileUtils.getStatus(context, safUri ?: "")
+            val statuses = FileUtils.getStatus(context, safUri ?: "")
                 Log.d("StatusGalleryActivity", "FileUtils.getStatus() returned ${statuses.size} statuses")
 
                 // Log all statuses for debugging
@@ -410,7 +421,7 @@ fun StandaloneStatusGallery(context: Context) {
                     Log.d("StatusGalleryActivity", "  - File path empty: ${status.filePath.isEmpty()}")
                 }
 
-                statusList = statuses.filter { it.filePath.isNotEmpty() }
+            statusList = statuses.filter { it.filePath.isNotEmpty() }
                 Log.d("StatusGalleryActivity", "Filtered to ${statusList.size} valid statuses")
 
                 // Log details about found statuses
@@ -421,13 +432,13 @@ fun StandaloneStatusGallery(context: Context) {
                     Log.d("StatusGalleryActivity", "  - Last modified: ${status.lastModified}")
                 }
 
-                isLoading = false
+            isLoading = false
                 Log.d("StatusGalleryActivity", "✅ Status loading completed successfully")
 
-            } catch (e: Exception) {
+        } catch (e: Exception) {
                 Log.e("StatusGalleryActivity", "❌ Error loading statuses", e)
-                errorMessage = e.message
-                isLoading = false
+            errorMessage = e.message
+            isLoading = false
             }
         }
     }
@@ -501,8 +512,8 @@ fun StandaloneStatusGallery(context: Context) {
             Box(modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)) {
-                when {
-                    isLoading -> {
+        when {
+            isLoading -> {
                         // Show shimmer grid
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(3),
@@ -513,16 +524,16 @@ fun StandaloneStatusGallery(context: Context) {
                         ) {
                             items(36) { // Show 36 shimmer items to fill entire screen height
                                 ShimmerCard()
-                            }
-                        }
                     }
-                    errorMessage != null -> {
+                }
+            }
+            errorMessage != null -> {
                         Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Error", color = Color.Red, fontSize = 18.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(errorMessage ?: "Unknown error", color = Color.White, fontSize = 14.sp)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Error", color = Color.Red, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(errorMessage ?: "Unknown error", color = Color.White, fontSize = 14.sp)
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
                                     onClick = { loadStatuses() },
@@ -537,16 +548,16 @@ fun StandaloneStatusGallery(context: Context) {
                                 ) {
                                     Text("Debug", color = Color.White)
                                 }
-                            }
-                        }
                     }
-                    statusList.isEmpty() -> {
+                }
+            }
+            statusList.isEmpty() -> {
                         Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Make sure you have granted folder permission", color = Color.Gray, fontSize = 14.sp)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Make sure you have granted folder permission", color = Color.Gray, fontSize = 14.sp)
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
                                     onClick = { loadStatuses() },
@@ -561,10 +572,10 @@ fun StandaloneStatusGallery(context: Context) {
                                 ) {
                                     Text("Debug Detection", color = Color.White)
                                 }
-                            }
-                        }
                     }
-                    else -> {
+                }
+            }
+            else -> {
                         Log.d("StatusGalleryActivity", "Showing status grid with ${statusList.size} statuses")
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(3),
@@ -615,12 +626,12 @@ fun StandaloneStatusGallery(context: Context) {
                                                 }
                                             }
                                             // Play icon overlay
-                                            Box(
-                                                modifier = Modifier
+                    Box(
+                        modifier = Modifier
                                                     .fillMaxSize()
                                                     .background(Color.White.copy(alpha = 0.15f)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
+                        contentAlignment = Alignment.Center
+                    ) {
                                                 Icon(
                                                     imageVector = Icons.Filled.PlayArrow,
                                                     contentDescription = "Play",
@@ -632,7 +643,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             AsyncImage(
                                                 model = status.filePath,
                                                 contentDescription = "Status image",
-                                                modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize(),
                                                 contentScale = ContentScale.Crop
                                             )
                                         }
