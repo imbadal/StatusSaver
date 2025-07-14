@@ -42,6 +42,8 @@ import android.net.Uri
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.toArgb
 import android.app.Activity
+import androidx.compose.ui.viewinterop.AndroidView
+import com.facebook.shimmer.ShimmerFrameLayout
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -90,6 +92,45 @@ class StatusGalleryActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ShimmerCard() {
+    Card(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(2.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        AndroidView(
+            factory = { context ->
+                ShimmerFrameLayout(context).apply {
+                    val shimmer = com.facebook.shimmer.Shimmer.ColorHighlightBuilder()
+                        .setBaseColor(0xFFE0E0E0.toInt())
+                        .setHighlightColor(0xFFF5F5F5.toInt())
+                        .setBaseAlpha(1.0f)
+                        .setHighlightAlpha(1.0f)
+                        .setDuration(1200)
+                        .setDirection(com.facebook.shimmer.Shimmer.Direction.LEFT_TO_RIGHT)
+                        .setAutoStart(true)
+                        .build()
+                    setShimmer(shimmer)
+
+                    // Add a child view to shimmer that fills the entire space
+                    val child = android.view.View(context).apply {
+                        setBackgroundColor(0xFFE0E0E0.toInt())
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                    addView(child)
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
@@ -238,8 +279,23 @@ fun StandaloneStatusGallery(context: Context) {
             TopAppBar(
                 title = { Text("Statuses", color = Color.White) },
                 actions = {
-                    IconButton(onClick = { loadStatuses() }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White)
+                    if (isLoading) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = { loadStatuses() }) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = green)
@@ -252,12 +308,16 @@ fun StandaloneStatusGallery(context: Context) {
             .padding(innerPadding)) {
             when {
                 isLoading -> {
-                    Log.d("StatusGalleryActivity", "Showing loading state")
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = Color.White)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Loading statuses...", color = Color.White, fontSize = 16.sp)
+                    // Show shimmer grid
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(36) { // Show 36 shimmer items to fill entire screen height
+                            ShimmerCard()
                         }
                     }
                 }
@@ -322,7 +382,7 @@ fun StandaloneStatusGallery(context: Context) {
                             Card(
                                 modifier = Modifier
                                     .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(6.dp)),
+                                    .clip(RoundedCornerShape(2.dp)),
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
