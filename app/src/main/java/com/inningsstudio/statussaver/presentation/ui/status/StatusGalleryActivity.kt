@@ -31,32 +31,40 @@ import com.inningsstudio.statussaver.core.utils.StatusPathDetector
 import com.inningsstudio.statussaver.data.model.StatusModel
 import kotlinx.coroutines.launch
 import java.io.File
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import android.net.Uri
 
 class StatusGalleryActivity : ComponentActivity() {
-    
+
     companion object {
         private const val TAG = "StatusGalleryActivity_"
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         Log.d(TAG, "=== STATUS GALLERY ACTIVITY STARTED ===")
         Log.d(TAG, "Android Version: ${android.os.Build.VERSION.SDK_INT}")
         Log.d(TAG, "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-        
+
         // Check if permission is granted
         val preferenceUtils = PreferenceUtils(application)
         val safUri = preferenceUtils.getUriFromPreference()
         val onboardingCompleted = preferenceUtils.isOnboardingCompleted()
-        
+
         Log.d(TAG, "SAF URI from preferences: $safUri")
         Log.d(TAG, "Onboarding completed: $onboardingCompleted")
-        
+
         // Check permissions
         val hasPermissions = StorageAccessHelper.hasRequiredPermissions(this)
         Log.d(TAG, "Has required permissions: $hasPermissions")
-        
+
         if (safUri.isNullOrBlank() || !onboardingCompleted) {
             Log.w(TAG, "❌ Permission not granted or onboarding not completed - launching onboarding")
             // Permission not granted, launch onboarding
@@ -65,9 +73,9 @@ class StatusGalleryActivity : ComponentActivity() {
             finish()
             return
         }
-        
+
         Log.d(TAG, "✅ Permission granted and onboarding completed - showing status gallery")
-        
+
         // Permission granted, show status gallery
         setContent {
             MaterialTheme {
@@ -82,7 +90,7 @@ class StatusGalleryActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StandaloneStatusGallery(context: Context) {
     var statusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
@@ -90,34 +98,55 @@ fun StandaloneStatusGallery(context: Context) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
+    // Simple in-memory thumbnail cache
+    val thumbCache = remember { mutableMapOf<String, Bitmap?>() }
+
+    suspend fun getVideoThumbnailIO(context: Context, path: String): Bitmap? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val retriever = MediaMetadataRetriever()
+                if (path.startsWith("content://")) {
+                    retriever.setDataSource(context, Uri.parse(path))
+                } else {
+                    retriever.setDataSource(path)
+                }
+                val bitmap = retriever.frameAtTime
+                retriever.release()
+                bitmap
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
     fun loadStatuses() {
         coroutineScope.launch {
             Log.d("StatusGalleryActivity", "=== STARTING STATUS LOADING ===")
             isLoading = true
             errorMessage = null
-            
+
             val pref = PreferenceUtils(context.applicationContext as android.app.Application)
             val safUri = pref.getUriFromPreference()
-            
+
             Log.d("StatusGalleryActivity", "Loading statuses with SAF URI: $safUri")
-            
+
             try {
                 // First, let's check if we have permissions
                 val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
                 Log.d("StatusGalleryActivity", "Has required permissions: $hasPermissions")
-                
+
                 if (!hasPermissions) {
                     Log.e("StatusGalleryActivity", "❌ NO PERMISSIONS - Cannot load statuses")
                     errorMessage = "Media permissions are required. Please grant permissions in app settings."
                     isLoading = false
                     return@launch
                 }
-                
+
                 // Let's also check what paths are available
                 val detector = StatusPathDetector()
                 val allPaths = detector.getAllPossibleStatusPaths()
                 Log.d("StatusGalleryActivity", "All possible paths: $allPaths")
-                
+
                 // Check each path manually
                 allPaths.forEach { path ->
                     val folder = File(path)
@@ -126,7 +155,7 @@ fun StandaloneStatusGallery(context: Context) {
                     Log.d("StatusGalleryActivity", "  - Is directory: ${folder.isDirectory}")
                     Log.d("StatusGalleryActivity", "  - Can read: ${folder.canRead()}")
                     Log.d("StatusGalleryActivity", "  - Is hidden: ${folder.isHidden}")
-                    
+
                     if (folder.exists() && folder.isDirectory && folder.canRead()) {
                         val files = folder.listFiles { file -> true }
                         Log.d("StatusGalleryActivity", "  - Total files: ${files?.size ?: 0}")
@@ -135,11 +164,11 @@ fun StandaloneStatusGallery(context: Context) {
                         }
                     }
                 }
-                
+
                 Log.d("StatusGalleryActivity", "Calling FileUtils.getStatus()...")
                 val statuses = FileUtils.getStatus(context, safUri ?: "")
                 Log.d("StatusGalleryActivity", "FileUtils.getStatus() returned ${statuses.size} statuses")
-                
+
                 // Log all statuses for debugging
                 statuses.forEachIndexed { index, status ->
                     Log.d("StatusGalleryActivity", "Status $index: ${status.fileName} (${status.filePath})")
@@ -148,10 +177,10 @@ fun StandaloneStatusGallery(context: Context) {
                     Log.d("StatusGalleryActivity", "  - Last modified: ${status.lastModified}")
                     Log.d("StatusGalleryActivity", "  - File path empty: ${status.filePath.isEmpty()}")
                 }
-                
+
                 statusList = statuses.filter { it.filePath.isNotEmpty() }
                 Log.d("StatusGalleryActivity", "Filtered to ${statusList.size} valid statuses")
-                
+
                 // Log details about found statuses
                 statusList.forEachIndexed { index, status ->
                     Log.d("StatusGalleryActivity", "Valid Status $index: ${status.fileName} (${status.filePath})")
@@ -159,10 +188,10 @@ fun StandaloneStatusGallery(context: Context) {
                     Log.d("StatusGalleryActivity", "  - Is video: ${status.isVideo}")
                     Log.d("StatusGalleryActivity", "  - Last modified: ${status.lastModified}")
                 }
-                
+
                 isLoading = false
                 Log.d("StatusGalleryActivity", "✅ Status loading completed successfully")
-                
+
             } catch (e: Exception) {
                 Log.e("StatusGalleryActivity", "❌ Error loading statuses", e)
                 errorMessage = e.message
@@ -174,133 +203,180 @@ fun StandaloneStatusGallery(context: Context) {
     fun debugStatusDetection() {
         coroutineScope.launch {
             Log.d("StatusGalleryActivity", "=== DEBUGGING STATUS DETECTION ===")
-            
+
             // Check permissions
             val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
             Log.d("StatusGalleryActivity", "Has required permissions: $hasPermissions")
-            
+
             // Check SAF URI
             val pref = PreferenceUtils(context.applicationContext as android.app.Application)
             val safUri = pref.getUriFromPreference()
             Log.d("StatusGalleryActivity", "SAF URI from preferences: $safUri")
-            
+
             // Check all possible paths
             val detector = StatusPathDetector()
             detector.debugWhatsAppPaths()
-            
+
             Log.d("StatusGalleryActivity", "=== END DEBUGGING ===")
         }
     }
 
-    LaunchedEffect(Unit) {
-        loadStatuses()
-    }
+    LaunchedEffect(Unit) { loadStatuses() }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            isLoading -> {
-                Log.d("StatusGalleryActivity", "Showing loading state")
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = Color.White)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Loading statuses...", color = Color.White, fontSize = 16.sp)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Statuses", color = Color.White) },
+                actions = {
+                    IconButton(onClick = { loadStatuses() }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White)
                     }
-                }
-            }
-            errorMessage != null -> {
-                Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Error", color = Color.Red, fontSize = 18.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(errorMessage ?: "Unknown error", color = Color.White, fontSize = 14.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { loadStatuses() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-                        ) {
-                            Text("Retry", color = Color.Black)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { debugStatusDetection() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                        ) {
-                            Text("Debug", color = Color.White)
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF101010))
+            )
+        },
+        containerColor = Color.Black
+    ) { innerPadding ->
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)) {
+            when {
+                isLoading -> {
+                    Log.d("StatusGalleryActivity", "Showing loading state")
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color.White)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Loading statuses...", color = Color.White, fontSize = 16.sp)
                         }
                     }
                 }
-            }
-            statusList.isEmpty() -> {
-                Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Make sure you have granted folder permission", color = Color.Gray, fontSize = 14.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { loadStatuses() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-                        ) {
-                            Text("Refresh", color = Color.Black)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = { debugStatusDetection() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                        ) {
-                            Text("Debug Detection", color = Color.White)
+                errorMessage != null -> {
+                    Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Error", color = Color.Red, fontSize = 18.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(errorMessage ?: "Unknown error", color = Color.White, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { loadStatuses() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                            ) {
+                                Text("Retry", color = Color.Black)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { debugStatusDetection() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                            ) {
+                                Text("Debug", color = Color.White)
+                            }
                         }
                     }
                 }
-            }
-            else -> {
-                Log.d("StatusGalleryActivity", "Showing status grid with ${statusList.size} statuses")
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Header with refresh button
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "WhatsApp Statuses (${statusList.size})",
-                            color = Color.White,
-                            fontSize = 18.sp
-                        )
-                        IconButton(
-                            onClick = { loadStatuses() },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = "Refresh",
-                                tint = Color.White
-                            )
+                statusList.isEmpty() -> {
+                    Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Make sure you have granted folder permission", color = Color.Gray, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { loadStatuses() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                            ) {
+                                Text("Refresh", color = Color.Black)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { debugStatusDetection() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                            ) {
+                                Text("Debug Detection", color = Color.White)
+                            }
                         }
                     }
-                    
-                    // Grid
+                }
+                else -> {
+                    Log.d("StatusGalleryActivity", "Showing status grid with ${statusList.size} statuses")
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(3),
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp)
+                        contentPadding = PaddingValues(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        itemsIndexed(statusList) { index, status ->
-                            StandaloneStatusItem(status) {
-                                Log.d("StatusGalleryActivity", "Status clicked: ${status.fileName}")
-                                // Open StatusViewActivity to show/play the status
-                                val intent = Intent(context, StatusViewActivity::class.java).apply {
-                                    putExtra("status_path", status.filePath)
-                                    putExtra("is_video", status.fileName.lowercase().endsWith(".mp4") || 
-                                                           status.fileName.lowercase().endsWith(".3gp") ||
-                                                           status.fileName.lowercase().endsWith(".mkv"))
+                        itemsIndexed(statusList) { _, status ->
+                            Card(
+                                modifier = Modifier
+                                    .aspectRatio(1f)
+                                    .clip(MaterialTheme.shapes.medium),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF181818)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Box(modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable {
+                                        val intent = Intent(context, StatusViewActivity::class.java).apply {
+                                            putExtra("status_path", status.filePath)
+                                            putExtra("is_video", status.fileName.lowercase().endsWith(".mp4") ||
+                                                status.fileName.lowercase().endsWith(".3gp") ||
+                                                status.fileName.lowercase().endsWith(".mkv"))
+                                        }
+                                        context.startActivity(intent)
+                                    }
+                                ) {
+                                    if (status.isVideo) {
+                                        val thumb by produceState<Bitmap?>(null, status.filePath) {
+                                            value = thumbCache[status.filePath] ?: getVideoThumbnailIO(context, status.filePath).also {
+                                                thumbCache[status.filePath] = it
+                                            }
+                                        }
+                                        if (thumb != null) {
+                                            androidx.compose.foundation.Image(
+                                                bitmap = thumb!!.asImageBitmap(),
+                                                contentDescription = "Video thumbnail",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.PlayArrow,
+                                                    contentDescription = "Video",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(48.dp)
+                                                )
+                                            }
+                                        }
+                                        // Play icon overlay
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color.Black.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.PlayArrow,
+                                                contentDescription = "Play",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(36.dp)
+                                            )
+                                        }
+                                    } else {
+                                        AsyncImage(
+                                            model = status.filePath,
+                                            contentDescription = "Status image",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
                                 }
-                                context.startActivity(intent)
                             }
                         }
                     }

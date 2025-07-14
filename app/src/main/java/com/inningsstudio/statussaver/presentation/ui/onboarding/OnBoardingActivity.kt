@@ -193,9 +193,9 @@ class OnBoardingActivity : AppCompatActivity() {
         stepIndicatorContainer.removeAllViews()
         for (i in 0 until totalSteps) {
             val indicator = ImageView(this)
-            val size = resources.getDimensionPixelSize(R.dimen.step_indicator_size)
+            val size = resources.getDimensionPixelSize(androidx.cardview.R.dimen.cardview_default_radius)
             val params = LinearLayout.LayoutParams(size, size)
-            params.marginEnd = resources.getDimensionPixelSize(R.dimen.step_indicator_margin)
+            params.marginEnd = resources.getDimensionPixelSize(androidx.core.splashscreen.R.dimen.splashscreen_icon_size)
             indicator.layoutParams = params
             when {
                 i < currentStep -> indicator.setImageResource(R.drawable.step_indicator_completed)
