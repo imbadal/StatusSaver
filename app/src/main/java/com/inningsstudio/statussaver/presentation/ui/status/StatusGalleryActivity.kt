@@ -225,53 +225,6 @@ fun StatusView(
             }
         }
         
-        // Top action buttons
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        ) {
-            // Download button
-            FloatingActionButton(
-                onClick = {
-                    statusList.getOrNull(currentIndex)?.let { status ->
-                        coroutineScope.launch {
-                            FileUtils.copyFileToInternalStorage(Uri.parse(status.filePath), context)
-                        }
-                    }
-                },
-                containerColor = LIGHT_GREEN,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Done,
-                    contentDescription = "Download",
-                    tint = Color.White
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Share button
-            FloatingActionButton(
-                onClick = {
-                    statusList.getOrNull(currentIndex)?.let { status ->
-                        coroutineScope.launch {
-                            FileUtils.shareStatus(context, status.filePath)
-                        }
-                    }
-                },
-                containerColor = LIGHT_GREEN,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Share,
-                    contentDescription = "Share",
-                    tint = Color.White
-                )
-            }
-        }
-        
         // Back button
         FloatingActionButton(
             onClick = onBackPressed,
@@ -288,11 +241,63 @@ fun StatusView(
             )
         }
         
-        // Status counter
+        // Bottom action buttons in navigation bar area
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                // Download button
+                FloatingActionButton(
+                    onClick = {
+                        statusList.getOrNull(currentIndex)?.let { status ->
+                            coroutineScope.launch {
+                                FileUtils.copyFileToInternalStorage(Uri.parse(status.filePath), context)
+                            }
+                        }
+                    },
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Done,
+                        contentDescription = "Download",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                
+                // Share button
+                FloatingActionButton(
+                    onClick = {
+                        statusList.getOrNull(currentIndex)?.let { status ->
+                            coroutineScope.launch {
+                                FileUtils.shareStatus(context, status.filePath)
+                            }
+                        }
+                    },
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = "Share",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        }
+        
+        // Status counter
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 100.dp)
         ) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f)),
