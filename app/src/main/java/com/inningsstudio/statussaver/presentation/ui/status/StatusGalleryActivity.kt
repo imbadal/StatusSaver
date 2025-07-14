@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +46,26 @@ import androidx.compose.ui.graphics.toArgb
 import android.app.Activity
 import androidx.compose.ui.viewinterop.AndroidView
 import com.facebook.shimmer.ShimmerFrameLayout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.core.view.WindowCompat
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.ui.StyledPlayerView
+import com.inningsstudio.statussaver.core.constants.LIGHT_GREEN
+import androidx.viewpager2.widget.ViewPager2
+import androidx.recyclerview.widget.RecyclerView
+import android.view.ViewGroup
+import android.view.LayoutInflater
+import android.view.View
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.recyclerview.widget.RecyclerView.ViewHolder
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.rounded.Done
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -134,12 +156,167 @@ fun ShimmerCard() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun StatusView(
+    statusList: List<StatusModel>,
+    initialIndex: Int,
+    onBackPressed: () -> Unit
+) {
+    val context = LocalContext.current
+    var currentIndex by remember { mutableStateOf(initialIndex) }
+    val coroutineScope = rememberCoroutineScope()
+    val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val flingBehavior = rememberSnapFlingBehavior(lazyListState)
+
+    // Track current index when user swipes
+    LaunchedEffect(lazyListState.firstVisibleItemIndex) {
+        currentIndex = lazyListState.firstVisibleItemIndex
+    }
+
+    // Enable edge-to-edge display
+    SideEffect {
+        (context as? Activity)?.let { activity ->
+            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // Horizontal LazyRow for swipe functionality
+        LazyRow(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize(),
+            flingBehavior = flingBehavior
+        ) {
+            itemsIndexed(statusList) { index, status ->
+                Box(
+                    modifier = Modifier
+                        .fillParentMaxSize()
+                        .fillMaxSize()
+                ) {
+                    if (status.isVideo) {
+                        // Video player
+                        AndroidView(
+                            factory = { context ->
+                                StyledPlayerView(context).apply {
+                                    player = ExoPlayer.Builder(context).build().apply {
+                                        val mediaItem = MediaItem.fromUri(status.filePath)
+                                        setMediaItem(mediaItem)
+                                        prepare()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        // Image viewer
+                        AsyncImage(
+                            model = status.filePath,
+                            contentDescription = "Status image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Top action buttons
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            // Download button
+            FloatingActionButton(
+                onClick = {
+                    statusList.getOrNull(currentIndex)?.let { status ->
+                        coroutineScope.launch {
+                            FileUtils.copyFileToInternalStorage(Uri.parse(status.filePath), context)
+                        }
+                    }
+                },
+                containerColor = LIGHT_GREEN,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Done,
+                    contentDescription = "Download",
+                    tint = Color.White
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Share button
+            FloatingActionButton(
+                onClick = {
+                    statusList.getOrNull(currentIndex)?.let { status ->
+                        coroutineScope.launch {
+                            FileUtils.shareStatus(context, status.filePath)
+                        }
+                    }
+                },
+                containerColor = LIGHT_GREEN,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Share,
+                    contentDescription = "Share",
+                    tint = Color.White
+                )
+            }
+        }
+        
+        // Back button
+        FloatingActionButton(
+            onClick = onBackPressed,
+            containerColor = Color.Black.copy(alpha = 0.5f),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .size(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = Color.White
+            )
+        }
+        
+        // Status counter
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp)
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f)),
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Text(
+                    text = "${currentIndex + 1} / ${statusList.size}",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StandaloneStatusGallery(context: Context) {
     var statusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showStatusView by remember { mutableStateOf(false) }
+    var selectedStatusIndex by remember { mutableStateOf(0) }
     val coroutineScope = rememberCoroutineScope()
 
     // Simple in-memory thumbnail cache
@@ -274,177 +451,180 @@ fun StandaloneStatusGallery(context: Context) {
 
     LaunchedEffect(Unit) { loadStatuses() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Statuses", color = Color.White) },
-                actions = {
-                    if (isLoading) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = { loadStatuses() }) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = green)
-            )
-        },
-        containerColor = Color.White
-    ) { innerPadding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)) {
-            when {
-                isLoading -> {
-                    // Show shimmer grid
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        items(36) { // Show 36 shimmer items to fill entire screen height
-                            ShimmerCard()
-                        }
-                    }
-                }
-                errorMessage != null -> {
-                    Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Error", color = Color.Red, fontSize = 18.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(errorMessage ?: "Unknown error", color = Color.White, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { loadStatuses() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-                            ) {
-                                Text("Retry", color = Color.Black)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(
-                                onClick = { debugStatusDetection() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                            ) {
-                                Text("Debug", color = Color.White)
-                            }
-                        }
-                    }
-                }
-                statusList.isEmpty() -> {
-                    Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Make sure you have granted folder permission", color = Color.Gray, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { loadStatuses() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-                            ) {
-                                Text("Refresh", color = Color.Black)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(
-                                onClick = { debugStatusDetection() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                            ) {
-                                Text("Debug Detection", color = Color.White)
-                            }
-                        }
-                    }
-                }
-                else -> {
-                    Log.d("StatusGalleryActivity", "Showing status grid with ${statusList.size} statuses")
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        itemsIndexed(statusList) { _, status ->
-                            Card(
+    if (showStatusView) {
+        StatusView(
+            statusList = statusList,
+            initialIndex = selectedStatusIndex,
+            onBackPressed = { showStatusView = false }
+        )
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Statuses", color = Color.White) },
+                    actions = {
+                        if (isLoading) {
+                            Box(
                                 modifier = Modifier
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(2.dp)),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                    .size(48.dp)
+                                    .padding(12.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable {
-                                        val intent = Intent(context, StatusViewActivity::class.java).apply {
-                                            putExtra("status_path", status.filePath)
-                                            putExtra("is_video", status.fileName.lowercase().endsWith(".mp4") ||
-                                                status.fileName.lowercase().endsWith(".3gp") ||
-                                                status.fileName.lowercase().endsWith(".mkv"))
-                                        }
-                                        context.startActivity(intent)
-                                    }
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        } else {
+                            IconButton(onClick = { loadStatuses() }) {
+                                Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White)
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = green)
+                )
+            },
+            containerColor = Color.White
+        ) { innerPadding ->
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)) {
+                when {
+                    isLoading -> {
+                        // Show shimmer grid
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(36) { // Show 36 shimmer items to fill entire screen height
+                                ShimmerCard()
+                            }
+                        }
+                    }
+                    errorMessage != null -> {
+                        Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Error", color = Color.Red, fontSize = 18.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(errorMessage ?: "Unknown error", color = Color.White, fontSize = 14.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { loadStatuses() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White)
                                 ) {
-                                    if (status.isVideo) {
-                                        val thumb by produceState<Bitmap?>(null, status.filePath) {
-                                            value = thumbCache[status.filePath] ?: getVideoThumbnailIO(context, status.filePath).also {
-                                                thumbCache[status.filePath] = it
-                                            }
+                                    Text("Retry", color = Color.Black)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = { debugStatusDetection() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                                ) {
+                                    Text("Debug", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                    statusList.isEmpty() -> {
+                        Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Make sure you have granted folder permission", color = Color.Gray, fontSize = 14.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { loadStatuses() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                                ) {
+                                    Text("Refresh", color = Color.Black)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = { debugStatusDetection() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                                ) {
+                                    Text("Debug Detection", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        Log.d("StatusGalleryActivity", "Showing status grid with ${statusList.size} statuses")
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            itemsIndexed(statusList) { index, status ->
+                                Card(
+                                    modifier = Modifier
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(2.dp)),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Box(modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable {
+                                            selectedStatusIndex = index
+                                            showStatusView = true
                                         }
-                                        if (thumb != null) {
-                                            androidx.compose.foundation.Image(
-                                                bitmap = thumb!!.asImageBitmap(),
-                                                contentDescription = "Video thumbnail",
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Crop
-                                            )
-                                        } else {
+                                    ) {
+                                        if (status.isVideo) {
+                                            val thumb by produceState<Bitmap?>(null, status.filePath) {
+                                                value = thumbCache[status.filePath] ?: getVideoThumbnailIO(context, status.filePath).also {
+                                                    thumbCache[status.filePath] = it
+                                                }
+                                            }
+                                            if (thumb != null) {
+                                                androidx.compose.foundation.Image(
+                                                    bitmap = thumb!!.asImageBitmap(),
+                                                    contentDescription = "Video thumbnail",
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.PlayArrow,
+                                                        contentDescription = "Video",
+                                                        tint = Color.Black,
+                                                        modifier = Modifier.size(48.dp)
+                                                    )
+                                                }
+                                            }
+                                            // Play icon overlay
                                             Box(
-                                                modifier = Modifier.fillMaxSize(),
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.White.copy(alpha = 0.15f)),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Filled.PlayArrow,
-                                                    contentDescription = "Video",
+                                                    contentDescription = "Play",
                                                     tint = Color.Black,
-                                                    modifier = Modifier.size(48.dp)
+                                                    modifier = Modifier.size(36.dp)
                                                 )
                                             }
-                                        }
-                                        // Play icon overlay
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color.White.copy(alpha = 0.15f)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.PlayArrow,
-                                                contentDescription = "Play",
-                                                tint = Color.Black,
-                                                modifier = Modifier.size(36.dp)
+                                        } else {
+                                            AsyncImage(
+                                                model = status.filePath,
+                                                contentDescription = "Status image",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
                                             )
                                         }
-                                    } else {
-                                        AsyncImage(
-                                            model = status.filePath,
-                                            contentDescription = "Status image",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
                                     }
                                 }
                             }
