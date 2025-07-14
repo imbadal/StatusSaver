@@ -156,7 +156,7 @@ fun ShimmerCard() {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StatusView(
     statusList: List<StatusModel>,
@@ -182,135 +182,139 @@ fun StatusView(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Horizontal LazyRow for swipe functionality
-        LazyRow(
-            state = lazyListState,
-            modifier = Modifier.fillMaxSize(),
-            flingBehavior = flingBehavior
-        ) {
-            itemsIndexed(statusList) { index, status ->
-                Box(
-                    modifier = Modifier
-                        .fillParentMaxSize()
-                        .fillMaxSize()
-                ) {
-                    if (status.isVideo) {
-                        // Video player
-                        AndroidView(
-                            factory = { context ->
-                                StyledPlayerView(context).apply {
-                                    player = ExoPlayer.Builder(context).build().apply {
-                                        val mediaItem = MediaItem.fromUri(status.filePath)
-                                        setMediaItem(mediaItem)
-                                        prepare()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {},
+                navigationIcon = {
+                    IconButton(onClick = onBackPressed) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
                         )
-                    } else {
-                        // Image viewer
-                        AsyncImage(
-                            model = status.filePath,
-                            contentDescription = "Status image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black.copy(alpha = 0.7f)
+                )
+            )
+        },
+        containerColor = Color.Black
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // Horizontal LazyRow for swipe functionality
+            LazyRow(
+                state = lazyListState,
+                modifier = Modifier.fillMaxSize(),
+                flingBehavior = flingBehavior
+            ) {
+                itemsIndexed(statusList) { index, status ->
+                    Box(
+                        modifier = Modifier
+                            .fillParentMaxSize()
+                            .fillMaxSize()
+                    ) {
+                        if (status.isVideo) {
+                            // Video player
+                            AndroidView(
+                                factory = { context ->
+                                    StyledPlayerView(context).apply {
+                                        player = ExoPlayer.Builder(context).build().apply {
+                                            val mediaItem = MediaItem.fromUri(status.filePath)
+                                            setMediaItem(mediaItem)
+                                            prepare()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            // Image viewer
+                            AsyncImage(
+                                model = status.filePath,
+                                contentDescription = "Status image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Bottom action buttons in navigation bar area
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    // Download button
+                    FloatingActionButton(
+                        onClick = {
+                            statusList.getOrNull(currentIndex)?.let { status ->
+                                coroutineScope.launch {
+                                    FileUtils.copyFileToInternalStorage(Uri.parse(status.filePath), context)
+                                }
+                            }
+                        },
+                        containerColor = Color.Transparent,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Done,
+                            contentDescription = "Download",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    
+                    // Share button
+                    FloatingActionButton(
+                        onClick = {
+                            statusList.getOrNull(currentIndex)?.let { status ->
+                                coroutineScope.launch {
+                                    FileUtils.shareStatus(context, status.filePath)
+                                }
+                            }
+                        },
+                        containerColor = Color.Transparent,
+                        modifier = Modifier.size(56.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = "Share",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
             }
-        }
-        
-        // Back button
-        FloatingActionButton(
-            onClick = onBackPressed,
-            containerColor = Color.Black.copy(alpha = 0.6f),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-                .size(56.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-        
-        // Bottom action buttons in navigation bar area
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp)
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                modifier = Modifier.padding(horizontal = 16.dp)
+            
+            // Status counter
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 100.dp)
             ) {
-                // Download button
-                FloatingActionButton(
-                    onClick = {
-                        statusList.getOrNull(currentIndex)?.let { status ->
-                            coroutineScope.launch {
-                                FileUtils.copyFileToInternalStorage(Uri.parse(status.filePath), context)
-                            }
-                        }
-                    },
-                    containerColor = Color.Transparent,
-                    modifier = Modifier.size(56.dp)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f)),
+                    modifier = Modifier.padding(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Done,
-                        contentDescription = "Download",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                    Text(
+                        text = "${currentIndex + 1} / ${statusList.size}",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
-                
-                // Share button
-                FloatingActionButton(
-                    onClick = {
-                        statusList.getOrNull(currentIndex)?.let { status ->
-                            coroutineScope.launch {
-                                FileUtils.shareStatus(context, status.filePath)
-                            }
-                        }
-                    },
-                    containerColor = Color.Transparent,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Share,
-                        contentDescription = "Share",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-        }
-        
-        // Status counter
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 100.dp)
-        ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f)),
-                modifier = Modifier.padding(8.dp)
-            ) {
-                Text(
-                    text = "${currentIndex + 1} / ${statusList.size}",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
             }
         }
     }
