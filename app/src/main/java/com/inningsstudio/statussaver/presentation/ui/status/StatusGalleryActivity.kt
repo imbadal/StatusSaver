@@ -39,6 +39,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.net.Uri
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.toArgb
+import android.app.Activity
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -221,6 +224,13 @@ fun StandaloneStatusGallery(context: Context) {
         }
     }
 
+    val green = Color(0xFF25D366)
+
+    // Set status bar color
+    SideEffect {
+        (context as? Activity)?.window?.statusBarColor = green.toArgb()
+    }
+
     LaunchedEffect(Unit) { loadStatuses() }
 
     Scaffold(
@@ -232,10 +242,10 @@ fun StandaloneStatusGallery(context: Context) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF101010))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = green)
             )
         },
-        containerColor = Color.Black
+        containerColor = Color.White
     ) { innerPadding ->
         Box(modifier = Modifier
             .fillMaxSize()
@@ -312,8 +322,8 @@ fun StandaloneStatusGallery(context: Context) {
                             Card(
                                 modifier = Modifier
                                     .aspectRatio(1f)
-                                    .clip(MaterialTheme.shapes.medium),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF181818)),
+                                    .clip(RoundedCornerShape(6.dp)),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Box(modifier = Modifier
@@ -349,7 +359,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 Icon(
                                                     imageVector = Icons.Filled.PlayArrow,
                                                     contentDescription = "Video",
-                                                    tint = Color.White,
+                                                    tint = Color.Black,
                                                     modifier = Modifier.size(48.dp)
                                                 )
                                             }
@@ -358,13 +368,13 @@ fun StandaloneStatusGallery(context: Context) {
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .background(Color.Black.copy(alpha = 0.15f)),
+                                                .background(Color.White.copy(alpha = 0.15f)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Filled.PlayArrow,
                                                 contentDescription = "Play",
-                                                tint = Color.White,
+                                                tint = Color.Black,
                                                 modifier = Modifier.size(36.dp)
                                             )
                                         }
