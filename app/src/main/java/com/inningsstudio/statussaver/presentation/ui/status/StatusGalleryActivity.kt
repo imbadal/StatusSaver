@@ -68,6 +68,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.rounded.Done
 import androidx.compose.runtime.DisposableEffect
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -296,8 +297,9 @@ fun StatusView(
                         .fillMaxSize()
                 ) {
                     if (status.isVideo) {
-                        // Video player with playback control based on current page
+                        // Video player with tap-to-show-controls and play/pause
                         var player by remember { mutableStateOf<ExoPlayer?>(null) }
+                        var showControls by remember { mutableStateOf(true) }
                         
                         DisposableEffect(key1 = index) {
                             val newPlayer = ExoPlayer.Builder(context).build().apply {
@@ -328,15 +330,30 @@ fun StatusView(
                             }
                         }
                         
-                        AndroidView(
-                            factory = { context ->
-                                StyledPlayerView(context)
-                            },
-                            update = { playerView ->
-                                playerView.player = player
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }
+                                ) {
+                                    // On tap: only show/hide controls, do not play/pause
+                                    showControls = !showControls
+                                }
+                        ) {
+                            AndroidView(
+                                factory = { context ->
+                                    StyledPlayerView(context).apply {
+                                        useController = showControls
+                                    }
+                                },
+                                update = { playerView ->
+                                    playerView.player = player
+                                    playerView.useController = showControls
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     } else {
                         // Image viewer
                         AsyncImage(
