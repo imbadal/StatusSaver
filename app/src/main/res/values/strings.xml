@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Status Saver</string>
+    <string name="app_name">StatusWp</string>
     <string name="screen_title_home">Home</string>
     <string name="screen_title_settings">Settings</string>
     <string name="title_activity_status_view">StatusViewActivity</string>
