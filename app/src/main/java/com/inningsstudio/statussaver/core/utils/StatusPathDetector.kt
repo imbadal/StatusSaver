@@ -35,7 +35,7 @@ class StatusPathDetector {
             val files = file1.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("Whatsapp")
+            availableWhatsAppTypes.add("Whatsapp")
                 Log.d(TAG, "✅ FOUND: Android/media/com.whatsapp/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file1, files)
             } else {
@@ -57,7 +57,7 @@ class StatusPathDetector {
             val files = file2.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("WhatsApp")
+            availableWhatsAppTypes.add("WhatsApp")
                 Log.d(TAG, "✅ FOUND: WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file2, files)
             } else {
@@ -101,7 +101,7 @@ class StatusPathDetector {
             val files = file4.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("WA Business")
+            availableWhatsAppTypes.add("WA Business")
                 Log.d(TAG, "✅ FOUND: WhatsApp Business/Media/.Statuses/")
                 logFirstFewFiles(file4, files)
             } else {
@@ -123,7 +123,7 @@ class StatusPathDetector {
             val files = file5.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("Parellel Lite")
+            availableWhatsAppTypes.add("Parellel Lite")
                 Log.d(TAG, "✅ FOUND: parallel_lite/0/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file5, files)
             } else {
@@ -145,7 +145,7 @@ class StatusPathDetector {
             val files = file6.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("Parellel lite")
+            availableWhatsAppTypes.add("Parellel lite")
                 Log.d(TAG, "✅ FOUND: parallel_intl/0/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file6, files)
             } else {
@@ -167,7 +167,7 @@ class StatusPathDetector {
             val files = file7.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("GB WhatsApp")
+            availableWhatsAppTypes.add("GB WhatsApp")
                 Log.d(TAG, "✅ FOUND: GBWhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file7, files)
             } else {
@@ -189,7 +189,7 @@ class StatusPathDetector {
             val files = file8.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("Dual Whatsapp")
+            availableWhatsAppTypes.add("Dual Whatsapp")
                 Log.d(TAG, "✅ FOUND: DualApp/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file8, files)
             } else {
@@ -211,7 +211,7 @@ class StatusPathDetector {
             val files = file9.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("Dual WhatsApp")
+            availableWhatsAppTypes.add("Dual WhatsApp")
                 Log.d(TAG, "✅ FOUND: /storage/emulated/999/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file9, files)
             } else {
@@ -233,7 +233,7 @@ class StatusPathDetector {
             val files = file10.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("Dual whatsApp")
+            availableWhatsAppTypes.add("Dual whatsApp")
                 Log.d(TAG, "✅ FOUND: /storage/ace-999/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file10, files)
             } else {
@@ -255,7 +255,7 @@ class StatusPathDetector {
             val files = file11.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("Dual whatsapp")
+            availableWhatsAppTypes.add("Dual whatsapp")
                 Log.d(TAG, "✅ FOUND: /storage/ace-999/Android/media/com.whatsapp/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file11, files)
             } else {
@@ -277,7 +277,7 @@ class StatusPathDetector {
             val files = file12.list()
             Log.d(TAG, "  - Files count: ${files?.size ?: 0}")
             if (files != null && files.isNotEmpty()) {
-                availableWhatsAppTypes.add("DuaL Whatsapp")
+            availableWhatsAppTypes.add("DuaL Whatsapp")
                 Log.d(TAG, "✅ FOUND: DualApp/Android/media/com.whatsapp/WhatsApp/Media/.Statuses/")
                 logFirstFewFiles(file12, files)
             } else {

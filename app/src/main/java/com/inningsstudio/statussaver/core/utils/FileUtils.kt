@@ -306,41 +306,41 @@ object FileUtils {
         if (!usedSAF) {
             // Fallback to legacy DCIM path
             Log.d(TAG, "Falling back to legacy DCIM path: $SAVED_DIRECTORY")
-            val file = File(SAVED_DIRECTORY)
-            file.listFiles()?.forEach { it ->
-                val path = it.path
-                if (isValidFile(path)) {
-                    if (isVideo(path)) {
-                        try {
-                            val mediaMetadataRetriever = MediaMetadataRetriever()
+        val file = File(SAVED_DIRECTORY)
+        file.listFiles()?.forEach { it ->
+            val path = it.path
+            if (isValidFile(path)) {
+                if (isVideo(path)) {
+                    try {
+                        val mediaMetadataRetriever = MediaMetadataRetriever()
                             mediaMetadataRetriever.setDataSource(path)
                             val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
-                            mediaMetadataRetriever.release()
-                            savedFiles.add(StatusModel(
-                                id = path.hashCode().toLong(),
-                                filePath = path,
-                                fileName = it.name,
-                                fileSize = it.length(),
-                                lastModified = it.lastModified(),
-                                isVideo = true,
-                                thumbnail = thumbnail
-                            ))
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error processing saved video: $path", e)
-                        }
-                    } else {
-                        val imageRequest = ImageRequest.Builder(context).data(path).build()
+                        mediaMetadataRetriever.release()
                         savedFiles.add(StatusModel(
                             id = path.hashCode().toLong(),
                             filePath = path,
                             fileName = it.name,
                             fileSize = it.length(),
                             lastModified = it.lastModified(),
-                            imageRequest = imageRequest
+                            isVideo = true,
+                            thumbnail = thumbnail
                         ))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing saved video: $path", e)
                     }
+                } else {
+                    val imageRequest = ImageRequest.Builder(context).data(path).build()
+                    savedFiles.add(StatusModel(
+                        id = path.hashCode().toLong(),
+                        filePath = path,
+                        fileName = it.name,
+                        fileSize = it.length(),
+                        lastModified = it.lastModified(),
+                        imageRequest = imageRequest
+                    ))
                 }
             }
+        }
         }
         savedStatusList.clear()
         savedStatusList.addAll(savedFiles)
@@ -497,7 +497,7 @@ object FileUtils {
     private fun shareVideo(title: String? = "", path: String, context: Context) {
         val isContentUri = path.startsWith("content://")
         val shareIntent = Intent(Intent.ACTION_SEND)
-        shareIntent.type = "video/*"
+            shareIntent.type = "video/*"
         shareIntent.putExtra(Intent.EXTRA_SUBJECT, title)
         shareIntent.putExtra(Intent.EXTRA_TITLE, title)
         val uri: Uri = if (isContentUri) {

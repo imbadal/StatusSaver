@@ -51,6 +51,11 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.rememberPagerState
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -237,12 +242,14 @@ fun StandaloneStatusGallery(context: Context) {
         }
     }
 
-    val green = Color(0xFF25D366)
+    val primaryGreen = Color(0xFF25D366)
+    val darkGreen = Color(0xFF128C7E)
+    val lightGreen = Color(0xFF4CAF50)
     val systemUiController = rememberSystemUiController()
 
     // Set status bar color for gallery
     SideEffect {
-        systemUiController.setStatusBarColor(green, darkIcons = false)
+        systemUiController.setStatusBarColor(primaryGreen, darkIcons = false)
     }
 
     LaunchedEffect(Unit) {
@@ -272,57 +279,116 @@ fun StandaloneStatusGallery(context: Context) {
             topBar = {
                 Column {
                     Spacer(modifier = Modifier.statusBarsPadding())
-                    CustomToolbar(
-                        isStatusView = showStatusView,
-                        title = "StatusWp",
-                        currentIndex = selectedStatusIndex,
-                        totalCount = if (currentTab == 0) statusList.size else savedStatusList.size,
-                        isLoading = if (currentTab == 0) isLoading else isLoadingSaved,
-                        onBackPressed = { showStatusView = false },
-                        onRefresh = { if (currentTab == 0) loadStatuses() else loadSavedStatuses() }
-                    )
-                    // Top navigation tabs
-                    TabRow(
-                        selectedTabIndex = currentTab,
-                        containerColor = green,
-                        contentColor = Color.White,
-                        modifier = Modifier.height(40.dp),
-                        indicator = { tabPositions ->
-                            TabRowDefaults.Indicator(
-                                modifier = Modifier.tabIndicatorOffset(tabPositions[currentTab]),
-                                height = 3.dp,
-                                color = Color.White
+                    // Modern gradient toolbar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(primaryGreen, darkGreen)
+                                )
                             )
-                        }
                     ) {
-                        Tab(
-                            selected = currentTab == 0,
-                            onClick = { currentTab = 0 },
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            text = {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "StatusWp",
+                                color = Color.White,
+                                style = TextStyle(fontSize = 18.sp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            
+                            Spacer(modifier = Modifier.weight(1f))
+                            
+                            if (isLoading) {
+                                Box(
+                                    modifier = Modifier.size(36.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = { if (currentTab == 0) loadStatuses() else loadSavedStatuses() },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = "Refresh",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Simplified tab design
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            // Statuses Tab
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (currentTab == 0) primaryGreen else Color(0xFFF5F5F5)
+                                    )
+                                    .clickable { currentTab = 0 },
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text(
-                                    "Statuses",
-                                    fontSize = 14.sp,
-                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Normal
+                                    text = "Statuses",
+                                    color = if (currentTab == 0) Color.White else Color.Gray,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
-                        )
-                        Tab(
-                            selected = currentTab == 1,
-                            onClick = { currentTab = 1 },
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            text = {
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            // Saved Tab
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (currentTab == 1) primaryGreen else Color(0xFFF5F5F5)
+                                    )
+                                    .clickable { currentTab = 1 },
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text(
-                                    "Saved",
-                                    fontSize = 14.sp,
-                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Normal
+                                    text = "Saved",
+                                    color = if (currentTab == 1) Color.White else Color.Gray,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
-                        )
+                        }
                     }
                 }
             },
-            containerColor = Color.White
+            containerColor = Color(0xFFF8F9FA)
         ) { innerPadding ->
             Box(
                 modifier = Modifier
@@ -342,9 +408,9 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(4.dp),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        contentPadding = PaddingValues(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         items(36) { // Show 36 shimmer items to fill entire screen height
                                             ShimmerCard()
@@ -358,27 +424,44 @@ fun StandaloneStatusGallery(context: Context) {
                                         modifier = Modifier.fillMaxSize(),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("Error", color = Color.Red, fontSize = 18.sp)
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Refresh,
+                                                contentDescription = "Error",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                "Something went wrong",
+                                                color = Color.Black,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Text(
                                                 errorMessage ?: "Unknown error",
-                                                color = Color.White,
-                                                fontSize = 14.sp
+                                                color = Color.Gray,
+                                                fontSize = 14.sp,
+                                                textAlign = TextAlign.Center
                                             )
-                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Spacer(modifier = Modifier.height(24.dp))
                                             Button(
                                                 onClick = { loadStatuses() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                modifier = Modifier.height(48.dp)
                                             ) {
-                                                Text("Retry", color = Color.Black)
+                                                Text("Try Again", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Button(
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            OutlinedButton(
                                                 onClick = { debugStatusDetection() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                                                modifier = Modifier.height(40.dp)
                                             ) {
-                                                Text("Debug", color = Color.White)
+                                                Text("Debug", color = primaryGreen)
                                             }
                                         }
                                     }
@@ -390,27 +473,44 @@ fun StandaloneStatusGallery(context: Context) {
                                         modifier = Modifier.fillMaxSize(),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                "Make sure you have granted folder permission",
-                                                color = Color.Gray,
-                                                fontSize = 14.sp
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Home,
+                                                contentDescription = "No Statuses",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(64.dp)
                                             )
                                             Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                "No Statuses Found",
+                                                color = Color.Black,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                "Make sure you have granted folder permission and have WhatsApp statuses",
+                                                color = Color.Gray,
+                                                fontSize = 14.sp,
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Spacer(modifier = Modifier.height(24.dp))
                                             Button(
                                                 onClick = { loadStatuses() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                modifier = Modifier.height(48.dp)
                                             ) {
-                                                Text("Refresh", color = Color.Black)
+                                                Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Button(
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            OutlinedButton(
                                                 onClick = { debugStatusDetection() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                                                modifier = Modifier.height(40.dp)
                                             ) {
-                                                Text("Debug Detection", color = Color.White)
+                                                Text("Debug Detection", color = primaryGreen)
                                             }
                                         }
                                     }
@@ -424,86 +524,21 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(4.dp),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        contentPadding = PaddingValues(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         itemsIndexed(statusList) { index, status ->
-                                            Card(
-                                                modifier = Modifier
-                                                    .aspectRatio(1f)
-                                                    .clip(RoundedCornerShape(2.dp)),
-                                                colors = CardDefaults.cardColors(
-                                                    containerColor = Color(
-                                                        0xFFF5F5F5
-                                                    )
-                                                ),
-                                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                                            ) {
-                                                Box(modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .clickable {
-                                                        selectedStatusIndex = index
-                                                        showStatusView = true
-                                                    }
-                                                ) {
-                                                    if (status.isVideo) {
-                                                        val thumb by produceState<Bitmap?>(
-                                                            null,
-                                                            status.filePath
-                                                        ) {
-                                                            value = thumbCache[status.filePath]
-                                                                ?: getVideoThumbnailIO(
-                                                                    context,
-                                                                    status.filePath
-                                                                ).also {
-                                                                    thumbCache[status.filePath] = it
-                                                                }
-                                                        }
-                                                        if (thumb != null) {
-                                                            androidx.compose.foundation.Image(
-                                                                bitmap = thumb!!.asImageBitmap(),
-                                                                contentDescription = "Video thumbnail",
-                                                                modifier = Modifier.fillMaxSize(),
-                                                                contentScale = ContentScale.Crop
-                                                            )
-                                                        } else {
-                                                            Box(
-                                                                modifier = Modifier.fillMaxSize(),
-                                                                contentAlignment = Alignment.Center
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = Icons.Filled.PlayArrow,
-                                                                    contentDescription = "Video",
-                                                                    tint = Color.Black,
-                                                                    modifier = Modifier.size(48.dp)
-                                                                )
-                                                            }
-                                                        }
-                                                        // Play icon overlay
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .background(Color.White.copy(alpha = 0.15f)),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Filled.PlayArrow,
-                                                                contentDescription = "Play",
-                                                                tint = Color.Black,
-                                                                modifier = Modifier.size(36.dp)
-                                                            )
-                                                        }
-                                                    } else {
-                                                        AsyncImage(
-                                                            model = status.filePath,
-                                                            contentDescription = "Status image",
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                    }
+                                            ModernStatusCard(
+                                                status = status,
+                                                context = context,
+                                                thumbCache = thumbCache,
+                                                getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                onClick = {
+                                                    selectedStatusIndex = index
+                                                    showStatusView = true
                                                 }
-                                            }
+                                            )
                                         }
                                     }
                                 }
@@ -516,9 +551,9 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(4.dp),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        contentPadding = PaddingValues(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         items(36) { // Show 36 shimmer items to fill entire screen height
                                             ShimmerCard()
@@ -532,20 +567,37 @@ fun StandaloneStatusGallery(context: Context) {
                                         modifier = Modifier.fillMaxSize(),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("No Saved Statuses", color = Color.White, fontSize = 18.sp)
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Favorite,
+                                                contentDescription = "No Saved Statuses",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                "No Saved Statuses",
+                                                color = Color.Black,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Text(
                                                 "Save some statuses to see them here",
                                                 color = Color.Gray,
-                                                fontSize = 14.sp
+                                                fontSize = 14.sp,
+                                                textAlign = TextAlign.Center
                                             )
-                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Spacer(modifier = Modifier.height(24.dp))
                                             Button(
                                                 onClick = { loadSavedStatuses() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                modifier = Modifier.height(48.dp)
                                             ) {
-                                                Text("Refresh", color = Color.Black)
+                                                Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
                                         }
                                     }
@@ -559,86 +611,21 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(4.dp),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        contentPadding = PaddingValues(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         itemsIndexed(savedStatusList) { index, status ->
-                                            Card(
-                                                modifier = Modifier
-                                                    .aspectRatio(1f)
-                                                    .clip(RoundedCornerShape(2.dp)),
-                                                colors = CardDefaults.cardColors(
-                                                    containerColor = Color(
-                                                        0xFFF5F5F5
-                                                    )
-                                                ),
-                                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                                            ) {
-                                                Box(modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .clickable {
-                                                        selectedStatusIndex = index
-                                                        showStatusView = true
-                                                    }
-                                                ) {
-                                                    if (status.isVideo) {
-                                                        val thumb by produceState<Bitmap?>(
-                                                            null,
-                                                            status.filePath
-                                                        ) {
-                                                            value = thumbCache[status.filePath]
-                                                                ?: getVideoThumbnailIO(
-                                                                    context,
-                                                                    status.filePath
-                                                                ).also {
-                                                                    thumbCache[status.filePath] = it
-                                                                }
-                                                        }
-                                                        if (thumb != null) {
-                                                            androidx.compose.foundation.Image(
-                                                                bitmap = thumb!!.asImageBitmap(),
-                                                                contentDescription = "Video thumbnail",
-                                                                modifier = Modifier.fillMaxSize(),
-                                                                contentScale = ContentScale.Crop
-                                                            )
-                                                        } else {
-                                                            Box(
-                                                                modifier = Modifier.fillMaxSize(),
-                                                                contentAlignment = Alignment.Center
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = Icons.Filled.PlayArrow,
-                                                                    contentDescription = "Video",
-                                                                    tint = Color.Black,
-                                                                    modifier = Modifier.size(48.dp)
-                                                                )
-                                                            }
-                                                        }
-                                                        // Play icon overlay
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .background(Color.White.copy(alpha = 0.15f)),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Filled.PlayArrow,
-                                                                contentDescription = "Play",
-                                                                tint = Color.Black,
-                                                                modifier = Modifier.size(36.dp)
-                                                            )
-                                                        }
-                                                    } else {
-                                                        AsyncImage(
-                                                            model = status.filePath,
-                                                            contentDescription = "Status image",
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                    }
+                                            ModernStatusCard(
+                                                status = status,
+                                                context = context,
+                                                thumbCache = thumbCache,
+                                                getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                onClick = {
+                                                    selectedStatusIndex = index
+                                                    showStatusView = true
                                                 }
-                                            }
+                                            )
                                         }
                                     }
                                 }
@@ -646,6 +633,87 @@ fun StandaloneStatusGallery(context: Context) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ModernStatusCard(
+    status: StatusModel,
+    context: Context,
+    thumbCache: MutableMap<String, Bitmap?>,
+    getVideoThumbnailIO: suspend (Context, String) -> Bitmap?,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .shadow(4.dp, RoundedCornerShape(12.dp))
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (status.isVideo) {
+                val thumb by produceState<Bitmap?>(
+                    null,
+                    status.filePath
+                ) {
+                    value = thumbCache[status.filePath]
+                        ?: getVideoThumbnailIO(context, status.filePath).also {
+                            thumbCache[status.filePath] = it
+                        }
+                }
+                if (thumb != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = thumb!!.asImageBitmap(),
+                        contentDescription = "Video thumbnail",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Video",
+                            tint = Color.Gray,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+                // Play icon overlay with better styling
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            } else {
+                AsyncImage(
+                    model = status.filePath,
+                    contentDescription = "Status image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
             }
         }
     }
@@ -661,13 +729,18 @@ fun CustomToolbar(
     onBackPressed: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    val green = Color(0xFF25D366)
+    val primaryGreen = Color(0xFF25D366)
+    val darkGreen = Color(0xFF128C7E)
     
-    Surface(
-        color = green,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(64.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(primaryGreen, darkGreen)
+                )
+            )
     ) {
         Row(
             modifier = Modifier
@@ -702,10 +775,11 @@ fun CustomToolbar(
                 Text(
                     text = title,
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
+                
+                Spacer(modifier = Modifier.weight(1f))
                 
                 if (isLoading) {
                     Box(

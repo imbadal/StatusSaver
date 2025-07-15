@@ -56,11 +56,11 @@ class MainViewModel(
             }
             
             Log.d("MainViewModel", "✅ PERMISSIONS GRANTED - Proceeding with status detection")
-            
+                
             // Step 2: Check for SAF URI from onboarding
-            val safUri = preferenceUtils.getUriFromPreference()
-            Log.d("MainViewModel", "SAF URI from preferences: $safUri")
-            
+                val safUri = preferenceUtils.getUriFromPreference()
+                Log.d("MainViewModel", "SAF URI from preferences: $safUri")
+                
             // Step 3: Detect all possible WhatsApp status paths
             val allPossiblePaths = statusPathDetector.getAllPossibleStatusPaths()
             Log.d("MainViewModel", "All possible WhatsApp status paths:")
@@ -109,7 +109,7 @@ class MainViewModel(
     private fun checkHiddenFilesInFolder(folder: File) {
         Log.d("MainViewModel", "=== CHECKING HIDDEN FILES IN FOLDER ===")
         Log.d("MainViewModel", "Folder: ${folder.absolutePath}")
-        
+                    
         try {
             // List all files including hidden ones
             val allFiles = folder.listFiles { file ->
@@ -118,7 +118,7 @@ class MainViewModel(
             }
             
             Log.d("MainViewModel", "Total files found (including hidden): ${allFiles?.size ?: 0}")
-            
+                    
             if (allFiles != null) {
                 allFiles.forEach { file ->
                     Log.d("MainViewModel", "  File: ${file.name}")
@@ -141,8 +141,8 @@ class MainViewModel(
                 Log.d("MainViewModel", "  - Hidden files: ${hiddenFiles.size}")
             } else {
                 Log.w("MainViewModel", "❌ Could not list files in folder")
-            }
-        } catch (e: Exception) {
+                }
+            } catch (e: Exception) {
             Log.e("MainViewModel", "❌ Error checking files in folder", e)
         }
     }
@@ -192,19 +192,19 @@ class MainViewModel(
                 Log.d("MainViewModel", "  - Size: ${file.length()}")
                 Log.d("MainViewModel", "  - Extension: ${getFileExtension(file.name)}")
                 
-                if (isValidStatusFile(file)) {
+                    if (isValidStatusFile(file)) {
                     Log.d("MainViewModel", "✅ Valid status file: ${file.name}")
-                    val statusModel = StatusModel(
-                        id = file.absolutePath.hashCode().toLong(),
-                        filePath = file.absolutePath,
-                        fileName = file.name,
-                        fileSize = file.length(),
-                        lastModified = file.lastModified(),
-                        isSelected = false,
-                        isVideo = isVideoFile(file)
-                    )
-                    statuses.add(statusModel)
-                } else {
+                        val statusModel = StatusModel(
+                            id = file.absolutePath.hashCode().toLong(),
+                            filePath = file.absolutePath,
+                            fileName = file.name,
+                            fileSize = file.length(),
+                            lastModified = file.lastModified(),
+                            isSelected = false,
+                            isVideo = isVideoFile(file)
+                        )
+                        statuses.add(statusModel)
+                    } else {
                     Log.d("MainViewModel", "❌ Not a valid status file: ${file.name}")
                 }
             }
