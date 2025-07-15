@@ -31,7 +31,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.google.android.exoplayer2.ExoPlayer
@@ -47,6 +46,7 @@ import android.net.Uri
 import android.widget.Toast
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +70,9 @@ fun StatusView(
 
     // State for permission dialog
     var showPermissionDialog by remember { mutableStateOf(false) }
+
+    // System UI controller for professional status/nav bar handling
+    val systemUiController = rememberSystemUiController()
 
     // Folder picker launcher
     val folderPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -144,11 +147,18 @@ fun StatusView(
         }
     }
 
-    // Enable edge-to-edge display and set black status bar
+    // Set system UI for full-screen status view
     SideEffect {
-        (context as? Activity)?.let { activity ->
-            WindowCompat.setDecorFitsSystemWindows(activity.window, false)
-            activity.window.statusBarColor = Color.Black.toArgb()
+        systemUiController.setStatusBarColor(Color.Black, darkIcons = false)
+        systemUiController.setNavigationBarColor(Color.Black, darkIcons = false)
+        systemUiController.isSystemBarsVisible = false
+    }
+
+    // Restore system bars when exiting StatusView
+    DisposableEffect(Unit) {
+        onDispose {
+            // Restore system bars when leaving StatusView
+            systemUiController.isSystemBarsVisible = true
         }
     }
 

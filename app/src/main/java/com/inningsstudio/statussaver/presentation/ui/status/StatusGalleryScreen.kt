@@ -44,6 +44,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import android.app.Activity
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -217,10 +222,11 @@ fun StandaloneStatusGallery(context: Context) {
     }
 
     val green = Color(0xFF25D366)
+    val systemUiController = rememberSystemUiController()
 
-    // Set status bar color
+    // Set status bar color for gallery
     SideEffect {
-        (context as? Activity)?.window?.statusBarColor = green.toArgb()
+        systemUiController.setStatusBarColor(green, darkIcons = false)
     }
 
     LaunchedEffect(Unit) {
@@ -248,77 +254,41 @@ fun StandaloneStatusGallery(context: Context) {
     } else {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text("StatusWp", color = Color.White) },
-                    actions = {
-                        if (if (currentTab == 0) isLoading else isLoadingSaved) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .padding(12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        } else {
-                            IconButton(onClick = {
-                                if (currentTab == 0) loadStatuses() else loadSavedStatuses()
-                            }) {
-                                Icon(
-                                    Icons.Filled.Refresh,
-                                    contentDescription = "Refresh",
-                                    tint = Color.White
-                                )
-                            }
+                Column {
+                    Spacer(modifier = Modifier.statusBarsPadding())
+                    CustomToolbar(
+                        isStatusView = showStatusView,
+                        title = "StatusWp",
+                        currentIndex = selectedStatusIndex,
+                        totalCount = if (currentTab == 0) statusList.size else savedStatusList.size,
+                        isLoading = if (currentTab == 0) isLoading else isLoadingSaved,
+                        onBackPressed = { showStatusView = false },
+                        onRefresh = { if (currentTab == 0) loadStatuses() else loadSavedStatuses() }
+                    )
+                    // Top navigation tabs
+                    TabRow(
+                        selectedTabIndex = currentTab,
+                        containerColor = green,
+                        contentColor = Color.White,
+                        modifier = Modifier.height(40.dp),
+                        indicator = { tabPositions ->
+                            TabRowDefaults.Indicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[currentTab]),
+                                height = 2.dp,
+                                color = Color.White
+                            )
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = green)
-                )
-            },
-            bottomBar = {
-                // Custom compact bottom navigation bar
-                Surface(
-                    color = green,
-                    shadowElevation = 8.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val items = listOf(
-                            Pair("Statuses", Icons.Filled.Home),
-                            Pair("Saved", Icons.Filled.Favorite)
+                        Tab(
+                            selected = currentTab == 0,
+                            onClick = { currentTab = 0 },
+                            text = { Text("Statuses", fontSize = 14.sp) }
                         )
-                        items.forEachIndexed { index, item ->
-                            val selected = currentTab == index
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { currentTab = index }
-                                    .padding(vertical = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    item.second,
-                                    contentDescription = item.first,
-                                    tint = if (selected) Color.White else Color.White.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Text(
-                                    item.first,
-                                    color = if (selected) Color.White else Color.White.copy(alpha = 0.7f),
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
+                        Tab(
+                            selected = currentTab == 1,
+                            onClick = { currentTab = 1 },
+                            text = { Text("Saved", fontSize = 14.sp) }
+                        )
                     }
                 }
             },
@@ -638,6 +608,91 @@ fun StandaloneStatusGallery(context: Context) {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomToolbar(
+    isStatusView: Boolean,
+    title: String,
+    currentIndex: Int,
+    totalCount: Int,
+    isLoading: Boolean,
+    onBackPressed: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    val green = Color(0xFF25D366)
+    
+    Surface(
+        color = green,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isStatusView) {
+                // Status View Toolbar: Back + Counter
+                IconButton(
+                    onClick = onBackPressed,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                Text(
+                    text = "${currentIndex + 1} / $totalCount",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            } else {
+                // Gallery Toolbar: Title + Refresh
+                Text(
+                    text = title,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.size(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = onRefresh,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Refresh",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
