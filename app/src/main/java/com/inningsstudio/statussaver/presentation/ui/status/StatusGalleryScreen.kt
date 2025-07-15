@@ -77,7 +77,6 @@ fun StandaloneStatusGallery(context: Context) {
     var showStatusView by remember { mutableStateOf(false) }
     var selectedStatusIndex by remember { mutableStateOf(0) }
     var currentTab by remember { mutableStateOf(0) } // 0 = Statuses, 1 = Saved
-    var savedStatusesRefreshTrigger by remember { mutableStateOf(0) } // Trigger for refreshing saved statuses
     var lastSavedStatusesHash by remember { mutableStateOf(0) } // Hash to detect changes
     var savedStatusesLoaded by remember { mutableStateOf(false) } // Track if saved statuses have been loaded
     var showDeleteConfirmation by remember { mutableStateOf(false) } // Show delete confirmation dialog
@@ -114,6 +113,7 @@ fun StandaloneStatusGallery(context: Context) {
             try {
                 // Use the new database-based function instead of file system
                 val savedStatuses = FileUtils.getSavedStatusesFromDatabase(context)
+                    .sortedByDescending { it.lastModified } // Sort by date, latest first
                 val savedStatusesWithFavs = FileUtils.getSavedStatusesWithFavorites(context)
                 Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses from database")
                 
@@ -252,6 +252,7 @@ fun StandaloneStatusGallery(context: Context) {
                 }
 
                 statusList = statuses.filter { it.filePath.isNotEmpty() }
+                    .sortedByDescending { it.lastModified } // Sort by date, latest first
                 Log.d("StatusGalleryActivity", "Filtered to ${statusList.size} valid statuses")
 
                 // Log details about found statuses
@@ -701,8 +702,9 @@ fun StandaloneStatusGallery(context: Context) {
                                     
                                     // Organize saved statuses into favorites and others
                                     val favoriteStatuses = savedStatusesWithFavorites.filter { it.isFavorite }
+                                        .sortedByDescending { it.favoriteMarkedDate ?: it.savedDate } // Sort by favorite marked time, fallback to saved time
                                     val otherStatuses = savedStatusesWithFavorites.filter { !it.isFavorite }
-                                        .sortedByDescending { it.savedDate }
+                                        .sortedByDescending { it.savedDate } // Sort by saved time
                                     
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(2),

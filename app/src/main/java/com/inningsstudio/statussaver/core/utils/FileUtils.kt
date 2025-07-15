@@ -374,8 +374,10 @@ object FileUtils {
 
             val currentStatus = savedStatusDao.getSavedStatusByUri(statusUri)
             if (currentStatus != null) {
-                savedStatusDao.updateFavoriteStatus(statusUri, !currentStatus.isFavorite)
-                Log.d(TAG, "Toggled favorite status for: $statusUri")
+                val newFavoriteStatus = !currentStatus.isFavorite
+                val favoriteMarkedDate = if (newFavoriteStatus) System.currentTimeMillis() else null
+                savedStatusDao.updateFavoriteStatus(statusUri, newFavoriteStatus, favoriteMarkedDate)
+                Log.d(TAG, "Toggled favorite status for: $statusUri (favorite: $newFavoriteStatus, marked at: $favoriteMarkedDate)")
                 true
             } else {
                 Log.w(TAG, "Status not found in database: $statusUri")
@@ -390,7 +392,7 @@ object FileUtils {
     /**
      * Save status to database when it's saved to folder
      */
-    suspend fun saveStatusToDatabase(context: Context, statusUri: String, fileName: String, fileSize: Long, isVideo: Boolean): Boolean = withContext(Dispatchers.IO) {
+    suspend fun saveStatusToDatabase(context: Context, statusUri: String, fileName: String, fileSize: Long, isVideo: Boolean, originalLastModified: Long = 0L): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
             val database = AppDatabase.getDatabase(context)
             val savedStatusDao = database.savedStatusDao()
@@ -400,12 +402,13 @@ object FileUtils {
                 fileName = fileName,
                 isFavorite = false,
                 savedDate = System.currentTimeMillis(),
+                originalLastModified = originalLastModified,
                 fileSize = fileSize,
                 isVideo = isVideo
             )
 
             savedStatusDao.insertSavedStatus(savedStatus)
-            Log.d(TAG, "Saved status to database: $statusUri")
+            Log.d(TAG, "Saved status to database: $statusUri (originalLastModified: $originalLastModified)")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error saving status to database: $statusUri", e)
@@ -665,7 +668,7 @@ object FileUtils {
         context.startActivity(Intent.createChooser(share, "Share with"))
     }
 
-    suspend fun saveStatusToFolder(context: Context, folderUri: Uri, filePath: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun saveStatusToFolder(context: Context, folderUri: Uri, filePath: String, originalLastModified: Long = 0L): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
             Log.d(TAG, "=== STARTING SAVE OPERATION ===")
             Log.d(TAG, "Source file: $filePath")
@@ -753,7 +756,7 @@ object FileUtils {
 
                 // Save to database after successful file save
                 val isVideo = mimeType.startsWith("video/")
-                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), fileName, fileSize, isVideo)
+                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), fileName, fileSize, isVideo, originalLastModified)
                 Log.d(TAG, "Saved to database: $savedToDb")
 
                 Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
@@ -834,7 +837,7 @@ object FileUtils {
 
                 // Save to database after successful file save
                 val isVideo = mimeType.startsWith("video/")
-                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), sourceFile.name, sourceFile.length(), isVideo)
+                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), sourceFile.name, sourceFile.length(), isVideo, originalLastModified)
                 Log.d(TAG, "Saved to database: $savedToDb")
 
                 Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
@@ -880,7 +883,7 @@ object FileUtils {
                                     filePath = entity.statusUri,
                                     fileName = entity.fileName,
                                     fileSize = entity.fileSize,
-                                    lastModified = entity.savedDate,
+                                    lastModified = entity.originalLastModified,
                                     isVideo = true,
                                     thumbnail = thumbnail
                                 ))
@@ -892,7 +895,7 @@ object FileUtils {
                                     filePath = entity.statusUri,
                                     fileName = entity.fileName,
                                     fileSize = entity.fileSize,
-                                    lastModified = entity.savedDate,
+                                    lastModified = entity.originalLastModified,
                                     isVideo = true
                                 ))
                             }
@@ -904,7 +907,7 @@ object FileUtils {
                                 filePath = entity.statusUri,
                                 fileName = entity.fileName,
                                 fileSize = entity.fileSize,
-                                lastModified = entity.savedDate,
+                                lastModified = entity.originalLastModified,
                                 imageRequest = imageRequest
                             ))
                         }

@@ -39,12 +39,15 @@ class SavedStatusRepository(
     suspend fun toggleFavoriteStatus(statusUri: String) {
         val currentStatus = savedStatusDao.getSavedStatusByUri(statusUri)
         currentStatus?.let {
-            savedStatusDao.updateFavoriteStatus(statusUri, !it.isFavorite)
+            val newFavoriteStatus = !it.isFavorite
+            val favoriteMarkedDate = if (newFavoriteStatus) System.currentTimeMillis() else null
+            savedStatusDao.updateFavoriteStatus(statusUri, newFavoriteStatus, favoriteMarkedDate)
         }
     }
     
     suspend fun setFavoriteStatus(statusUri: String, isFavorite: Boolean) {
-        savedStatusDao.updateFavoriteStatus(statusUri, isFavorite)
+        val favoriteMarkedDate = if (isFavorite) System.currentTimeMillis() else null
+        savedStatusDao.updateFavoriteStatus(statusUri, isFavorite, favoriteMarkedDate)
     }
     
     suspend fun deleteSavedStatus(savedStatus: SavedStatusEntity) {

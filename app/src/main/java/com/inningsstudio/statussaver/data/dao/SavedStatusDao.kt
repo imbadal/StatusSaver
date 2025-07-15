@@ -10,10 +10,10 @@ interface SavedStatusDao {
     @Query("SELECT * FROM saved_statuses ORDER BY savedDate DESC")
     fun getAllSavedStatuses(): Flow<List<SavedStatusEntity>>
     
-    @Query("SELECT * FROM saved_statuses ORDER BY savedDate DESC")
+    @Query("SELECT * FROM saved_statuses ORDER BY originalLastModified DESC")
     suspend fun getAllSavedStatusesSync(): List<SavedStatusEntity>
     
-    @Query("SELECT * FROM saved_statuses WHERE isFavorite = 1 ORDER BY savedDate DESC")
+    @Query("SELECT * FROM saved_statuses WHERE isFavorite = 1 ORDER BY favoriteMarkedDate DESC")
     fun getFavoriteStatuses(): Flow<List<SavedStatusEntity>>
     
     @Query("SELECT * FROM saved_statuses WHERE isFavorite = 0 ORDER BY savedDate DESC")
@@ -31,8 +31,8 @@ interface SavedStatusDao {
     @Update
     suspend fun updateSavedStatus(savedStatus: SavedStatusEntity)
     
-    @Query("UPDATE saved_statuses SET isFavorite = :isFavorite WHERE statusUri = :statusUri")
-    suspend fun updateFavoriteStatus(statusUri: String, isFavorite: Boolean)
+    @Query("UPDATE saved_statuses SET isFavorite = :isFavorite, favoriteMarkedDate = :favoriteMarkedDate WHERE statusUri = :statusUri")
+    suspend fun updateFavoriteStatus(statusUri: String, isFavorite: Boolean, favoriteMarkedDate: Long?)
     
     @Delete
     suspend fun deleteSavedStatus(savedStatus: SavedStatusEntity)
