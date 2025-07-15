@@ -270,7 +270,7 @@ fun StandaloneStatusGallery(context: Context) {
                         selectedTabIndex = currentTab,
                         containerColor = green,
                         contentColor = Color.White,
-                        modifier = Modifier.height(40.dp),
+                        modifier = Modifier.height(32.dp),
                         indicator = { tabPositions ->
                             TabRowDefaults.Indicator(
                                 modifier = Modifier.tabIndicatorOffset(tabPositions[currentTab]),
@@ -282,11 +282,13 @@ fun StandaloneStatusGallery(context: Context) {
                         Tab(
                             selected = currentTab == 0,
                             onClick = { currentTab = 0 },
+                            modifier = Modifier.padding(bottom = 8.dp),
                             text = { Text("Statuses", fontSize = 14.sp) }
                         )
                         Tab(
                             selected = currentTab == 1,
                             onClick = { currentTab = 1 },
+                            modifier = Modifier.padding(bottom = 8.dp),
                             text = { Text("Saved", fontSize = 14.sp) }
                         )
                     }
@@ -666,7 +668,7 @@ fun CustomToolbar(
                 Text(
                     text = title,
                     color = Color.White,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
