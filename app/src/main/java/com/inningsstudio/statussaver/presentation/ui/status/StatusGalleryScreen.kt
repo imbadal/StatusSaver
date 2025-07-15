@@ -309,116 +309,133 @@ fun StandaloneStatusGallery(context: Context) {
             topBar = {
                 Column {
                     Spacer(modifier = Modifier.statusBarsPadding())
-                    // Modern gradient toolbar
+                    // Professional toolbar with integrated tabs
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(primaryGreen, darkGreen)
                                 )
                             )
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "StatusWp",
-                                color = Color.White,
-                                style = TextStyle(fontSize = 18.sp),
-                                fontWeight = FontWeight.Bold
-                            )
+                        Column {
+                            // Top toolbar section with title and refresh
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "StatusWp",
+                                    color = Color.White,
+                                    style = TextStyle(fontSize = 18.sp),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                
+                                Spacer(modifier = Modifier.weight(1f))
+                                
+                                if (isLoading) {
+                                    Box(
+                                        modifier = Modifier.size(36.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                } else {
+                                    IconButton(
+                                        onClick = { 
+                                            if (currentTab == 0) {
+                                                loadStatuses()
+                                            } else {
+                                                forceRefreshSavedStatuses()
+                                            }
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Refresh,
+                                            contentDescription = "Refresh",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
                             
-                            Spacer(modifier = Modifier.weight(1f))
-                            
-                            if (isLoading) {
+                            // Integrated tabs section
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                // Statuses Tab
                                 Box(
-                                    modifier = Modifier.size(36.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(
+                                            if (currentTab == 0) Color.White.copy(alpha = 0.2f) else Color.Transparent
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (currentTab == 0) Color.White.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f),
+                                            shape = RoundedCornerShape(20.dp)
+                                        )
+                                        .clickable { currentTab = 0 },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        strokeWidth = 2.dp,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "Statuses",
+                                            color = if (currentTab == 0) Color.White else Color.White.copy(alpha = 0.8f),
+                                            fontSize = 14.sp,
+                                            fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
                                 }
-                            } else {
-                                IconButton(
-                                    onClick = { 
-                                        if (currentTab == 0) {
-                                            loadStatuses()
-                                        } else {
-                                            forceRefreshSavedStatuses()
-                                        }
-                                    },
-                                    modifier = Modifier.size(36.dp)
+                                
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                // Saved Tab
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(
+                                            if (currentTab == 1) Color.White.copy(alpha = 0.2f) else Color.Transparent
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (currentTab == 1) Color.White.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f),
+                                            shape = RoundedCornerShape(20.dp)
+                                        )
+                                        .clickable { currentTab = 1 },
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = "Refresh",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "Saved",
+                                            color = if (currentTab == 1) Color.White else Color.White.copy(alpha = 0.8f),
+                                            fontSize = 14.sp,
+                                            fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
                                 }
-                            }
-                        }
-                    }
-                    
-                    // Simplified tab design
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color.White)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            // Statuses Tab
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (currentTab == 0) primaryGreen else Color(0xFFF5F5F5)
-                                    )
-                                    .clickable { currentTab = 0 },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Statuses",
-                                    color = if (currentTab == 0) Color.White else Color.Gray,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.width(8.dp))
-                            
-                            // Saved Tab
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (currentTab == 1) primaryGreen else Color(0xFFF5F5F5)
-                                    )
-                                    .clickable { currentTab = 1 },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Saved",
-                                    color = if (currentTab == 1) Color.White else Color.Gray,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium
-                                )
                             }
                         }
                     }
