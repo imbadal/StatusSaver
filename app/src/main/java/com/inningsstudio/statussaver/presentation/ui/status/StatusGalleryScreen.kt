@@ -49,6 +49,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import com.google.accompanist.pager.HorizontalPager
+import com.google.accompanist.pager.rememberPagerState
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +65,20 @@ fun StandaloneStatusGallery(context: Context) {
     var currentTab by remember { mutableStateOf(0) } // 0 = Statuses, 1 = Saved
     var savedStatusesRefreshTrigger by remember { mutableStateOf(0) } // Trigger for refreshing saved statuses
     val coroutineScope = rememberCoroutineScope()
+
+    // Pager state for swipeable tabs
+    val pagerState = rememberPagerState(initialPage = currentTab)
+
+    // Sync pager state with currentTab
+    LaunchedEffect(pagerState.currentPage) {
+        currentTab = pagerState.currentPage
+    }
+    // Sync currentTab with pager state
+    LaunchedEffect(currentTab) {
+        if (pagerState.currentPage != currentTab) {
+            pagerState.animateScrollToPage(currentTab)
+        }
+    }
 
     // Simple in-memory thumbnail cache
     val thumbCache = remember { mutableMapOf<String, Bitmap?>() }
@@ -270,11 +286,11 @@ fun StandaloneStatusGallery(context: Context) {
                         selectedTabIndex = currentTab,
                         containerColor = green,
                         contentColor = Color.White,
-                        modifier = Modifier.height(32.dp),
+                        modifier = Modifier.height(40.dp),
                         indicator = { tabPositions ->
                             TabRowDefaults.Indicator(
                                 modifier = Modifier.tabIndicatorOffset(tabPositions[currentTab]),
-                                height = 2.dp,
+                                height = 3.dp,
                                 color = Color.White
                             )
                         }
@@ -282,14 +298,26 @@ fun StandaloneStatusGallery(context: Context) {
                         Tab(
                             selected = currentTab == 0,
                             onClick = { currentTab = 0 },
-                            modifier = Modifier.padding(bottom = 8.dp),
-                            text = { Text("Statuses", fontSize = 14.sp) }
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            text = {
+                                Text(
+                                    "Statuses",
+                                    fontSize = 14.sp,
+                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         )
                         Tab(
                             selected = currentTab == 1,
                             onClick = { currentTab = 1 },
-                            modifier = Modifier.padding(bottom = 8.dp),
-                            text = { Text("Saved", fontSize = 14.sp) }
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            text = {
+                                Text(
+                                    "Saved",
+                                    fontSize = 14.sp,
+                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         )
                     }
                 }
@@ -301,173 +329,179 @@ fun StandaloneStatusGallery(context: Context) {
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                when (currentTab) {
-                    0 -> { // Statuses tab
-                        when {
-                            isLoading -> {
-                                // Show shimmer grid
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(3),
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    items(36) { // Show 36 shimmer items to fill entire screen height
-                                        ShimmerCard()
-                                    }
-                                }
-                            }
-
-                            errorMessage != null -> {
-                                Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("Error", color = Color.Red, fontSize = 18.sp)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            errorMessage ?: "Unknown error",
-                                            color = Color.White,
-                                            fontSize = 14.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Button(
-                                            onClick = { loadStatuses() },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-                                        ) {
-                                            Text("Retry", color = Color.Black)
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Button(
-                                            onClick = { debugStatusDetection() },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                                        ) {
-                                            Text("Debug", color = Color.White)
+                HorizontalPager(
+                    count = 2,
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    when (page) {
+                        0 -> { // Statuses tab
+                            when {
+                                isLoading -> {
+                                    // Show shimmer grid
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(3),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        items(36) { // Show 36 shimmer items to fill entire screen height
+                                            ShimmerCard()
                                         }
                                     }
                                 }
-                            }
 
-                            statusList.isEmpty() -> {
-                                Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            "Make sure you have granted folder permission",
-                                            color = Color.Gray,
-                                            fontSize = 14.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Button(
-                                            onClick = { loadStatuses() },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-                                        ) {
-                                            Text("Refresh", color = Color.Black)
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Button(
-                                            onClick = { debugStatusDetection() },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                                        ) {
-                                            Text("Debug Detection", color = Color.White)
-                                        }
-                                    }
-                                }
-                            }
-
-                            else -> {
-                                Log.d(
-                                    "StatusGalleryActivity",
-                                    "Showing status grid with ${statusList.size} statuses"
-                                )
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(3),
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    itemsIndexed(statusList) { index, status ->
-                                        Card(
-                                            modifier = Modifier
-                                                .aspectRatio(1f)
-                                                .clip(RoundedCornerShape(2.dp)),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = Color(
-                                                    0xFFF5F5F5
-                                                )
-                                            ),
-                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                                        ) {
-                                            Box(modifier = Modifier
-                                                .fillMaxSize()
-                                                .clickable {
-                                                    selectedStatusIndex = index
-                                                    showStatusView = true
-                                                }
+                                errorMessage != null -> {
+                                    Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("Error", color = Color.Red, fontSize = 18.sp)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                errorMessage ?: "Unknown error",
+                                                color = Color.White,
+                                                fontSize = 14.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Button(
+                                                onClick = { loadStatuses() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
                                             ) {
-                                                if (status.isVideo) {
-                                                    val thumb by produceState<Bitmap?>(
-                                                        null,
-                                                        status.filePath
-                                                    ) {
-                                                        value = thumbCache[status.filePath]
-                                                            ?: getVideoThumbnailIO(
-                                                                context,
-                                                                status.filePath
-                                                            ).also {
-                                                                thumbCache[status.filePath] = it
-                                                            }
+                                                Text("Retry", color = Color.Black)
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Button(
+                                                onClick = { debugStatusDetection() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                                            ) {
+                                                Text("Debug", color = Color.White)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                statusList.isEmpty() -> {
+                                    Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                "Make sure you have granted folder permission",
+                                                color = Color.Gray,
+                                                fontSize = 14.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Button(
+                                                onClick = { loadStatuses() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                                            ) {
+                                                Text("Refresh", color = Color.Black)
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Button(
+                                                onClick = { debugStatusDetection() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                                            ) {
+                                                Text("Debug Detection", color = Color.White)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                else -> {
+                                    Log.d(
+                                        "StatusGalleryActivity",
+                                        "Showing status grid with ${statusList.size} statuses"
+                                    )
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(3),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        itemsIndexed(statusList) { index, status ->
+                                            Card(
+                                                modifier = Modifier
+                                                    .aspectRatio(1f)
+                                                    .clip(RoundedCornerShape(2.dp)),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = Color(
+                                                        0xFFF5F5F5
+                                                    )
+                                                ),
+                                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                            ) {
+                                                Box(modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clickable {
+                                                        selectedStatusIndex = index
+                                                        showStatusView = true
                                                     }
-                                                    if (thumb != null) {
-                                                        androidx.compose.foundation.Image(
-                                                            bitmap = thumb!!.asImageBitmap(),
-                                                            contentDescription = "Video thumbnail",
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                    } else {
+                                                ) {
+                                                    if (status.isVideo) {
+                                                        val thumb by produceState<Bitmap?>(
+                                                            null,
+                                                            status.filePath
+                                                        ) {
+                                                            value = thumbCache[status.filePath]
+                                                                ?: getVideoThumbnailIO(
+                                                                    context,
+                                                                    status.filePath
+                                                                ).also {
+                                                                    thumbCache[status.filePath] = it
+                                                                }
+                                                        }
+                                                        if (thumb != null) {
+                                                            androidx.compose.foundation.Image(
+                                                                bitmap = thumb!!.asImageBitmap(),
+                                                                contentDescription = "Video thumbnail",
+                                                                modifier = Modifier.fillMaxSize(),
+                                                                contentScale = ContentScale.Crop
+                                                            )
+                                                        } else {
+                                                            Box(
+                                                                modifier = Modifier.fillMaxSize(),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Filled.PlayArrow,
+                                                                    contentDescription = "Video",
+                                                                    tint = Color.Black,
+                                                                    modifier = Modifier.size(48.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                        // Play icon overlay
                                                         Box(
-                                                            modifier = Modifier.fillMaxSize(),
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .background(Color.White.copy(alpha = 0.15f)),
                                                             contentAlignment = Alignment.Center
                                                         ) {
                                                             Icon(
                                                                 imageVector = Icons.Filled.PlayArrow,
-                                                                contentDescription = "Video",
+                                                                contentDescription = "Play",
                                                                 tint = Color.Black,
-                                                                modifier = Modifier.size(48.dp)
+                                                                modifier = Modifier.size(36.dp)
                                                             )
                                                         }
-                                                    }
-                                                    // Play icon overlay
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .fillMaxSize()
-                                                            .background(Color.White.copy(alpha = 0.15f)),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Filled.PlayArrow,
-                                                            contentDescription = "Play",
-                                                            tint = Color.Black,
-                                                            modifier = Modifier.size(36.dp)
+                                                    } else {
+                                                        AsyncImage(
+                                                            model = status.filePath,
+                                                            contentDescription = "Status image",
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            contentScale = ContentScale.Crop
                                                         )
                                                     }
-                                                } else {
-                                                    AsyncImage(
-                                                        model = status.filePath,
-                                                        contentDescription = "Status image",
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentScale = ContentScale.Crop
-                                                    )
                                                 }
                                             }
                                         }
@@ -475,134 +509,134 @@ fun StandaloneStatusGallery(context: Context) {
                                 }
                             }
                         }
-                    }
-                    1 -> { // Saved tab
-                        when {
-                            isLoadingSaved -> {
-                                // Show shimmer grid for saved statuses
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(3),
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    items(36) { // Show 36 shimmer items to fill entire screen height
-                                        ShimmerCard()
-                                    }
-                                }
-                            }
-
-                            savedStatusList.isEmpty() -> {
-                                Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("No Saved Statuses", color = Color.White, fontSize = 18.sp)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            "Save some statuses to see them here",
-                                            color = Color.Gray,
-                                            fontSize = 14.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Button(
-                                            onClick = { loadSavedStatuses() },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
-                                        ) {
-                                            Text("Refresh", color = Color.Black)
+                        1 -> { // Saved tab
+                            when {
+                                isLoadingSaved -> {
+                                    // Show shimmer grid for saved statuses
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(3),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        items(36) { // Show 36 shimmer items to fill entire screen height
+                                            ShimmerCard()
                                         }
                                     }
                                 }
-                            }
 
-                            else -> {
-                                Log.d(
-                                    "StatusGalleryActivity",
-                                    "Showing saved status grid with ${savedStatusList.size} statuses"
-                                )
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(3),
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    itemsIndexed(savedStatusList) { index, status ->
-                                        Card(
-                                            modifier = Modifier
-                                                .aspectRatio(1f)
-                                                .clip(RoundedCornerShape(2.dp)),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = Color(
-                                                    0xFFF5F5F5
-                                                )
-                                            ),
-                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                                        ) {
-                                            Box(modifier = Modifier
-                                                .fillMaxSize()
-                                                .clickable {
-                                                    selectedStatusIndex = index
-                                                    showStatusView = true
-                                                }
+                                savedStatusList.isEmpty() -> {
+                                    Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("No Saved Statuses", color = Color.White, fontSize = 18.sp)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                "Save some statuses to see them here",
+                                                color = Color.Gray,
+                                                fontSize = 14.sp
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Button(
+                                                onClick = { loadSavedStatuses() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color.White)
                                             ) {
-                                                if (status.isVideo) {
-                                                    val thumb by produceState<Bitmap?>(
-                                                        null,
-                                                        status.filePath
-                                                    ) {
-                                                        value = thumbCache[status.filePath]
-                                                            ?: getVideoThumbnailIO(
-                                                                context,
-                                                                status.filePath
-                                                            ).also {
-                                                                thumbCache[status.filePath] = it
-                                                            }
+                                                Text("Refresh", color = Color.Black)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                else -> {
+                                    Log.d(
+                                        "StatusGalleryActivity",
+                                        "Showing saved status grid with ${savedStatusList.size} statuses"
+                                    )
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(3),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        itemsIndexed(savedStatusList) { index, status ->
+                                            Card(
+                                                modifier = Modifier
+                                                    .aspectRatio(1f)
+                                                    .clip(RoundedCornerShape(2.dp)),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = Color(
+                                                        0xFFF5F5F5
+                                                    )
+                                                ),
+                                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                            ) {
+                                                Box(modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clickable {
+                                                        selectedStatusIndex = index
+                                                        showStatusView = true
                                                     }
-                                                    if (thumb != null) {
-                                                        androidx.compose.foundation.Image(
-                                                            bitmap = thumb!!.asImageBitmap(),
-                                                            contentDescription = "Video thumbnail",
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                    } else {
+                                                ) {
+                                                    if (status.isVideo) {
+                                                        val thumb by produceState<Bitmap?>(
+                                                            null,
+                                                            status.filePath
+                                                        ) {
+                                                            value = thumbCache[status.filePath]
+                                                                ?: getVideoThumbnailIO(
+                                                                    context,
+                                                                    status.filePath
+                                                                ).also {
+                                                                    thumbCache[status.filePath] = it
+                                                                }
+                                                        }
+                                                        if (thumb != null) {
+                                                            androidx.compose.foundation.Image(
+                                                                bitmap = thumb!!.asImageBitmap(),
+                                                                contentDescription = "Video thumbnail",
+                                                                modifier = Modifier.fillMaxSize(),
+                                                                contentScale = ContentScale.Crop
+                                                            )
+                                                        } else {
+                                                            Box(
+                                                                modifier = Modifier.fillMaxSize(),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Filled.PlayArrow,
+                                                                    contentDescription = "Video",
+                                                                    tint = Color.Black,
+                                                                    modifier = Modifier.size(48.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                        // Play icon overlay
                                                         Box(
-                                                            modifier = Modifier.fillMaxSize(),
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .background(Color.White.copy(alpha = 0.15f)),
                                                             contentAlignment = Alignment.Center
                                                         ) {
                                                             Icon(
                                                                 imageVector = Icons.Filled.PlayArrow,
-                                                                contentDescription = "Video",
+                                                                contentDescription = "Play",
                                                                 tint = Color.Black,
-                                                                modifier = Modifier.size(48.dp)
+                                                                modifier = Modifier.size(36.dp)
                                                             )
                                                         }
-                                                    }
-                                                    // Play icon overlay
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .fillMaxSize()
-                                                            .background(Color.White.copy(alpha = 0.15f)),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = Icons.Filled.PlayArrow,
-                                                            contentDescription = "Play",
-                                                            tint = Color.Black,
-                                                            modifier = Modifier.size(36.dp)
+                                                    } else {
+                                                        AsyncImage(
+                                                            model = status.filePath,
+                                                            contentDescription = "Status image",
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            contentScale = ContentScale.Crop
                                                         )
                                                     }
-                                                } else {
-                                                    AsyncImage(
-                                                        model = status.filePath,
-                                                        contentDescription = "Status image",
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentScale = ContentScale.Crop
-                                                    )
                                                 }
                                             }
                                         }
