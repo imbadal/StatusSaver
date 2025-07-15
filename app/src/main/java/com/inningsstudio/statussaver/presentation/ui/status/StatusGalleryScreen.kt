@@ -324,7 +324,7 @@ fun StandaloneStatusGallery(context: Context) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(56.dp)
+                                    .height(48.dp)
                                     .padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -373,67 +373,73 @@ fun StandaloneStatusGallery(context: Context) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .padding(horizontal = 16.dp, vertical = 0.dp)
                             ) {
                                 // Statuses Tab
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(40.dp)
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(
-                                            if (currentTab == 0) Color.White.copy(alpha = 0.2f) else Color.Transparent
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (currentTab == 0) Color.White.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f),
-                                            shape = RoundedCornerShape(20.dp)
-                                        )
                                         .clickable { currentTab = 0 },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Center
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
                                             text = "Statuses",
                                             color = if (currentTab == 0) Color.White else Color.White.copy(alpha = 0.8f),
                                             fontSize = 14.sp,
-                                            fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium
+                                            fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                            modifier = Modifier.padding(top = 8.dp)
                                         )
+                                        // Traditional tab indicator at bottom
+                                        if (currentTab == 0) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.8f)
+                                                    .height(2.dp)
+                                                    .background(Color.White, RoundedCornerShape(1.dp))
+                                            )
+                                        } else {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                        }
                                     }
                                 }
-                                
-                                Spacer(modifier = Modifier.width(12.dp))
                                 
                                 // Saved Tab
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(40.dp)
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(
-                                            if (currentTab == 1) Color.White.copy(alpha = 0.2f) else Color.Transparent
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (currentTab == 1) Color.White.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f),
-                                            shape = RoundedCornerShape(20.dp)
-                                        )
                                         .clickable { currentTab = 1 },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Center
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
                                             text = "Saved",
                                             color = if (currentTab == 1) Color.White else Color.White.copy(alpha = 0.8f),
                                             fontSize = 14.sp,
-                                            fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium
+                                            fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                            modifier = Modifier.padding(top = 8.dp)
                                         )
+                                        // Traditional tab indicator at bottom
+                                        if (currentTab == 1) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.8f)
+                                                    .height(2.dp)
+                                                    .background(Color.White, RoundedCornerShape(1.dp))
+                                            )
+                                        } else {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                        }
                                     }
                                 }
                             }
