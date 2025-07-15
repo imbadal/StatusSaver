@@ -612,7 +612,7 @@ fun StandaloneStatusGallery(context: Context) {
                                         "Showing status grid with ${statusList.size} statuses"
                                     )
                                     LazyVerticalGrid(
-                                        columns = GridCells.Fixed(3),
+                                        columns = GridCells.Fixed(2),
                                         modifier = Modifier.fillMaxSize(),
                                         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
