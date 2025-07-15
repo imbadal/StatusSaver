@@ -251,43 +251,97 @@ object FileUtils {
 
     suspend fun getSavedStatus(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         val savedFiles = mutableListOf<StatusModel>()
-
-        val file = File(SAVED_DIRECTORY)
-        file.listFiles()?.forEach { it ->
-            val path = it.path
-            if (isValidFile(path)) {
-                if (isVideo(path)) {
-                    try {
-                        val mediaMetadataRetriever = MediaMetadataRetriever()
-                        mediaMetadataRetriever.setDataSource(path) // Use file path directly
-                        val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000) // time in Micros
-                        mediaMetadataRetriever.release()
+        val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+        val safUriString = pref.getUriFromPreference()
+        var usedSAF = false
+        if (!safUriString.isNullOrBlank()) {
+            try {
+                val safUri = Uri.parse(safUriString)
+                val folderDoc = DocumentFile.fromTreeUri(context, safUri)
+                if (folderDoc != null) {
+                    val statusWpFolder = folderDoc.findFile("StatusWp")
+                    if (statusWpFolder != null && statusWpFolder.isDirectory) {
+                        Log.d(TAG, "Reading saved statuses from SAF/StatusWp: ${statusWpFolder.uri}")
+                        for (file in statusWpFolder.listFiles()) {
+                            if (file.isFile && isValidFile(file.name ?: "")) {
+                                val fileName = file.name ?: ""
+                                val fileSize = file.length()
+                                val lastModified = file.lastModified()
+                                val filePath = file.uri.toString()
+                                val isVideo = fileName.lowercase().endsWith(".mp4") || fileName.lowercase().endsWith(".3gp") || fileName.lowercase().endsWith(".mkv")
+                                if (isVideo) {
+                                    // No thumbnail for SAF videos (optional: implement if needed)
+                                    savedFiles.add(StatusModel(
+                                        id = filePath.hashCode().toLong(),
+                                        filePath = filePath,
+                                        fileName = fileName,
+                                        fileSize = fileSize,
+                                        lastModified = lastModified,
+                                        isVideo = true
+                                    ))
+                                } else {
+                                    val imageRequest = ImageRequest.Builder(context).data(file.uri).build()
+                                    savedFiles.add(StatusModel(
+                                        id = filePath.hashCode().toLong(),
+                                        filePath = filePath,
+                                        fileName = fileName,
+                                        fileSize = fileSize,
+                                        lastModified = lastModified,
+                                        imageRequest = imageRequest
+                                    ))
+                                }
+                            }
+                        }
+                        usedSAF = true
+                    } else {
+                        Log.w(TAG, "StatusWp folder not found in SAF location: $safUriString")
+                    }
+                } else {
+                    Log.w(TAG, "Could not get DocumentFile from SAF URI: $safUriString")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reading saved statuses from SAF", e)
+            }
+        }
+        if (!usedSAF) {
+            // Fallback to legacy DCIM path
+            Log.d(TAG, "Falling back to legacy DCIM path: $SAVED_DIRECTORY")
+            val file = File(SAVED_DIRECTORY)
+            file.listFiles()?.forEach { it ->
+                val path = it.path
+                if (isValidFile(path)) {
+                    if (isVideo(path)) {
+                        try {
+                            val mediaMetadataRetriever = MediaMetadataRetriever()
+                            mediaMetadataRetriever.setDataSource(path)
+                            val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                            mediaMetadataRetriever.release()
+                            savedFiles.add(StatusModel(
+                                id = path.hashCode().toLong(),
+                                filePath = path,
+                                fileName = it.name,
+                                fileSize = it.length(),
+                                lastModified = it.lastModified(),
+                                isVideo = true,
+                                thumbnail = thumbnail
+                            ))
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error processing saved video: $path", e)
+                        }
+                    } else {
+                        val imageRequest = ImageRequest.Builder(context).data(path).build()
                         savedFiles.add(StatusModel(
                             id = path.hashCode().toLong(),
                             filePath = path,
                             fileName = it.name,
                             fileSize = it.length(),
                             lastModified = it.lastModified(),
-                            isVideo = true,
-                            thumbnail = thumbnail
+                            imageRequest = imageRequest
                         ))
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error processing saved video: $path", e)
                     }
-                } else {
-                    val imageRequest = ImageRequest.Builder(context).data(path).build()
-                    savedFiles.add(StatusModel(
-                        id = path.hashCode().toLong(),
-                        filePath = path,
-                        fileName = it.name,
-                        fileSize = it.length(),
-                        lastModified = it.lastModified(),
-                        imageRequest = imageRequest
-                    ))
                 }
             }
         }
-
         savedStatusList.clear()
         savedStatusList.addAll(savedFiles)
         return@withContext savedFiles
