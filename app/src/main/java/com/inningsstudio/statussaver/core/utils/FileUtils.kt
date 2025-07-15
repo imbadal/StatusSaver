@@ -22,6 +22,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import androidx.core.content.FileProvider
 
 
 object FileUtils {
@@ -440,30 +441,24 @@ object FileUtils {
     }
 
     private fun shareVideo(title: String? = "", path: String, context: Context) {
-        MediaScannerConnection.scanFile(
-            context, arrayOf<String>(path),
-            null
-        ) { path, uri ->
-            val shareIntent = Intent(
-                Intent.ACTION_SEND
-            )
-            shareIntent.type = "video/*"
-            shareIntent.putExtra(
-                Intent.EXTRA_SUBJECT, title
-            )
-            shareIntent.putExtra(
-                Intent.EXTRA_TITLE, title
-            )
-            shareIntent.putExtra(Intent.EXTRA_STREAM, uri)
-            shareIntent
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET)
-            context.startActivity(
-                Intent.createChooser(
-                    shareIntent,
-                    "Share with"
-                )
+        val isContentUri = path.startsWith("content://")
+        val shareIntent = Intent(Intent.ACTION_SEND)
+        shareIntent.type = "video/*"
+        shareIntent.putExtra(Intent.EXTRA_SUBJECT, title)
+        shareIntent.putExtra(Intent.EXTRA_TITLE, title)
+        val uri: Uri = if (isContentUri) {
+            Uri.parse(path)
+        } else {
+            // Use FileProvider for file paths
+            FileProvider.getUriForFile(
+                context,
+                context.applicationContext.packageName + ".provider",
+                File(path)
             )
         }
+        shareIntent.putExtra(Intent.EXTRA_STREAM, uri)
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(Intent.createChooser(shareIntent, "Share with"))
     }
 
     suspend fun shareStatus(context: Context, currentPath: String) = withContext(Dispatchers.IO) {
