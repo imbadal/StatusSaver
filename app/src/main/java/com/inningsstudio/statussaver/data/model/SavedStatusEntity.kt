@@ -14,7 +14,6 @@ data class SavedStatusEntity(
     val isFavorite: Boolean = false,
     val savedDate: Long = System.currentTimeMillis(),
     val favoriteMarkedDate: Long? = null, // When the status was marked as favorite
-    val originalLastModified: Long = 0L, // Original file's lastModified time
     val fileSize: Long = 0L,
     val isVideo: Boolean = false
 ) 

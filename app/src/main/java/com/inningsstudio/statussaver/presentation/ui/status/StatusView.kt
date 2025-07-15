@@ -88,7 +88,7 @@ fun StatusView(
             statusList.getOrNull(currentIndex)?.let { status ->
                 coroutineScope.launch {
                     Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
-                    val success = FileUtils.saveStatusToFolder(context, uri, status.filePath, status.lastModified)
+                    val success = FileUtils.saveStatusToFolder(context, uri, status.filePath)
                     Toast.makeText(
                         context,
                         if (success) "Saved successfully" else "Failed to save",
@@ -348,8 +348,7 @@ fun StatusView(
                                             val success = FileUtils.saveStatusToFolder(
                                                 context,
                                                 uri,
-                                                status.filePath,
-                                                status.lastModified
+                                                status.filePath
                                             )
                                             Toast.makeText(
                                                 context,

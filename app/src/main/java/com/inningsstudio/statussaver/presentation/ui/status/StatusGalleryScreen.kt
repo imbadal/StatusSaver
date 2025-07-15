@@ -111,11 +111,10 @@ fun StandaloneStatusGallery(context: Context) {
             isLoadingSaved = true
 
             try {
-                // Use the new database-based function instead of file system
-                val savedStatuses = FileUtils.getSavedStatusesFromDatabase(context)
-                    .sortedByDescending { it.lastModified } // Sort by date, latest first
+                // Use the new folder-based function instead of database
+                val savedStatuses = FileUtils.getSavedStatusesFromFolder(context)
                 val savedStatusesWithFavs = FileUtils.getSavedStatusesWithFavorites(context)
-                Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses from database")
+                Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses from folder")
                 
                 // Calculate hash of new statuses
                 val newHash = calculateSavedStatusesHash(savedStatuses)

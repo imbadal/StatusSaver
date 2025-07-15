@@ -11,7 +11,7 @@ import com.inningsstudio.statussaver.data.model.SavedStatusEntity
 
 @Database(
     entities = [SavedStatusEntity::class],
-    version = 3,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,13 +29,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
         
-        // Migration from version 2 to 3: Add originalLastModified column
-        private val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE saved_statuses ADD COLUMN originalLastModified INTEGER DEFAULT 0")
-            }
-        }
-        
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -43,7 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "status_saver_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2)
                 .build()
                 INSTANCE = instance
                 instance

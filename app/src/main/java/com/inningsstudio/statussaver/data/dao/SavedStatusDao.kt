@@ -10,7 +10,7 @@ interface SavedStatusDao {
     @Query("SELECT * FROM saved_statuses ORDER BY savedDate DESC")
     fun getAllSavedStatuses(): Flow<List<SavedStatusEntity>>
     
-    @Query("SELECT * FROM saved_statuses ORDER BY originalLastModified DESC")
+    @Query("SELECT * FROM saved_statuses ORDER BY savedDate DESC")
     suspend fun getAllSavedStatusesSync(): List<SavedStatusEntity>
     
     @Query("SELECT * FROM saved_statuses WHERE isFavorite = 1 ORDER BY favoriteMarkedDate DESC")
