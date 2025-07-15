@@ -276,6 +276,14 @@ fun StatusView(
                         )
                     }
                 },
+                actions = {
+                    Text(
+                        text = "${currentIndex + 1} / ${statusList.size}",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(end = 16.dp)
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Black.copy(alpha = 0.7f)
                 )
