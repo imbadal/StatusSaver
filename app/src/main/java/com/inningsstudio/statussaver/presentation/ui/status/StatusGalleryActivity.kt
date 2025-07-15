@@ -602,7 +602,7 @@ fun StandaloneStatusGallery(context: Context) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Statuses", color = Color.White) },
+                    title = { Text("StatusWp", color = Color.White) },
                     actions = {
                         if (isLoading) {
                             Box(
