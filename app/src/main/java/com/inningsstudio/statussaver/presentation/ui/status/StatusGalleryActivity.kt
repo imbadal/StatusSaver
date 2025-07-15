@@ -185,7 +185,8 @@ fun ShimmerCard() {
 fun StatusView(
     statusList: List<StatusModel>,
     initialIndex: Int,
-    onBackPressed: () -> Unit
+    onBackPressed: () -> Unit,
+    onStatusSaved: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var currentIndex by remember { mutableStateOf(initialIndex) }
@@ -216,6 +217,9 @@ fun StatusView(
                         if (success) "Saved successfully" else "Failed to save",
                         Toast.LENGTH_SHORT
                     ).show()
+                    if (success) {
+                        onStatusSaved()
+                    }
                 }
             }
         }
@@ -450,6 +454,9 @@ fun StatusView(
                                             if (success) "Saved successfully" else "Failed to save",
                                             Toast.LENGTH_SHORT
                                         ).show()
+                                        if (success) {
+                                            onStatusSaved()
+                                        }
                                     }
                                 }
                             }
@@ -542,6 +549,7 @@ fun StandaloneStatusGallery(context: Context) {
     var showStatusView by remember { mutableStateOf(false) }
     var selectedStatusIndex by remember { mutableStateOf(0) }
     var currentTab by remember { mutableStateOf(0) } // 0 = Statuses, 1 = Saved
+    var savedStatusesRefreshTrigger by remember { mutableStateOf(0) } // Trigger for refreshing saved statuses
     val coroutineScope = rememberCoroutineScope()
 
     // Simple in-memory thumbnail cache
@@ -713,11 +721,22 @@ fun StandaloneStatusGallery(context: Context) {
         loadSavedStatuses()
     }
 
+    // Refresh saved statuses when switching to Saved tab or when refresh is triggered
+    LaunchedEffect(currentTab, savedStatusesRefreshTrigger) {
+        if (currentTab == 1) {
+            loadSavedStatuses()
+        }
+    }
+
     if (showStatusView) {
         StatusView(
             statusList = if (currentTab == 0) statusList else savedStatusList,
             initialIndex = selectedStatusIndex,
-            onBackPressed = { showStatusView = false }
+            onBackPressed = { showStatusView = false },
+            onStatusSaved = { 
+                // Trigger refresh of saved statuses when a status is saved
+                savedStatusesRefreshTrigger++
+            }
         )
     } else {
         Scaffold(
