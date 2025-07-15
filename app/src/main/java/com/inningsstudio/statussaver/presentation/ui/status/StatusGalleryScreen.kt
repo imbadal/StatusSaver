@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -39,6 +40,7 @@ import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.StatusPathDetector
 import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.data.model.StatusModel
+import com.inningsstudio.statussaver.data.model.SavedStatusModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,12 +59,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StandaloneStatusGallery(context: Context) {
     var statusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     var savedStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
+    var savedStatusesWithFavorites by remember { mutableStateOf<List<SavedStatusModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isLoadingSaved by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -105,6 +113,7 @@ fun StandaloneStatusGallery(context: Context) {
 
             try {
                 val savedStatuses = FileUtils.getSavedStatus(context)
+                val savedStatusesWithFavs = FileUtils.getSavedStatusesWithFavorites(context)
                 Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses")
                 
                 // Calculate hash of new statuses
@@ -114,6 +123,7 @@ fun StandaloneStatusGallery(context: Context) {
                 if (newHash != lastSavedStatusesHash) {
                     Log.d("StatusGalleryActivity", "Saved statuses changed, updating UI")
                     savedStatusList = savedStatuses
+                    savedStatusesWithFavorites = savedStatusesWithFavs
                     lastSavedStatusesHash = newHash
                 } else {
                     Log.d("StatusGalleryActivity", "No changes in saved statuses, skipping UI update")
@@ -132,6 +142,22 @@ fun StandaloneStatusGallery(context: Context) {
     fun forceRefreshSavedStatuses() {
         savedStatusesLoaded = false
         loadSavedStatuses()
+    }
+
+    // Function to toggle favorite status
+    fun toggleFavoriteStatus(statusUri: String) {
+        coroutineScope.launch {
+            try {
+                val success = FileUtils.toggleFavoriteStatus(context, statusUri)
+                if (success) {
+                    // Refresh the saved statuses with favorites
+                    val updatedSavedStatusesWithFavs = FileUtils.getSavedStatusesWithFavorites(context)
+                    savedStatusesWithFavorites = updatedSavedStatusesWithFavs
+                }
+            } catch (e: Exception) {
+                Log.e("StatusGalleryActivity", "Error toggling favorite status", e)
+            }
+        }
     }
 
     suspend fun getVideoThumbnailIO(context: Context, path: String): Bitmap? {
@@ -624,7 +650,7 @@ fun StandaloneStatusGallery(context: Context) {
                                     }
                                 }
 
-                                savedStatusList.isEmpty() -> {
+                                savedStatusesWithFavorites.isEmpty() -> {
                                     Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
@@ -669,8 +695,14 @@ fun StandaloneStatusGallery(context: Context) {
                                 else -> {
                                     Log.d(
                                         "StatusGalleryActivity",
-                                        "Showing saved status grid with ${savedStatusList.size} statuses"
+                                        "Showing saved status grid with ${savedStatusesWithFavorites.size} statuses"
                                     )
+                                    
+                                    // Organize saved statuses into favorites and others
+                                    val favoriteStatuses = savedStatusesWithFavorites.filter { it.isFav }
+                                    val otherStatuses = savedStatusesWithFavorites.filter { !it.isFav }
+                                        .sortedByDescending { it.savedDate }
+                                    
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(2),
                                         modifier = Modifier.fillMaxSize(),
@@ -678,22 +710,84 @@ fun StandaloneStatusGallery(context: Context) {
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        itemsIndexed(savedStatusList) { index, status ->
-                                            SavedStatusCard(
-                                                status = status,
-                                                context = context,
-                                                thumbCache = thumbCache,
-                                                getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                onDelete = {
-                                                    // Show confirmation dialog before deleting
-                                                    statusToDelete = status
-                                                    showDeleteConfirmation = true
-                                                },
-                                                onClick = {
-                                                    selectedStatusIndex = index
-                                                    showStatusView = true
+                                        if (favoriteStatuses.isNotEmpty()) {
+                                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                                Text(
+                                                    text = "Favorites",
+                                                    color = Color.Black,
+                                                    fontSize = 18.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                                )
+                                            }
+                                            items(favoriteStatuses.size) { index ->
+                                                val savedStatus = favoriteStatuses[index]
+                                                val status = savedStatusList.find { it.filePath == savedStatus.statusUri }
+                                                status?.let {
+                                                    SavedStatusCardWithFav(
+                                                        status = it,
+                                                        isFavorite = savedStatus.isFav,
+                                                        context = context,
+                                                        thumbCache = thumbCache,
+                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                        onDelete = {
+                                                            statusToDelete = it
+                                                            showDeleteConfirmation = true
+                                                        },
+                                                        onFavoriteToggle = {
+                                                            toggleFavoriteStatus(savedStatus.statusUri)
+                                                        },
+                                                        onClick = {
+                                                            val actualIndex = savedStatusList.indexOf(it)
+                                                            if (actualIndex != -1) {
+                                                                selectedStatusIndex = actualIndex
+                                                                showStatusView = true
+                                                            }
+                                                        }
+                                                    )
                                                 }
-                                            )
+                                            }
+                                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                                Spacer(modifier = Modifier.height(16.dp))
+                                            }
+                                        }
+                                        if (otherStatuses.isNotEmpty()) {
+                                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                                Text(
+                                                    text = "Other Statuses",
+                                                    color = Color.Black,
+                                                    fontSize = 18.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                                )
+                                            }
+                                            items(otherStatuses.size) { index ->
+                                                val savedStatus = otherStatuses[index]
+                                                val status = savedStatusList.find { it.filePath == savedStatus.statusUri }
+                                                status?.let {
+                                                    SavedStatusCardWithFav(
+                                                        status = it,
+                                                        isFavorite = savedStatus.isFav,
+                                                        context = context,
+                                                        thumbCache = thumbCache,
+                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                        onDelete = {
+                                                            statusToDelete = it
+                                                            showDeleteConfirmation = true
+                                                        },
+                                                        onFavoriteToggle = {
+                                                            toggleFavoriteStatus(savedStatus.statusUri)
+                                                        },
+                                                        onClick = {
+                                                            val actualIndex = savedStatusList.indexOf(it)
+                                                            if (actualIndex != -1) {
+                                                                selectedStatusIndex = actualIndex
+                                                                showStatusView = true
+                                                            }
+                                                        }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -766,6 +860,132 @@ fun StandaloneStatusGallery(context: Context) {
             titleContentColor = Color.Black,
             textContentColor = Color.Gray
         )
+    }
+}
+
+@Composable
+fun SavedStatusCardWithFav(
+    status: StatusModel,
+    isFavorite: Boolean,
+    context: Context,
+    thumbCache: MutableMap<String, Bitmap?>,
+    getVideoThumbnailIO: suspend (Context, String) -> Bitmap?,
+    onDelete: () -> Unit,
+    onFavoriteToggle: () -> Unit,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .shadow(4.dp, RoundedCornerShape(0.dp))
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (status.isVideo) {
+                val thumb by produceState<Bitmap?>(
+                    null,
+                    status.filePath
+                ) {
+                    value = thumbCache[status.filePath]
+                        ?: getVideoThumbnailIO(context, status.filePath).also {
+                            thumbCache[status.filePath] = it
+                        }
+                }
+                if (thumb != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = thumb!!.asImageBitmap(),
+                        contentDescription = "Video thumbnail",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Video",
+                            tint = Color.Gray,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+                // Play icon overlay with better styling
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            } else {
+                AsyncImage(
+                    model = status.filePath,
+                    contentDescription = "Status image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            
+            // Action buttons overlay at bottom center
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Favorite button
+                    IconButton(
+                        onClick = { onFavoriteToggle() },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (isFavorite) Color.Red else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    
+                    // Delete button
+                    IconButton(
+                        onClick = { onDelete() },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Delete",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

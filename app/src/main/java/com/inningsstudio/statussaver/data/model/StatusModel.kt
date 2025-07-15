@@ -40,4 +40,13 @@ data class StatusModel(
             )
         }
     }
-} 
+}
+
+/**
+ * Data model representing a saved status with favorite functionality
+ */
+data class SavedStatusModel(
+    val statusUri: String,
+    val isFav: Boolean = false,
+    val savedDate: Long = System.currentTimeMillis()
+) 

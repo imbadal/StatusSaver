@@ -14,6 +14,7 @@ import coil.request.ImageRequest
 import com.inningsstudio.statussaver.core.constants.Const.MP4
 import com.inningsstudio.statussaver.core.constants.Const.NO_MEDIA
 import com.inningsstudio.statussaver.data.model.StatusModel
+import com.inningsstudio.statussaver.data.model.SavedStatusModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -345,6 +346,89 @@ object FileUtils {
         savedStatusList.clear()
         savedStatusList.addAll(savedFiles)
         return@withContext savedFiles
+    }
+
+    /**
+     * Get saved statuses with favorite information
+     */
+    suspend fun getSavedStatusesWithFavorites(context: Context): List<SavedStatusModel> = withContext(Dispatchers.IO) {
+        val savedFiles = mutableListOf<SavedStatusModel>()
+        val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+        val safUriString = pref.getUriFromPreference()
+        var usedSAF = false
+        
+        if (!safUriString.isNullOrBlank()) {
+            try {
+                val safUri = Uri.parse(safUriString)
+                val folderDoc = DocumentFile.fromTreeUri(context, safUri)
+                if (folderDoc != null) {
+                    val statusWpFolder = folderDoc.findFile("StatusWp")
+                    if (statusWpFolder != null && statusWpFolder.isDirectory) {
+                        Log.d(TAG, "Reading saved statuses from SAF/StatusWp: ${statusWpFolder.uri}")
+                        for (file in statusWpFolder.listFiles()) {
+                            if (file.isFile && isValidFile(file.name ?: "")) {
+                                val filePath = file.uri.toString()
+                                val isFav = pref.isFavorite(filePath)
+                                savedFiles.add(SavedStatusModel(
+                                    statusUri = filePath,
+                                    isFav = isFav,
+                                    savedDate = file.lastModified()
+                                ))
+                            }
+                        }
+                        usedSAF = true
+                    } else {
+                        Log.w(TAG, "StatusWp folder not found in SAF location: $safUriString")
+                    }
+                } else {
+                    Log.w(TAG, "Could not get DocumentFile from SAF URI: $safUriString")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reading saved statuses from SAF", e)
+            }
+        }
+        
+        if (!usedSAF) {
+            // Fallback to legacy DCIM path
+            Log.d(TAG, "Falling back to legacy DCIM path: $SAVED_DIRECTORY")
+            val file = File(SAVED_DIRECTORY)
+            file.listFiles()?.forEach { it ->
+                val path = it.path
+                if (isValidFile(path)) {
+                    val isFav = pref.isFavorite(path)
+                    savedFiles.add(SavedStatusModel(
+                        statusUri = path,
+                        isFav = isFav,
+                        savedDate = it.lastModified()
+                    ))
+                }
+            }
+        }
+        
+        return@withContext savedFiles
+    }
+
+    /**
+     * Toggle favorite status for a saved status
+     */
+    suspend fun toggleFavoriteStatus(context: Context, statusUri: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+            val isCurrentlyFavorite = pref.isFavorite(statusUri)
+            
+            if (isCurrentlyFavorite) {
+                pref.removeFromFavorites(statusUri)
+                Log.d(TAG, "Removed from favorites: $statusUri")
+            } else {
+                pref.addToFavorites(statusUri)
+                Log.d(TAG, "Added to favorites: $statusUri")
+            }
+            
+            return@withContext true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error toggling favorite status: $statusUri", e)
+            return@withContext false
+        }
     }
 
     suspend fun deleteSavedStatus(context: Context, filePath: String): Boolean = withContext(Dispatchers.IO) {

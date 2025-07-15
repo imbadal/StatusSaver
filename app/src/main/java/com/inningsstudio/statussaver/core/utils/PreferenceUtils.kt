@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.inningsstudio.statussaver.core.constants.Const
 import androidx.activity.ComponentActivity
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.inningsstudio.statussaver.data.model.SavedStatusModel
 
 class PreferenceUtils(private val application: Application) {
 
@@ -46,6 +49,44 @@ class PreferenceUtils(private val application: Application) {
             .edit()
             .putInt("permission_attempts", attempts)
             .apply()
+    }
+
+    // Favorite statuses management
+    fun getFavoriteStatuses(): List<SavedStatusModel> {
+        val json = application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .getString("favorite_statuses", "[]")
+        return try {
+            val type = object : TypeToken<List<SavedStatusModel>>() {}.type
+            Gson().fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveFavoriteStatuses(favorites: List<SavedStatusModel>) {
+        val json = Gson().toJson(favorites)
+        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .edit()
+            .putString("favorite_statuses", json)
+            .apply()
+    }
+
+    fun addToFavorites(statusUri: String) {
+        val favorites = getFavoriteStatuses().toMutableList()
+        if (!favorites.any { it.statusUri == statusUri }) {
+            favorites.add(SavedStatusModel(statusUri = statusUri, isFav = true))
+            saveFavoriteStatuses(favorites)
+        }
+    }
+
+    fun removeFromFavorites(statusUri: String) {
+        val favorites = getFavoriteStatuses().toMutableList()
+        favorites.removeAll { it.statusUri == statusUri }
+        saveFavoriteStatuses(favorites)
+    }
+
+    fun isFavorite(statusUri: String): Boolean {
+        return getFavoriteStatuses().any { it.statusUri == statusUri }
     }
 
     companion object {
