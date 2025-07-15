@@ -145,7 +145,7 @@ fun StandaloneStatusGallery(context: Context) {
                     Log.d("StatusGalleryActivity", "  - Is hidden: ${folder.isHidden}")
 
                     if (folder.exists() && folder.isDirectory && folder.canRead()) {
-                        val files = folder.listFiles { file -> true }
+                        val files = folder.listFiles { _ -> true }
                         Log.d("StatusGalleryActivity", "  - Total files: ${files?.size ?: 0}")
                         files?.take(5)?.forEach { file ->
                             Log.d(
@@ -244,7 +244,6 @@ fun StandaloneStatusGallery(context: Context) {
 
     val primaryGreen = Color(0xFF25D366)
     val darkGreen = Color(0xFF128C7E)
-    val lightGreen = Color(0xFF4CAF50)
     val systemUiController = rememberSystemUiController()
 
     // Set status bar color for gallery
@@ -408,9 +407,9 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         items(36) { // Show 36 shimmer items to fill entire screen height
                                             ShimmerCard()
@@ -524,9 +523,9 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         itemsIndexed(statusList) { index, status ->
                                             ModernStatusCard(
@@ -551,9 +550,9 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         items(36) { // Show 36 shimmer items to fill entire screen height
                                             ShimmerCard()
@@ -611,9 +610,9 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         itemsIndexed(savedStatusList) { index, status ->
                                             ModernStatusCard(
@@ -649,11 +648,11 @@ fun ModernStatusCard(
     Card(
         modifier = Modifier
             .aspectRatio(1f)
-            .shadow(4.dp, RoundedCornerShape(12.dp))
+            .shadow(4.dp, RoundedCornerShape(0.dp))
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(0.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (status.isVideo) {
