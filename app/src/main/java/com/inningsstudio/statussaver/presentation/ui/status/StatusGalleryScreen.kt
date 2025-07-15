@@ -641,7 +641,7 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(2),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
@@ -708,19 +708,37 @@ fun StandaloneStatusGallery(context: Context) {
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(2),
                                         modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         if (favoriteStatuses.isNotEmpty()) {
                                             item(span = { GridItemSpan(maxLineSpan) }) {
-                                                Text(
-                                                    text = "Favorites",
-                                                    color = Color.Black,
-                                                    fontSize = 18.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                                                )
+                                                Column(
+                                                    modifier = Modifier
+                                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                                        .background(Color(0xFFFAFAFA), RoundedCornerShape(8.dp))
+                                                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Text(
+                                                            text = "Favorites",
+                                                            color = Color(0xFFE91E63), // Pink/Red color for favorites
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                        Spacer(modifier = Modifier.width(8.dp)) // Small gap after text
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .height(1.dp)
+                                                                .weight(1f)
+                                                                .background(Color(0xFFE91E63)) // Same pink color as text
+                                                        )
+                                                    }
+                                                }
                                             }
                                             items(favoriteStatuses.size) { index ->
                                                 val savedStatus = favoriteStatuses[index]
@@ -750,18 +768,36 @@ fun StandaloneStatusGallery(context: Context) {
                                                 }
                                             }
                                             item(span = { GridItemSpan(maxLineSpan) }) {
-                                                Spacer(modifier = Modifier.height(16.dp))
+                                                Spacer(modifier = Modifier.height(8.dp))
                                             }
                                         }
                                         if (otherStatuses.isNotEmpty()) {
                                             item(span = { GridItemSpan(maxLineSpan) }) {
-                                                Text(
-                                                    text = "Other Statuses",
-                                                    color = Color.Black,
-                                                    fontSize = 18.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                                                )
+                                                Column(
+                                                    modifier = Modifier
+                                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                                        .background(Color(0xFFFAFAFA), RoundedCornerShape(8.dp))
+                                                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Text(
+                                                            text = "Others",
+                                                            color = Color(0xFF757575), // Gray color for others
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                        Spacer(modifier = Modifier.width(8.dp)) // Small gap after text
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .height(1.dp)
+                                                                .weight(1f)
+                                                                .background(Color(0xFF757575)) // Same gray color as text
+                                                        )
+                                                    }
+                                                }
                                             }
                                             items(otherStatuses.size) { index ->
                                                 val savedStatus = otherStatuses[index]
