@@ -15,6 +15,8 @@ import com.inningsstudio.statussaver.core.constants.Const.MP4
 import com.inningsstudio.statussaver.core.constants.Const.NO_MEDIA
 import com.inningsstudio.statussaver.data.model.StatusModel
 import com.inningsstudio.statussaver.data.model.SavedStatusModel
+import com.inningsstudio.statussaver.data.model.SavedStatusEntity
+import com.inningsstudio.statussaver.data.database.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -314,8 +316,8 @@ object FileUtils {
                 if (isVideo(path)) {
                     try {
                         val mediaMetadataRetriever = MediaMetadataRetriever()
-                            mediaMetadataRetriever.setDataSource(path)
-                            val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                        mediaMetadataRetriever.setDataSource(path)
+                        val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
                         mediaMetadataRetriever.release()
                         savedFiles.add(StatusModel(
                             id = path.hashCode().toLong(),
@@ -349,85 +351,82 @@ object FileUtils {
     }
 
     /**
-     * Get saved statuses with favorite information
+     * Get saved statuses with favorite information from database
      */
-    suspend fun getSavedStatusesWithFavorites(context: Context): List<SavedStatusModel> = withContext(Dispatchers.IO) {
-        val savedFiles = mutableListOf<SavedStatusModel>()
-        val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-        val safUriString = pref.getUriFromPreference()
-        var usedSAF = false
-        
-        if (!safUriString.isNullOrBlank()) {
-            try {
-                val safUri = Uri.parse(safUriString)
-                val folderDoc = DocumentFile.fromTreeUri(context, safUri)
-                if (folderDoc != null) {
-                    val statusWpFolder = folderDoc.findFile("StatusWp")
-                    if (statusWpFolder != null && statusWpFolder.isDirectory) {
-                        Log.d(TAG, "Reading saved statuses from SAF/StatusWp: ${statusWpFolder.uri}")
-                        for (file in statusWpFolder.listFiles()) {
-                            if (file.isFile && isValidFile(file.name ?: "")) {
-                                val filePath = file.uri.toString()
-                                val isFav = pref.isFavorite(filePath)
-                                savedFiles.add(SavedStatusModel(
-                                    statusUri = filePath,
-                                    isFav = isFav,
-                                    savedDate = file.lastModified()
-                                ))
-                            }
-                        }
-                        usedSAF = true
-                    } else {
-                        Log.w(TAG, "StatusWp folder not found in SAF location: $safUriString")
-                    }
-                } else {
-                    Log.w(TAG, "Could not get DocumentFile from SAF URI: $safUriString")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error reading saved statuses from SAF", e)
-            }
+    suspend fun getSavedStatusesWithFavorites(context: Context): List<SavedStatusEntity> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val database = AppDatabase.getDatabase(context)
+            val savedStatusDao = database.savedStatusDao()
+            savedStatusDao.getAllSavedStatusesSync()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting saved statuses from database", e)
+            emptyList()
         }
-        
-        if (!usedSAF) {
-            // Fallback to legacy DCIM path
-            Log.d(TAG, "Falling back to legacy DCIM path: $SAVED_DIRECTORY")
-            val file = File(SAVED_DIRECTORY)
-            file.listFiles()?.forEach { it ->
-                val path = it.path
-                if (isValidFile(path)) {
-                    val isFav = pref.isFavorite(path)
-                    savedFiles.add(SavedStatusModel(
-                        statusUri = path,
-                        isFav = isFav,
-                        savedDate = it.lastModified()
-                    ))
-                }
-            }
-        }
-        
-        return@withContext savedFiles
     }
 
     /**
-     * Toggle favorite status for a saved status
+     * Toggle favorite status for a saved status using database
      */
     suspend fun toggleFavoriteStatus(context: Context, statusUri: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-            val isCurrentlyFavorite = pref.isFavorite(statusUri)
-            
-            if (isCurrentlyFavorite) {
-                pref.removeFromFavorites(statusUri)
-                Log.d(TAG, "Removed from favorites: $statusUri")
+        return@withContext try {
+            val database = AppDatabase.getDatabase(context)
+            val savedStatusDao = database.savedStatusDao()
+
+            val currentStatus = savedStatusDao.getSavedStatusByUri(statusUri)
+            if (currentStatus != null) {
+                savedStatusDao.updateFavoriteStatus(statusUri, !currentStatus.isFavorite)
+                Log.d(TAG, "Toggled favorite status for: $statusUri")
+                true
             } else {
-                pref.addToFavorites(statusUri)
-                Log.d(TAG, "Added to favorites: $statusUri")
+                Log.w(TAG, "Status not found in database: $statusUri")
+                false
             }
-            
-            return@withContext true
         } catch (e: Exception) {
             Log.e(TAG, "Error toggling favorite status: $statusUri", e)
-            return@withContext false
+            false
+        }
+    }
+
+    /**
+     * Save status to database when it's saved to folder
+     */
+    suspend fun saveStatusToDatabase(context: Context, statusUri: String, fileName: String, fileSize: Long, isVideo: Boolean): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val database = AppDatabase.getDatabase(context)
+            val savedStatusDao = database.savedStatusDao()
+
+            val savedStatus = SavedStatusEntity(
+                statusUri = statusUri,
+                fileName = fileName,
+                isFavorite = false,
+                savedDate = System.currentTimeMillis(),
+                fileSize = fileSize,
+                isVideo = isVideo
+            )
+
+            savedStatusDao.insertSavedStatus(savedStatus)
+            Log.d(TAG, "Saved status to database: $statusUri")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving status to database: $statusUri", e)
+            false
+        }
+    }
+
+    /**
+     * Remove status from database when it's deleted
+     */
+    suspend fun removeStatusFromDatabase(context: Context, statusUri: String): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val database = AppDatabase.getDatabase(context)
+            val savedStatusDao = database.savedStatusDao()
+
+            savedStatusDao.deleteSavedStatusByUri(statusUri)
+            Log.d(TAG, "Removed status from database: $statusUri")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error removing status from database: $statusUri", e)
+            false
         }
     }
 
@@ -435,30 +434,36 @@ object FileUtils {
         try {
             Log.d(TAG, "Attempting to delete saved status: $filePath")
             
+            var fileDeleted = false
+            
             // Check if it's a SAF URI
             if (filePath.startsWith("content://")) {
                 val uri = Uri.parse(filePath)
                 val documentFile = DocumentFile.fromSingleUri(context, uri)
                 if (documentFile != null && documentFile.exists()) {
-                    val deleted = documentFile.delete()
-                    Log.d(TAG, "SAF file deletion result: $deleted")
-                    return@withContext deleted
+                    fileDeleted = documentFile.delete()
+                    Log.d(TAG, "SAF file deletion result: $fileDeleted")
                 } else {
                     Log.w(TAG, "SAF file not found or cannot be deleted: $filePath")
-                    return@withContext false
                 }
             } else {
                 // Handle as regular file path
                 val file = File(filePath)
                 if (file.exists()) {
-                    val deleted = file.delete()
-                    Log.d(TAG, "Regular file deletion result: $deleted")
-                    return@withContext deleted
+                    fileDeleted = file.delete()
+                    Log.d(TAG, "Regular file deletion result: $fileDeleted")
                 } else {
                     Log.w(TAG, "File not found: $filePath")
-                    return@withContext false
                 }
             }
+            
+            // If file was deleted successfully, also remove from database
+            if (fileDeleted) {
+                val removedFromDb = removeStatusFromDatabase(context, filePath)
+                Log.d(TAG, "Removed from database: $removedFromDb")
+            }
+            
+            return@withContext fileDeleted
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting saved status: $filePath", e)
             return@withContext false
@@ -660,114 +665,119 @@ object FileUtils {
         context.startActivity(Intent.createChooser(share, "Share with"))
     }
 
-    suspend fun saveStatusToFolder(context: Context, folderUri: Uri, filePath: String): Boolean {
-        return try {
+    suspend fun saveStatusToFolder(context: Context, folderUri: Uri, filePath: String): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
             Log.d(TAG, "=== STARTING SAVE OPERATION ===")
             Log.d(TAG, "Source file: $filePath")
             Log.d(TAG, "Destination folder URI: $folderUri")
-            
+
             // Handle both file paths and content URIs
             val isContentUri = filePath.startsWith("content://")
             Log.d(TAG, "Is content URI: $isContentUri")
-            
+
             if (isContentUri) {
                 // Handle content URI
                 val sourceUri = Uri.parse(filePath)
                 Log.d(TAG, "Parsed source URI: $sourceUri")
-                
+
                 // Get file name from content URI
                 val fileName = getFileNameFromUri(context, sourceUri)
                 Log.d(TAG, "File name from URI: $fileName")
-                
+
                 if (fileName == null) {
                     Log.e(TAG, "Could not get file name from URI")
-                    return false
+                    return@withContext false
                 }
-                
+
                 // Get file size from content URI
                 val fileSize = getFileSizeFromUri(context, sourceUri)
                 Log.d(TAG, "File size from URI: $fileSize bytes")
-                
+
                 // Get MIME type from content URI
                 val mimeType = context.contentResolver.getType(sourceUri) ?: "application/octet-stream"
                 Log.d(TAG, "MIME type from URI: $mimeType")
-                
+
                 // Get the folder document
                 val folderDoc = DocumentFile.fromTreeUri(context, folderUri)
                 if (folderDoc == null) {
                     Log.e(TAG, "Failed to get folder document from URI: $folderUri")
-                    return false
+                    return@withContext false
                 }
-                
+
                 Log.d(TAG, "Folder document obtained: ${folderDoc.name}")
-                
+
                 // Create StatusWp subfolder if it doesn't exist
-                var statusWpFolder = folderDoc.findFile("StatusWp")
+                var statusWpFolder = folderDoc?.findFile("StatusWp")
                 if (statusWpFolder == null) {
                     Log.d(TAG, "Creating StatusWp folder...")
-                    statusWpFolder = folderDoc.createDirectory("StatusWp")
+                    statusWpFolder = folderDoc?.createDirectory("StatusWp")
                     if (statusWpFolder == null) {
                         Log.e(TAG, "Failed to create StatusWp folder")
-                        return false
+                        return@withContext false
                     }
                     Log.d(TAG, "StatusWp folder created successfully")
                 } else {
                     Log.d(TAG, "StatusWp folder already exists")
                 }
-                
+
                 // Create the new file in StatusWp folder
                 val newFile = statusWpFolder.createFile(mimeType, fileName)
                 if (newFile == null) {
                     Log.e(TAG, "Failed to create new file: $fileName")
-                    return false
+                    return@withContext false
                 }
-                
+
                 Log.d(TAG, "New file created: ${newFile.name}")
-                
+
                 // Copy the file content from content URI to new file
                 context.contentResolver.openInputStream(sourceUri)?.use { inStream ->
                     context.contentResolver.openOutputStream(newFile.uri)?.use { outStream ->
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var totalBytes = 0L
-                        
+
                         while (inStream.read(buffer).also { bytesRead = it } != -1) {
                             outStream.write(buffer, 0, bytesRead)
                             totalBytes += bytesRead
                         }
-                        
+
                         Log.d(TAG, "File copied successfully: $totalBytes bytes")
                     } ?: run {
                         Log.e(TAG, "Failed to open output stream for new file")
-                        return false
+                        return@run false
                     }
                 } ?: run {
                     Log.e(TAG, "Failed to open input stream for source URI")
-                    return false
+                    return@run false
                 }
-                
+
+                // Save to database after successful file save
+                val isVideo = mimeType.startsWith("video/")
+                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), fileName, fileSize, isVideo)
+                Log.d(TAG, "Saved to database: $savedToDb")
+
                 Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
                 true
-                
+
             } else {
                 // Handle regular file path
                 val sourceFile = File(filePath)
                 if (!sourceFile.exists()) {
                     Log.e(TAG, "Source file does not exist: $filePath")
-                    return false
+                    return@withContext false
                 }
-                
+
                 Log.d(TAG, "Source file exists, size: ${sourceFile.length()} bytes")
-                
+
                 // Get the folder document
                 val folderDoc = DocumentFile.fromTreeUri(context, folderUri)
                 if (folderDoc == null) {
                     Log.e(TAG, "Failed to get folder document from URI: $folderUri")
-                    return false
+                    return@withContext false
                 }
-                
+
                 Log.d(TAG, "Folder document obtained: ${folderDoc.name}")
-                
+
                 // Create StatusWp subfolder if it doesn't exist
                 var statusWpFolder = folderDoc.findFile("StatusWp")
                 if (statusWpFolder == null) {
@@ -775,13 +785,13 @@ object FileUtils {
                     statusWpFolder = folderDoc.createDirectory("StatusWp")
                     if (statusWpFolder == null) {
                         Log.e(TAG, "Failed to create StatusWp folder")
-                        return false
+                        return@withContext false
                     }
                     Log.d(TAG, "StatusWp folder created successfully")
                 } else {
                     Log.d(TAG, "StatusWp folder already exists")
                 }
-                
+
                 // Determine MIME type
                 val mimeType = when {
                     filePath.lowercase().endsWith(".mp4") -> "video/mp4"
@@ -791,46 +801,128 @@ object FileUtils {
                     filePath.lowercase().endsWith(".webp") -> "image/webp"
                     else -> "application/octet-stream"
                 }
-                
+
                 Log.d(TAG, "MIME type: $mimeType")
-                
+
                 // Create the new file in StatusWp folder
                 val newFile = statusWpFolder.createFile(mimeType, sourceFile.name)
                 if (newFile == null) {
                     Log.e(TAG, "Failed to create new file: ${sourceFile.name}")
-                    return false
+                    return@withContext false
                 }
-                
+
                 Log.d(TAG, "New file created: ${newFile.name}")
-                
+
                 // Copy the file content
                 context.contentResolver.openOutputStream(newFile.uri)?.use { outStream ->
                     sourceFile.inputStream().use { inStream ->
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var totalBytes = 0L
-                        
+
                         while (inStream.read(buffer).also { bytesRead = it } != -1) {
                             outStream.write(buffer, 0, bytesRead)
                             totalBytes += bytesRead
                         }
-                        
+
                         Log.d(TAG, "File copied successfully: $totalBytes bytes")
                     }
                 } ?: run {
                     Log.e(TAG, "Failed to open output stream for new file")
-                    return false
+                    return@run false
                 }
-                
+
+                // Save to database after successful file save
+                val isVideo = mimeType.startsWith("video/")
+                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), sourceFile.name, sourceFile.length(), isVideo)
+                Log.d(TAG, "Saved to database: $savedToDb")
+
                 Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
                 true
             }
-            
+
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving file: $filePath", e)
-            Log.e(TAG, "Exception details: ${e.message}")
-            e.printStackTrace()
+            Log.e(TAG, "Error saving status to folder", e)
             false
+        }
+    }
+
+    /**
+     * Get saved statuses from database and convert to StatusModel for UI
+     */
+    suspend fun getSavedStatusesFromDatabase(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val database = AppDatabase.getDatabase(context)
+            val savedStatusDao = database.savedStatusDao()
+            val savedStatusEntities = savedStatusDao.getAllSavedStatusesSync()
+            
+            val statusModels = mutableListOf<StatusModel>()
+            
+            savedStatusEntities.forEach { entity ->
+                try {
+                    // Check if the file still exists
+                    val uri = Uri.parse(entity.statusUri)
+                    val documentFile = DocumentFile.fromSingleUri(context, uri)
+                    
+                    if (documentFile != null && documentFile.exists()) {
+                        val isVideo = entity.isVideo
+                        
+                        if (isVideo) {
+                            // For videos, try to get thumbnail
+                            try {
+                                val mediaMetadataRetriever = MediaMetadataRetriever()
+                                mediaMetadataRetriever.setDataSource(context, uri)
+                                val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                                mediaMetadataRetriever.release()
+                                
+                                statusModels.add(StatusModel(
+                                    id = entity.statusUri.hashCode().toLong(),
+                                    filePath = entity.statusUri,
+                                    fileName = entity.fileName,
+                                    fileSize = entity.fileSize,
+                                    lastModified = entity.savedDate,
+                                    isVideo = true,
+                                    thumbnail = thumbnail
+                                ))
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error getting thumbnail for video: ${entity.fileName}", e)
+                                // Add without thumbnail
+                                statusModels.add(StatusModel(
+                                    id = entity.statusUri.hashCode().toLong(),
+                                    filePath = entity.statusUri,
+                                    fileName = entity.fileName,
+                                    fileSize = entity.fileSize,
+                                    lastModified = entity.savedDate,
+                                    isVideo = true
+                                ))
+                            }
+                        } else {
+                            // For images, create ImageRequest
+                            val imageRequest = ImageRequest.Builder(context).data(entity.statusUri).build()
+                            statusModels.add(StatusModel(
+                                id = entity.statusUri.hashCode().toLong(),
+                                filePath = entity.statusUri,
+                                fileName = entity.fileName,
+                                fileSize = entity.fileSize,
+                                lastModified = entity.savedDate,
+                                imageRequest = imageRequest
+                            ))
+                        }
+                    } else {
+                        // File doesn't exist, remove from database
+                        Log.w(TAG, "Saved file no longer exists, removing from database: ${entity.fileName}")
+                        savedStatusDao.deleteSavedStatusByUri(entity.statusUri)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing saved status: ${entity.fileName}", e)
+                }
+            }
+            
+            Log.d(TAG, "Retrieved ${statusModels.size} saved statuses from database")
+            statusModels
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting saved statuses from database", e)
+            emptyList()
         }
     }
 

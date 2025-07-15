@@ -40,7 +40,7 @@ import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.StatusPathDetector
 import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.data.model.StatusModel
-import com.inningsstudio.statussaver.data.model.SavedStatusModel
+import com.inningsstudio.statussaver.data.model.SavedStatusEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,7 +70,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 fun StandaloneStatusGallery(context: Context) {
     var statusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     var savedStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
-    var savedStatusesWithFavorites by remember { mutableStateOf<List<SavedStatusModel>>(emptyList()) }
+    var savedStatusesWithFavorites by remember { mutableStateOf<List<SavedStatusEntity>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isLoadingSaved by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -112,9 +112,10 @@ fun StandaloneStatusGallery(context: Context) {
             isLoadingSaved = true
 
             try {
-                val savedStatuses = FileUtils.getSavedStatus(context)
+                // Use the new database-based function instead of file system
+                val savedStatuses = FileUtils.getSavedStatusesFromDatabase(context)
                 val savedStatusesWithFavs = FileUtils.getSavedStatusesWithFavorites(context)
-                Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses")
+                Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses from database")
                 
                 // Calculate hash of new statuses
                 val newHash = calculateSavedStatusesHash(savedStatuses)
@@ -699,8 +700,8 @@ fun StandaloneStatusGallery(context: Context) {
                                     )
                                     
                                     // Organize saved statuses into favorites and others
-                                    val favoriteStatuses = savedStatusesWithFavorites.filter { it.isFav }
-                                    val otherStatuses = savedStatusesWithFavorites.filter { !it.isFav }
+                                    val favoriteStatuses = savedStatusesWithFavorites.filter { it.isFavorite }
+                                    val otherStatuses = savedStatusesWithFavorites.filter { !it.isFavorite }
                                         .sortedByDescending { it.savedDate }
                                     
                                     LazyVerticalGrid(
@@ -726,7 +727,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 status?.let {
                                                     SavedStatusCardWithFav(
                                                         status = it,
-                                                        isFavorite = savedStatus.isFav,
+                                                        isFavorite = savedStatus.isFavorite,
                                                         context = context,
                                                         thumbCache = thumbCache,
                                                         getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
@@ -767,7 +768,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 status?.let {
                                                     SavedStatusCardWithFav(
                                                         status = it,
-                                                        isFavorite = savedStatus.isFav,
+                                                        isFavorite = savedStatus.isFavorite,
                                                         context = context,
                                                         thumbCache = thumbCache,
                                                         getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },

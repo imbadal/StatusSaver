@@ -51,44 +51,6 @@ class PreferenceUtils(private val application: Application) {
             .apply()
     }
 
-    // Favorite statuses management
-    fun getFavoriteStatuses(): List<SavedStatusModel> {
-        val json = application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .getString("favorite_statuses", "[]")
-        return try {
-            val type = object : TypeToken<List<SavedStatusModel>>() {}.type
-            Gson().fromJson(json, type) ?: emptyList()
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
-    fun saveFavoriteStatuses(favorites: List<SavedStatusModel>) {
-        val json = Gson().toJson(favorites)
-        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .edit()
-            .putString("favorite_statuses", json)
-            .apply()
-    }
-
-    fun addToFavorites(statusUri: String) {
-        val favorites = getFavoriteStatuses().toMutableList()
-        if (!favorites.any { it.statusUri == statusUri }) {
-            favorites.add(SavedStatusModel(statusUri = statusUri, isFav = true))
-            saveFavoriteStatuses(favorites)
-        }
-    }
-
-    fun removeFromFavorites(statusUri: String) {
-        val favorites = getFavoriteStatuses().toMutableList()
-        favorites.removeAll { it.statusUri == statusUri }
-        saveFavoriteStatuses(favorites)
-    }
-
-    fun isFavorite(statusUri: String): Boolean {
-        return getFavoriteStatuses().any { it.statusUri == statusUri }
-    }
-
     companion object {
         private const val PREF_NAME = Const.PREF_NAME
         private const val KEY_FIRST_TIME = Const.KEY_FIRST_TIME
