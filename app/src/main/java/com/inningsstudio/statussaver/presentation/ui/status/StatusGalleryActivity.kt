@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +78,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.res.painterResource
 import com.inningsstudio.statussaver.R
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.documentfile.provider.DocumentFile
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -103,9 +109,15 @@ class StatusGalleryActivity : ComponentActivity() {
         Log.d(TAG, "Has required permissions: $hasPermissions")
         
         if (safUri.isNullOrBlank() || !onboardingCompleted) {
-            Log.w(TAG, "❌ Permission not granted or onboarding not completed - launching onboarding")
+            Log.w(
+                TAG,
+                "❌ Permission not granted or onboarding not completed - launching onboarding"
+            )
             // Permission not granted, launch onboarding
-            val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.onboarding.OnBoardingActivity::class.java)
+            val intent = Intent(
+                this,
+                com.inningsstudio.statussaver.presentation.ui.onboarding.OnBoardingActivity::class.java
+            )
             startActivity(intent)
             finish()
             return
@@ -178,13 +190,35 @@ fun StatusView(
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val flingBehavior = rememberSnapFlingBehavior(lazyListState)
-    
+
     // Track ExoPlayer instances to terminate them on back press
     val players = remember { mutableListOf<ExoPlayer>() }
-    
+
     // Get lifecycle owner for app background detection
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+
+    // State for permission dialog
+    var showPermissionDialog by remember { mutableStateOf(false) }
+
+    // Folder picker launcher
+    val folderPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            PreferenceUtils(context.applicationContext as android.app.Application).setUriToPreference(uri.toString())
+            statusList.getOrNull(currentIndex)?.let { status ->
+                coroutineScope.launch {
+                    Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
+                    val success = FileUtils.saveStatusToFolder(context, uri, status.filePath)
+                    Toast.makeText(
+                        context,
+                        if (success) "Saved successfully" else "Failed to save",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
     // Observe lifecycle to pause/resume media
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -201,6 +235,7 @@ fun StatusView(
                         }
                     }
                 }
+
                 Lifecycle.Event.ON_RESUME -> {
                     // Optionally resume players when app comes to foreground
                     // Uncomment the following if you want auto-resume:
@@ -214,12 +249,13 @@ fun StatusView(
                     //     }
                     // }
                 }
+
                 else -> {}
             }
         }
-        
+
         lifecycleOwner.lifecycle.addObserver(observer)
-        
+
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
@@ -253,7 +289,7 @@ fun StatusView(
             }
         }
         players.clear()
-        
+
         // Navigate back to home screen
         onBackPressed()
     }
@@ -310,7 +346,7 @@ fun StatusView(
                         // Video player with tap-to-show-controls and play/pause
                         var player by remember { mutableStateOf<ExoPlayer?>(null) }
                         var showControls by remember { mutableStateOf(true) }
-                        
+
                         DisposableEffect(key1 = index) {
                             val newPlayer = ExoPlayer.Builder(context).build().apply {
                                 val mediaItem = MediaItem.fromUri(status.filePath)
@@ -319,7 +355,7 @@ fun StatusView(
                             }
                             player = newPlayer
                             players.add(newPlayer)
-                            
+
                             onDispose {
                                 try {
                                     newPlayer.release()
@@ -329,7 +365,7 @@ fun StatusView(
                                 }
                             }
                         }
-                        
+
                         // Pause if not the current page, play if current
                         LaunchedEffect(pagerState.currentPage) {
                             if (pagerState.currentPage == index) {
@@ -339,7 +375,7 @@ fun StatusView(
                                 player?.pause()
                             }
                         }
-                        
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -375,7 +411,7 @@ fun StatusView(
                     }
                 }
             }
-            
+
             // Bottom action buttons in navigation bar area
             Box(
                 modifier = Modifier
@@ -389,9 +425,30 @@ fun StatusView(
                     // Download button
                     FloatingActionButton(
                         onClick = {
+                            val pref =
+                                PreferenceUtils(context.applicationContext as android.app.Application)
+                            val folderUri = pref.getUriFromPreference()
+                            val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
                             statusList.getOrNull(currentIndex)?.let { status ->
                                 coroutineScope.launch {
-                                    FileUtils.copyFileToInternalStorage(Uri.parse(status.filePath), context)
+                                    if (!hasPermissions) {
+                                        showPermissionDialog = true
+                                    } else if (folderUri.isNullOrBlank()) {
+                                        folderPickerLauncher.launch(null)
+                                    } else {
+                                        val uri = Uri.parse(folderUri)
+                                        Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
+                                        val success = FileUtils.saveStatusToFolder(
+                                            context,
+                                            uri,
+                                            status.filePath
+                                        )
+                                        Toast.makeText(
+                                            context,
+                                            if (success) "Saved successfully" else "Failed to save",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 }
                             }
                         },
@@ -427,7 +484,7 @@ fun StatusView(
                     }
                 }
             }
-            
+
             // Status counter
             Box(
                 modifier = Modifier
@@ -447,6 +504,28 @@ fun StatusView(
                 }
             }
         }
+    }
+
+    // Permission dialog
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            title = { Text("Permission Required") },
+            text = { Text("Storage permission is required to save statuses. Please grant permission.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPermissionDialog = false
+                    folderPickerLauncher.launch(null)
+                }) {
+                    Text("Grant Permission")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -499,7 +578,8 @@ fun StandaloneStatusGallery(context: Context) {
 
                 if (!hasPermissions) {
                     Log.e("StatusGalleryActivity", "❌ NO PERMISSIONS - Cannot load statuses")
-                    errorMessage = "Media permissions are required. Please grant permissions in app settings."
+                    errorMessage =
+                        "Media permissions are required. Please grant permissions in app settings."
                     isLoading = false
                     return@launch
                 }
@@ -522,22 +602,34 @@ fun StandaloneStatusGallery(context: Context) {
                         val files = folder.listFiles { file -> true }
                         Log.d("StatusGalleryActivity", "  - Total files: ${files?.size ?: 0}")
                         files?.take(5)?.forEach { file ->
-                            Log.d("StatusGalleryActivity", "    - ${file.name} (hidden: ${file.isHidden}, size: ${file.length()})")
+                            Log.d(
+                                "StatusGalleryActivity",
+                                "    - ${file.name} (hidden: ${file.isHidden}, size: ${file.length()})"
+                            )
                         }
                     }
                 }
 
                 Log.d("StatusGalleryActivity", "Calling FileUtils.getStatus()...")
             val statuses = FileUtils.getStatus(context, safUri ?: "")
-                Log.d("StatusGalleryActivity", "FileUtils.getStatus() returned ${statuses.size} statuses")
+                Log.d(
+                    "StatusGalleryActivity",
+                    "FileUtils.getStatus() returned ${statuses.size} statuses"
+                )
 
                 // Log all statuses for debugging
                 statuses.forEachIndexed { index, status ->
-                    Log.d("StatusGalleryActivity", "Status $index: ${status.fileName} (${status.filePath})")
+                    Log.d(
+                        "StatusGalleryActivity",
+                        "Status $index: ${status.fileName} (${status.filePath})"
+                    )
                     Log.d("StatusGalleryActivity", "  - Size: ${status.fileSize} bytes")
                     Log.d("StatusGalleryActivity", "  - Is video: ${status.isVideo}")
                     Log.d("StatusGalleryActivity", "  - Last modified: ${status.lastModified}")
-                    Log.d("StatusGalleryActivity", "  - File path empty: ${status.filePath.isEmpty()}")
+                    Log.d(
+                        "StatusGalleryActivity",
+                        "  - File path empty: ${status.filePath.isEmpty()}"
+                    )
                 }
 
             statusList = statuses.filter { it.filePath.isNotEmpty() }
@@ -545,7 +637,10 @@ fun StandaloneStatusGallery(context: Context) {
 
                 // Log details about found statuses
                 statusList.forEachIndexed { index, status ->
-                    Log.d("StatusGalleryActivity", "Valid Status $index: ${status.fileName} (${status.filePath})")
+                    Log.d(
+                        "StatusGalleryActivity",
+                        "Valid Status $index: ${status.fileName} (${status.filePath})"
+                    )
                     Log.d("StatusGalleryActivity", "  - Size: ${status.fileSize} bytes")
                     Log.d("StatusGalleryActivity", "  - Is video: ${status.isVideo}")
                     Log.d("StatusGalleryActivity", "  - Last modified: ${status.lastModified}")
@@ -619,7 +714,11 @@ fun StandaloneStatusGallery(context: Context) {
                             }
                         } else {
                             IconButton(onClick = { loadStatuses() }) {
-                                Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = Color.White)
+                                Icon(
+                                    Icons.Filled.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = Color.White
+                                )
                             }
                         }
                     },
@@ -628,9 +727,11 @@ fun StandaloneStatusGallery(context: Context) {
             },
             containerColor = Color.White
         ) { innerPadding ->
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
         when {
             isLoading -> {
                         // Show shimmer grid
@@ -643,16 +744,24 @@ fun StandaloneStatusGallery(context: Context) {
                         ) {
                             items(36) { // Show 36 shimmer items to fill entire screen height
                                 ShimmerCard()
+                            }
+                        }
                     }
-                }
-            }
+
             errorMessage != null -> {
                         Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Error", color = Color.Red, fontSize = 18.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(errorMessage ?: "Unknown error", color = Color.White, fontSize = 14.sp)
+                                Text(
+                                    errorMessage ?: "Unknown error",
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
                                     onClick = { loadStatuses() },
@@ -667,16 +776,24 @@ fun StandaloneStatusGallery(context: Context) {
                                 ) {
                                     Text("Debug", color = Color.White)
                                 }
+                            }
+                        }
                     }
-                }
-            }
+
             statusList.isEmpty() -> {
                         Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("No Statuses Found", color = Color.White, fontSize = 18.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Make sure you have granted folder permission", color = Color.Gray, fontSize = 14.sp)
+                                Text(
+                                    "Make sure you have granted folder permission",
+                                    color = Color.Gray,
+                                    fontSize = 14.sp
+                                )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
                                     onClick = { loadStatuses() },
@@ -691,24 +808,32 @@ fun StandaloneStatusGallery(context: Context) {
                                 ) {
                                     Text("Debug Detection", color = Color.White)
                                 }
+                            }
+                        }
                     }
-                }
-            }
-            else -> {
-                        Log.d("StatusGalleryActivity", "Showing status grid with ${statusList.size} statuses")
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(3),
-                            modifier = Modifier.fillMaxSize(),
+
+                    else -> {
+                        Log.d(
+                            "StatusGalleryActivity",
+                            "Showing status grid with ${statusList.size} statuses"
+                        )
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(4.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            itemsIndexed(statusList) { index, status ->
+                    ) {
+                        itemsIndexed(statusList) { index, status ->
                                 Card(
                                     modifier = Modifier
                                         .aspectRatio(1f)
                                         .clip(RoundedCornerShape(2.dp)),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(
+                                            0xFFF5F5F5
+                                        )
+                                    ),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                                 ) {
                                     Box(modifier = Modifier
@@ -719,10 +844,17 @@ fun StandaloneStatusGallery(context: Context) {
                                         }
                                     ) {
                                         if (status.isVideo) {
-                                            val thumb by produceState<Bitmap?>(null, status.filePath) {
-                                                value = thumbCache[status.filePath] ?: getVideoThumbnailIO(context, status.filePath).also {
-                                                    thumbCache[status.filePath] = it
-                                                }
+                                            val thumb by produceState<Bitmap?>(
+                                                null,
+                                                status.filePath
+                                            ) {
+                                                value = thumbCache[status.filePath]
+                                                    ?: getVideoThumbnailIO(
+                                                        context,
+                                                        status.filePath
+                                                    ).also {
+                                                        thumbCache[status.filePath] = it
+                                                    }
                                             }
                                             if (thumb != null) {
                                                 androidx.compose.foundation.Image(
@@ -745,12 +877,12 @@ fun StandaloneStatusGallery(context: Context) {
                                                 }
                                             }
                                             // Play icon overlay
-                    Box(
-                        modifier = Modifier
+                                            Box(
+                                                modifier = Modifier
                                                     .fillMaxSize()
                                                     .background(Color.White.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
+                                                contentAlignment = Alignment.Center
+                                            ) {
                                                 Icon(
                                                     imageVector = Icons.Filled.PlayArrow,
                                                     contentDescription = "Play",
@@ -762,7 +894,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             AsyncImage(
                                                 model = status.filePath,
                                                 contentDescription = "Status image",
-                        modifier = Modifier.fillMaxSize(),
+                                                modifier = Modifier.fillMaxSize(),
                                                 contentScale = ContentScale.Crop
                                             )
                                         }

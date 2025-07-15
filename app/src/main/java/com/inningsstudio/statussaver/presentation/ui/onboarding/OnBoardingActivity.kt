@@ -195,7 +195,7 @@ class OnBoardingActivity : AppCompatActivity() {
             val indicator = ImageView(this)
             val size = resources.getDimensionPixelSize(androidx.cardview.R.dimen.cardview_default_radius)
             val params = LinearLayout.LayoutParams(size, size)
-            params.marginEnd = resources.getDimensionPixelSize(androidx.core.splashscreen.R.dimen.splashscreen_icon_size)
+            params.marginEnd = resources.getDimensionPixelSize(androidx.cardview.R.dimen.cardview_default_radius)
             indicator.layoutParams = params
             when {
                 i < currentStep -> indicator.setImageResource(R.drawable.step_indicator_completed)

@@ -21,6 +21,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 
 
 object FileUtils {
@@ -291,6 +292,53 @@ object FileUtils {
         return@withContext savedFiles
     }
 
+    /**
+     * Get file name from content URI
+     */
+    private fun getFileNameFromUri(context: Context, uri: Uri): String? {
+        return try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val displayNameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (displayNameIndex != -1) {
+                        cursor.getString(displayNameIndex)
+                    } else {
+                        // Fallback: try to get from URI path
+                        uri.lastPathSegment
+                    }
+                } else {
+                    uri.lastPathSegment
+                }
+            } ?: uri.lastPathSegment
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting file name from URI", e)
+            uri.lastPathSegment
+        }
+    }
+    
+    /**
+     * Get file size from content URI
+     */
+    private fun getFileSizeFromUri(context: Context, uri: Uri): Long {
+        return try {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                    if (sizeIndex != -1) {
+                        cursor.getLong(sizeIndex)
+                    } else {
+                        -1L
+                    }
+                } else {
+                    -1L
+                }
+            } ?: -1L
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting file size from URI", e)
+            -1L
+        }
+    }
+
     private fun isValidFile(path: String): Boolean {
         if (path.isEmpty()) {
             Log.d(TAG, "Skipping empty path")
@@ -443,6 +491,180 @@ object FileUtils {
         }
         share.putExtra(Intent.EXTRA_STREAM, Uri.parse(currentPath))
         context.startActivity(Intent.createChooser(share, "Share with"))
+    }
+
+    suspend fun saveStatusToFolder(context: Context, folderUri: Uri, filePath: String): Boolean {
+        return try {
+            Log.d(TAG, "=== STARTING SAVE OPERATION ===")
+            Log.d(TAG, "Source file: $filePath")
+            Log.d(TAG, "Destination folder URI: $folderUri")
+            
+            // Handle both file paths and content URIs
+            val isContentUri = filePath.startsWith("content://")
+            Log.d(TAG, "Is content URI: $isContentUri")
+            
+            if (isContentUri) {
+                // Handle content URI
+                val sourceUri = Uri.parse(filePath)
+                Log.d(TAG, "Parsed source URI: $sourceUri")
+                
+                // Get file name from content URI
+                val fileName = getFileNameFromUri(context, sourceUri)
+                Log.d(TAG, "File name from URI: $fileName")
+                
+                if (fileName == null) {
+                    Log.e(TAG, "Could not get file name from URI")
+                    return false
+                }
+                
+                // Get file size from content URI
+                val fileSize = getFileSizeFromUri(context, sourceUri)
+                Log.d(TAG, "File size from URI: $fileSize bytes")
+                
+                // Get MIME type from content URI
+                val mimeType = context.contentResolver.getType(sourceUri) ?: "application/octet-stream"
+                Log.d(TAG, "MIME type from URI: $mimeType")
+                
+                // Get the folder document
+                val folderDoc = DocumentFile.fromTreeUri(context, folderUri)
+                if (folderDoc == null) {
+                    Log.e(TAG, "Failed to get folder document from URI: $folderUri")
+                    return false
+                }
+                
+                Log.d(TAG, "Folder document obtained: ${folderDoc.name}")
+                
+                // Create StatusWp subfolder if it doesn't exist
+                var statusWpFolder = folderDoc.findFile("StatusWp")
+                if (statusWpFolder == null) {
+                    Log.d(TAG, "Creating StatusWp folder...")
+                    statusWpFolder = folderDoc.createDirectory("StatusWp")
+                    if (statusWpFolder == null) {
+                        Log.e(TAG, "Failed to create StatusWp folder")
+                        return false
+                    }
+                    Log.d(TAG, "StatusWp folder created successfully")
+                } else {
+                    Log.d(TAG, "StatusWp folder already exists")
+                }
+                
+                // Create the new file in StatusWp folder
+                val newFile = statusWpFolder.createFile(mimeType, fileName)
+                if (newFile == null) {
+                    Log.e(TAG, "Failed to create new file: $fileName")
+                    return false
+                }
+                
+                Log.d(TAG, "New file created: ${newFile.name}")
+                
+                // Copy the file content from content URI to new file
+                context.contentResolver.openInputStream(sourceUri)?.use { inStream ->
+                    context.contentResolver.openOutputStream(newFile.uri)?.use { outStream ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var totalBytes = 0L
+                        
+                        while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                            outStream.write(buffer, 0, bytesRead)
+                            totalBytes += bytesRead
+                        }
+                        
+                        Log.d(TAG, "File copied successfully: $totalBytes bytes")
+                    } ?: run {
+                        Log.e(TAG, "Failed to open output stream for new file")
+                        return false
+                    }
+                } ?: run {
+                    Log.e(TAG, "Failed to open input stream for source URI")
+                    return false
+                }
+                
+                Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
+                true
+                
+            } else {
+                // Handle regular file path
+                val sourceFile = File(filePath)
+                if (!sourceFile.exists()) {
+                    Log.e(TAG, "Source file does not exist: $filePath")
+                    return false
+                }
+                
+                Log.d(TAG, "Source file exists, size: ${sourceFile.length()} bytes")
+                
+                // Get the folder document
+                val folderDoc = DocumentFile.fromTreeUri(context, folderUri)
+                if (folderDoc == null) {
+                    Log.e(TAG, "Failed to get folder document from URI: $folderUri")
+                    return false
+                }
+                
+                Log.d(TAG, "Folder document obtained: ${folderDoc.name}")
+                
+                // Create StatusWp subfolder if it doesn't exist
+                var statusWpFolder = folderDoc.findFile("StatusWp")
+                if (statusWpFolder == null) {
+                    Log.d(TAG, "Creating StatusWp folder...")
+                    statusWpFolder = folderDoc.createDirectory("StatusWp")
+                    if (statusWpFolder == null) {
+                        Log.e(TAG, "Failed to create StatusWp folder")
+                        return false
+                    }
+                    Log.d(TAG, "StatusWp folder created successfully")
+                } else {
+                    Log.d(TAG, "StatusWp folder already exists")
+                }
+                
+                // Determine MIME type
+                val mimeType = when {
+                    filePath.lowercase().endsWith(".mp4") -> "video/mp4"
+                    filePath.lowercase().endsWith(".jpg") || filePath.lowercase().endsWith(".jpeg") -> "image/jpeg"
+                    filePath.lowercase().endsWith(".png") -> "image/png"
+                    filePath.lowercase().endsWith(".gif") -> "image/gif"
+                    filePath.lowercase().endsWith(".webp") -> "image/webp"
+                    else -> "application/octet-stream"
+                }
+                
+                Log.d(TAG, "MIME type: $mimeType")
+                
+                // Create the new file in StatusWp folder
+                val newFile = statusWpFolder.createFile(mimeType, sourceFile.name)
+                if (newFile == null) {
+                    Log.e(TAG, "Failed to create new file: ${sourceFile.name}")
+                    return false
+                }
+                
+                Log.d(TAG, "New file created: ${newFile.name}")
+                
+                // Copy the file content
+                context.contentResolver.openOutputStream(newFile.uri)?.use { outStream ->
+                    sourceFile.inputStream().use { inStream ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var totalBytes = 0L
+                        
+                        while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                            outStream.write(buffer, 0, bytesRead)
+                            totalBytes += bytesRead
+                        }
+                        
+                        Log.d(TAG, "File copied successfully: $totalBytes bytes")
+                    }
+                } ?: run {
+                    Log.e(TAG, "Failed to open output stream for new file")
+                    return false
+                }
+                
+                Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
+                true
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving file: $filePath", e)
+            Log.e(TAG, "Exception details: ${e.message}")
+            e.printStackTrace()
+            false
+        }
     }
 
 }
