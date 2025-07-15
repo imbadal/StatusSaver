@@ -74,6 +74,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.res.painterResource
+import com.inningsstudio.statussaver.R
 
 class StatusGalleryActivity : ComponentActivity() {
 
@@ -389,14 +391,14 @@ fun StatusView(
                         modifier = Modifier.size(56.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Done,
+                            painter = painterResource(id = R.drawable.baseline_download_24),
                             contentDescription = "Download",
                             tint = Color.White,
                             modifier = Modifier.size(28.dp)
                         )
                     }
-                    
-                    // Share button
+
+                    // Share button (for both images and videos)
                     FloatingActionButton(
                         onClick = {
                             statusList.getOrNull(currentIndex)?.let { status ->
