@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.filled.Delete
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +72,8 @@ fun StandaloneStatusGallery(context: Context) {
     var savedStatusesRefreshTrigger by remember { mutableStateOf(0) } // Trigger for refreshing saved statuses
     var lastSavedStatusesHash by remember { mutableStateOf(0) } // Hash to detect changes
     var savedStatusesLoaded by remember { mutableStateOf(false) } // Track if saved statuses have been loaded
+    var showDeleteConfirmation by remember { mutableStateOf(false) } // Show delete confirmation dialog
+    var statusToDelete by remember { mutableStateOf<StatusModel?>(null) } // Status to be deleted
     val coroutineScope = rememberCoroutineScope()
 
     // Pager state for swipeable tabs
@@ -293,6 +296,7 @@ fun StandaloneStatusGallery(context: Context) {
         StatusView(
             statusList = if (currentTab == 0) statusList else savedStatusList,
             initialIndex = selectedStatusIndex,
+            isFromSavedStatuses = currentTab == 1,
             onBackPressed = { showStatusView = false },
             onStatusSaved = {
                 // Trigger refresh of saved statuses when a status is saved
@@ -608,7 +612,7 @@ fun StandaloneStatusGallery(context: Context) {
                                 isLoadingSaved -> {
                                     // Show shimmer grid for saved statuses
                                     LazyVerticalGrid(
-                                        columns = GridCells.Fixed(3),
+                                        columns = GridCells.Fixed(2),
                                         modifier = Modifier.fillMaxSize(),
                                         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -668,18 +672,23 @@ fun StandaloneStatusGallery(context: Context) {
                                         "Showing saved status grid with ${savedStatusList.size} statuses"
                                     )
                                     LazyVerticalGrid(
-                                        columns = GridCells.Fixed(3),
+                                        columns = GridCells.Fixed(2),
                                         modifier = Modifier.fillMaxSize(),
                                         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         itemsIndexed(savedStatusList) { index, status ->
-                                            ModernStatusCard(
+                                            SavedStatusCard(
                                                 status = status,
                                                 context = context,
                                                 thumbCache = thumbCache,
                                                 getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                onDelete = {
+                                                    // Show confirmation dialog before deleting
+                                                    statusToDelete = status
+                                                    showDeleteConfirmation = true
+                                                },
                                                 onClick = {
                                                     selectedStatusIndex = index
                                                     showStatusView = true
@@ -691,6 +700,172 @@ fun StandaloneStatusGallery(context: Context) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+    
+    // Delete confirmation dialog
+    if (showDeleteConfirmation && statusToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                showDeleteConfirmation = false
+                statusToDelete = null
+            },
+            title = {
+                Text(
+                    text = "Delete Saved Status",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete this saved status? This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // Delete the saved status
+                        statusToDelete?.let { status ->
+                            coroutineScope.launch {
+                                try {
+                                    val success = FileUtils.deleteSavedStatus(context, status.filePath)
+                                    if (success) {
+                                        // Refresh the saved statuses list
+                                        forceRefreshSavedStatuses()
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("StatusGalleryActivity", "Error deleting saved status", e)
+                                }
+                            }
+                        }
+                        showDeleteConfirmation = false
+                        statusToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color.Red
+                    )
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { 
+                        showDeleteConfirmation = false
+                        statusToDelete = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = Color.White,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Gray
+        )
+    }
+}
+
+@Composable
+fun SavedStatusCard(
+    status: StatusModel,
+    context: Context,
+    thumbCache: MutableMap<String, Bitmap?>,
+    getVideoThumbnailIO: suspend (Context, String) -> Bitmap?,
+    onDelete: () -> Unit,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .shadow(4.dp, RoundedCornerShape(0.dp))
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(0.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (status.isVideo) {
+                val thumb by produceState<Bitmap?>(
+                    null,
+                    status.filePath
+                ) {
+                    value = thumbCache[status.filePath]
+                        ?: getVideoThumbnailIO(context, status.filePath).also {
+                            thumbCache[status.filePath] = it
+                        }
+                }
+                if (thumb != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = thumb!!.asImageBitmap(),
+                        contentDescription = "Video thumbnail",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Video",
+                            tint = Color.Gray,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+                // Play icon overlay with better styling
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            } else {
+                AsyncImage(
+                    model = status.filePath,
+                    contentDescription = "Status image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            
+            // Delete icon overlay
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+            ) {
+                IconButton(
+                    onClick = { onDelete() },
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Delete",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }

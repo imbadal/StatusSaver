@@ -347,6 +347,40 @@ object FileUtils {
         return@withContext savedFiles
     }
 
+    suspend fun deleteSavedStatus(context: Context, filePath: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Attempting to delete saved status: $filePath")
+            
+            // Check if it's a SAF URI
+            if (filePath.startsWith("content://")) {
+                val uri = Uri.parse(filePath)
+                val documentFile = DocumentFile.fromSingleUri(context, uri)
+                if (documentFile != null && documentFile.exists()) {
+                    val deleted = documentFile.delete()
+                    Log.d(TAG, "SAF file deletion result: $deleted")
+                    return@withContext deleted
+                } else {
+                    Log.w(TAG, "SAF file not found or cannot be deleted: $filePath")
+                    return@withContext false
+                }
+            } else {
+                // Handle as regular file path
+                val file = File(filePath)
+                if (file.exists()) {
+                    val deleted = file.delete()
+                    Log.d(TAG, "Regular file deletion result: $deleted")
+                    return@withContext deleted
+                } else {
+                    Log.w(TAG, "File not found: $filePath")
+                    return@withContext false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting saved status: $filePath", e)
+            return@withContext false
+        }
+    }
+
     /**
      * Get file name from content URI
      */

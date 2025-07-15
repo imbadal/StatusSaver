@@ -47,12 +47,15 @@ import android.widget.Toast
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.text.font.FontWeight
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StatusView(
     statusList: List<StatusModel>,
     initialIndex: Int,
+    isFromSavedStatuses: Boolean = false,
     onBackPressed: () -> Unit,
     onStatusSaved: () -> Unit = {}
 ) {
@@ -70,6 +73,9 @@ fun StatusView(
 
     // State for permission dialog
     var showPermissionDialog by remember { mutableStateOf(false) }
+    
+    // State for delete confirmation dialog
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     // System UI controller for professional status/nav bar handling
     val systemUiController = rememberSystemUiController()
@@ -306,48 +312,66 @@ fun StatusView(
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     modifier = Modifier.padding(horizontal = 16.dp)
                 ) {
-                    // Download button
-                    FloatingActionButton(
-                        onClick = {
-                            val pref =
-                                PreferenceUtils(context.applicationContext as android.app.Application)
-                            val folderUri = pref.getUriFromPreference()
-                            val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
-                            statusList.getOrNull(currentIndex)?.let { status ->
-                                coroutineScope.launch {
-                                    if (!hasPermissions) {
-                                        showPermissionDialog = true
-                                    } else if (folderUri.isNullOrBlank()) {
-                                        folderPickerLauncher.launch(null)
-                                    } else {
-                                        val uri = Uri.parse(folderUri)
-                                        Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
-                                        val success = FileUtils.saveStatusToFolder(
-                                            context,
-                                            uri,
-                                            status.filePath
-                                        )
-                                        Toast.makeText(
-                                            context,
-                                            if (success) "Saved successfully" else "Failed to save",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                        if (success) {
-                                            onStatusSaved()
+                    if (isFromSavedStatuses) {
+                        // Delete button for saved statuses
+                        FloatingActionButton(
+                            onClick = {
+                                showDeleteConfirmation = true
+                            },
+                            containerColor = Color.Transparent,
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = "Delete",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    } else {
+                        // Download button for regular statuses
+                        FloatingActionButton(
+                            onClick = {
+                                val pref =
+                                    PreferenceUtils(context.applicationContext as android.app.Application)
+                                val folderUri = pref.getUriFromPreference()
+                                val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
+                                statusList.getOrNull(currentIndex)?.let { status ->
+                                    coroutineScope.launch {
+                                        if (!hasPermissions) {
+                                            showPermissionDialog = true
+                                        } else if (folderUri.isNullOrBlank()) {
+                                            folderPickerLauncher.launch(null)
+                                        } else {
+                                            val uri = Uri.parse(folderUri)
+                                            Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
+                                            val success = FileUtils.saveStatusToFolder(
+                                                context,
+                                                uri,
+                                                status.filePath
+                                            )
+                                            Toast.makeText(
+                                                context,
+                                                if (success) "Saved successfully" else "Failed to save",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            if (success) {
+                                                onStatusSaved()
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        },
-                        containerColor = Color.Transparent,
-                        modifier = Modifier.size(56.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_download_24),
-                            contentDescription = "Download",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
+                            },
+                            containerColor = Color.Transparent,
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_download_24),
+                                contentDescription = "Download",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
 
                     // Share button (for both images and videos)
@@ -398,20 +422,69 @@ fun StatusView(
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text("Permission Required") },
-            text = { Text("Storage permission is required to save statuses. Please grant permission.") },
+            text = { Text("Storage permission is required to save statuses. Please grant permission in app settings.") },
             confirmButton = {
-                TextButton(onClick = {
-                    showPermissionDialog = false
-                    folderPickerLauncher.launch(null)
-                }) {
-                    Text("Grant Permission")
+                TextButton(
+                    onClick = { showPermissionDialog = false }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+    
+    // Delete confirmation dialog
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = {
+                Text(
+                    text = "Delete Saved Status",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete this saved status? This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        statusList.getOrNull(currentIndex)?.let { status ->
+                            coroutineScope.launch {
+                                val success = FileUtils.deleteSavedStatus(context, status.filePath)
+                                Toast.makeText(
+                                    context,
+                                    if (success) "Deleted successfully" else "Failed to delete",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                if (success) {
+                                    onStatusSaved() // This will refresh the saved statuses list
+                                }
+                            }
+                        }
+                        showDeleteConfirmation = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color.Red
+                    )
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPermissionDialog = false }) {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false }
+                ) {
                     Text("Cancel")
                 }
-            }
+            },
+            containerColor = Color.White,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Gray
         )
     }
 } 
