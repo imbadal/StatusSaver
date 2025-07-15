@@ -69,6 +69,8 @@ fun StandaloneStatusGallery(context: Context) {
     var selectedStatusIndex by remember { mutableStateOf(0) }
     var currentTab by remember { mutableStateOf(0) } // 0 = Statuses, 1 = Saved
     var savedStatusesRefreshTrigger by remember { mutableStateOf(0) } // Trigger for refreshing saved statuses
+    var lastSavedStatusesHash by remember { mutableStateOf(0) } // Hash to detect changes
+    var savedStatusesLoaded by remember { mutableStateOf(false) } // Track if saved statuses have been loaded
     val coroutineScope = rememberCoroutineScope()
 
     // Pager state for swipeable tabs
@@ -87,6 +89,47 @@ fun StandaloneStatusGallery(context: Context) {
 
     // Simple in-memory thumbnail cache
     val thumbCache = remember { mutableMapOf<String, Bitmap?>() }
+
+    // Function to calculate hash of saved statuses for change detection
+    fun calculateSavedStatusesHash(statuses: List<StatusModel>): Int {
+        return statuses.hashCode()
+    }
+
+    fun loadSavedStatuses() {
+        coroutineScope.launch {
+            Log.d("StatusGalleryActivity", "=== STARTING SAVED STATUS LOADING ===")
+            isLoadingSaved = true
+
+            try {
+                val savedStatuses = FileUtils.getSavedStatus(context)
+                Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses")
+                
+                // Calculate hash of new statuses
+                val newHash = calculateSavedStatusesHash(savedStatuses)
+                
+                // Only update state if there are actual changes
+                if (newHash != lastSavedStatusesHash) {
+                    Log.d("StatusGalleryActivity", "Saved statuses changed, updating UI")
+                    savedStatusList = savedStatuses
+                    lastSavedStatusesHash = newHash
+                } else {
+                    Log.d("StatusGalleryActivity", "No changes in saved statuses, skipping UI update")
+                }
+                
+                isLoadingSaved = false
+                Log.d("StatusGalleryActivity", "✅ Saved status loading completed successfully")
+            } catch (e: Exception) {
+                Log.e("StatusGalleryActivity", "❌ Error loading saved statuses", e)
+                isLoadingSaved = false
+            }
+        }
+    }
+
+    // Function to force refresh saved statuses (for manual refresh)
+    fun forceRefreshSavedStatuses() {
+        savedStatusesLoaded = false
+        loadSavedStatuses()
+    }
 
     suspend fun getVideoThumbnailIO(context: Context, path: String): Bitmap? {
         return withContext(Dispatchers.IO) {
@@ -203,24 +246,6 @@ fun StandaloneStatusGallery(context: Context) {
         }
     }
 
-    fun loadSavedStatuses() {
-        coroutineScope.launch {
-            Log.d("StatusGalleryActivity", "=== STARTING SAVED STATUS LOADING ===")
-            isLoadingSaved = true
-
-            try {
-                val savedStatuses = FileUtils.getSavedStatus(context)
-                Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses")
-                savedStatusList = savedStatuses
-                isLoadingSaved = false
-                Log.d("StatusGalleryActivity", "✅ Saved status loading completed successfully")
-            } catch (e: Exception) {
-                Log.e("StatusGalleryActivity", "❌ Error loading saved statuses", e)
-                isLoadingSaved = false
-            }
-        }
-    }
-
     fun debugStatusDetection() {
         coroutineScope.launch {
             Log.d("StatusGalleryActivity", "=== DEBUGGING STATUS DETECTION ===")
@@ -256,10 +281,11 @@ fun StandaloneStatusGallery(context: Context) {
         loadSavedStatuses()
     }
 
-    // Refresh saved statuses when switching to Saved tab or when refresh is triggered
-    LaunchedEffect(currentTab, savedStatusesRefreshTrigger) {
-        if (currentTab == 1) {
+    // Load saved statuses only once when first switching to Saved tab
+    LaunchedEffect(currentTab) {
+        if (currentTab == 1 && !savedStatusesLoaded) {
             loadSavedStatuses()
+            savedStatusesLoaded = true
         }
     }
 
@@ -270,7 +296,12 @@ fun StandaloneStatusGallery(context: Context) {
             onBackPressed = { showStatusView = false },
             onStatusSaved = {
                 // Trigger refresh of saved statuses when a status is saved
-                savedStatusesRefreshTrigger++
+                if (currentTab == 1) {
+                    loadSavedStatuses()
+                } else {
+                    // Reset the loaded flag so next time Saved tab is opened, it will refresh
+                    savedStatusesLoaded = false
+                }
             }
         )
     } else {
@@ -317,7 +348,13 @@ fun StandaloneStatusGallery(context: Context) {
                                 }
                             } else {
                                 IconButton(
-                                    onClick = { if (currentTab == 0) loadStatuses() else loadSavedStatuses() },
+                                    onClick = { 
+                                        if (currentTab == 0) {
+                                            loadStatuses()
+                                        } else {
+                                            forceRefreshSavedStatuses()
+                                        }
+                                    },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
@@ -592,7 +629,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             )
                                             Spacer(modifier = Modifier.height(24.dp))
                                             Button(
-                                                onClick = { loadSavedStatuses() },
+                                                onClick = { forceRefreshSavedStatuses() },
                                                 colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
                                                 modifier = Modifier.height(48.dp)
                                             ) {
