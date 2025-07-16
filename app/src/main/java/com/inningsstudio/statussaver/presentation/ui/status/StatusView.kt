@@ -81,7 +81,7 @@ fun StatusView(
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     
     // State for toolbar visibility
-    var showToolbar by remember { mutableStateOf(true) }
+    var showToolbar by remember { mutableStateOf(false) }
 
     // System UI controller for professional status/nav bar handling
     val systemUiController = rememberSystemUiController()
@@ -222,7 +222,7 @@ fun StatusView(
                     if (status.isVideo) {
                         // Video player with tap-to-show-controls and play/pause
                         var player by remember { mutableStateOf<ExoPlayer?>(null) }
-                        var showControls by remember { mutableStateOf(true) }
+                        var showControls by remember { mutableStateOf(false) }
 
                         DisposableEffect(key1 = index) {
                             val newPlayer = ExoPlayer.Builder(context).build().apply {
@@ -253,31 +253,23 @@ fun StatusView(
                             }
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable(
-                                    indication = null,
-                                    interactionSource = remember { MutableInteractionSource() }
-                                ) {
-                                    // On tap: show/hide controls and toolbar
-                                    showControls = !showControls
-                                    showToolbar = !showToolbar
-                                }
-                        ) {
-                            AndroidView(
-                                factory = { context ->
-                                    StyledPlayerView(context).apply {
-                                        useController = showControls
-                                    }
-                                },
-                                update = { playerView ->
-                                    playerView.player = player
-                                    playerView.useController = showControls
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
+                        // Synchronize video controls with toolbar visibility
+                        LaunchedEffect(showToolbar) {
+                            showControls = showToolbar
                         }
+                        
+                        AndroidView(
+                            factory = { context ->
+                                StyledPlayerView(context).apply {
+                                    useController = showControls
+                                }
+                            },
+                            update = { playerView ->
+                                playerView.player = player
+                                playerView.useController = showControls
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
                     } else {
                         // Image viewer
                         AsyncImage(
