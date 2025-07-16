@@ -40,7 +40,6 @@ import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.StatusPathDetector
 import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.data.model.StatusModel
-import com.inningsstudio.statussaver.data.model.SavedStatusEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,23 +63,26 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun StandaloneStatusGallery(context: Context) {
     var statusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     var savedStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
-    var savedStatusesWithFavorites by remember { mutableStateOf<List<SavedStatusEntity>>(emptyList()) }
+    var favoriteList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isLoadingSaved by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showStatusView by remember { mutableStateOf(false) }
     var selectedStatusIndex by remember { mutableStateOf(0) }
     var currentTab by remember { mutableStateOf(0) } // 0 = Statuses, 1 = Saved
-    var lastSavedStatusesHash by remember { mutableStateOf(0) } // Hash to detect changes
-    var savedStatusesLoaded by remember { mutableStateOf(false) } // Track if saved statuses have been loaded
-    var showDeleteConfirmation by remember { mutableStateOf(false) } // Show delete confirmation dialog
-    var statusToDelete by remember { mutableStateOf<StatusModel?>(null) } // Status to be deleted
+    var lastSavedStatusesHash by remember { mutableStateOf(0) }
+    var savedStatusesLoaded by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var statusToDelete by remember { mutableStateOf<StatusModel?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     // Pager state for swipeable tabs
@@ -111,53 +113,21 @@ fun StandaloneStatusGallery(context: Context) {
             isLoadingSaved = true
 
             try {
-                // Get saved statuses from DCIM folder (primary source)
+                // Get saved statuses from DCIM folder (excluding favorites)
                 val savedStatuses = FileUtils.getSavedStatusesFromFolder(context)
+                // Get favorite statuses from favourites folder
+                val favorites = FileUtils.getFavoriteStatusesFromFolder(context)
                 Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses from folder")
-                
-                // Get favorite information from database (secondary source)
-                val favoriteStatuses = FileUtils.getFavoriteStatusesFromDatabase(context)
-                Log.d("StatusGalleryActivity", "Found ${favoriteStatuses.size} favorite statuses from database")
-                
-                // Create a map of favorite statuses for quick lookup
-                val favoriteMap = favoriteStatuses.associateBy { it.statusUri }
-                
-                // Combine folder statuses with favorite information
-                val combinedStatuses = savedStatuses.map { status ->
-                    val favoriteInfo = favoriteMap[status.filePath]
-                    if (favoriteInfo != null) {
-                        // Create a SavedStatusEntity with favorite info
-                        SavedStatusEntity(
-                            statusUri = status.filePath,
-                            fileName = status.fileName,
-                            isFavorite = favoriteInfo.isFavorite,
-                            savedDate = status.lastModified,
-                            favoriteMarkedDate = favoriteInfo.favoriteMarkedDate,
-                            fileSize = status.fileSize,
-                            isVideo = status.isVideo
-                        )
-                    } else {
-                        // Create a SavedStatusEntity without favorite info
-                        SavedStatusEntity(
-                            statusUri = status.filePath,
-                            fileName = status.fileName,
-                            isFavorite = false,
-                            savedDate = status.lastModified,
-                            favoriteMarkedDate = null,
-                            fileSize = status.fileSize,
-                            isVideo = status.isVideo
-                        )
-                    }
-                }
+                Log.d("StatusGalleryActivity", "Found ${favorites.size} favorite statuses from folder")
                 
                 // Calculate hash of new statuses
-                val newHash = calculateSavedStatusesHash(savedStatuses)
+                val newHash = calculateSavedStatusesHash(savedStatuses + favorites)
                 
                 // Only update state if there are actual changes
                 if (newHash != lastSavedStatusesHash) {
                     Log.d("StatusGalleryActivity", "Saved statuses changed, updating UI")
                     savedStatusList = savedStatuses
-                    savedStatusesWithFavorites = combinedStatuses
+                    favoriteList = favorites
                     lastSavedStatusesHash = newHash
                 } else {
                     Log.d("StatusGalleryActivity", "No changes in saved statuses, skipping UI update")
@@ -178,21 +148,40 @@ fun StandaloneStatusGallery(context: Context) {
         loadSavedStatuses()
     }
 
-    // Function to toggle favorite status
-    fun toggleFavoriteStatus(statusUri: String) {
+    // Function to mark as favorite
+    fun markAsFavorite(status: StatusModel) {
         coroutineScope.launch {
             try {
-                Log.d("StatusGalleryActivity", "Toggling favorite status: $statusUri")
-                val success = FileUtils.toggleFavoriteStatus(context, statusUri)
+                Log.d("StatusGalleryActivity", "Marking as favorite: ${status.filePath}")
+                val success = FileUtils.markAsFavorite(context, status.filePath)
                 if (success) {
-                    Log.d("StatusGalleryActivity", "✅ Favorite status toggled successfully")
+                    Log.d("StatusGalleryActivity", "✅ Status marked as favorite successfully")
                     // Refresh saved statuses to update the UI
                     loadSavedStatuses()
                 } else {
-                    Log.e("StatusGalleryActivity", "❌ Failed to toggle favorite status")
+                    Log.e("StatusGalleryActivity", "❌ Failed to mark as favorite")
                 }
             } catch (e: Exception) {
-                Log.e("StatusGalleryActivity", "❌ Error toggling favorite status", e)
+                Log.e("StatusGalleryActivity", "❌ Error marking as favorite", e)
+            }
+        }
+    }
+
+    // Function to unmark as favorite
+    fun unmarkAsFavorite(status: StatusModel) {
+        coroutineScope.launch {
+            try {
+                Log.d("StatusGalleryActivity", "Unmarking as favorite: ${status.filePath}")
+                val success = FileUtils.unmarkAsFavorite(context, status.filePath)
+                if (success) {
+                    Log.d("StatusGalleryActivity", "✅ Status unmarked as favorite successfully")
+                    // Refresh saved statuses to update the UI
+                    loadSavedStatuses()
+                } else {
+                    Log.e("StatusGalleryActivity", "❌ Failed to unmark as favorite")
+                }
+            } catch (e: Exception) {
+                Log.e("StatusGalleryActivity", "❌ Error unmarking as favorite", e)
             }
         }
     }
@@ -236,32 +225,6 @@ fun StandaloneStatusGallery(context: Context) {
                     return@launch
                 }
 
-                // Let's also check what paths are available
-                val detector = StatusPathDetector()
-                val allPaths = detector.getAllPossibleStatusPaths()
-                Log.d("StatusGalleryActivity", "All possible paths: $allPaths")
-
-                // Check each path manually
-                allPaths.forEach { path ->
-                    val folder = File(path)
-                    Log.d("StatusGalleryActivity", "Checking path: $path")
-                    Log.d("StatusGalleryActivity", "  - Exists: ${folder.exists()}")
-                    Log.d("StatusGalleryActivity", "  - Is directory: ${folder.isDirectory}")
-                    Log.d("StatusGalleryActivity", "  - Can read: ${folder.canRead()}")
-                    Log.d("StatusGalleryActivity", "  - Is hidden: ${folder.isHidden}")
-
-                    if (folder.exists() && folder.isDirectory && folder.canRead()) {
-                        val files = folder.listFiles { _ -> true }
-                        Log.d("StatusGalleryActivity", "  - Total files: ${files?.size ?: 0}")
-                        files?.take(5)?.forEach { file ->
-                            Log.d(
-                                "StatusGalleryActivity",
-                                "    - ${file.name} (hidden: ${file.isHidden}, size: ${file.length()})"
-                            )
-                        }
-                    }
-                }
-
                 Log.d("StatusGalleryActivity", "Calling FileUtils.getStatus()...")
                 val statuses = FileUtils.getStatus(context, safUri ?: "")
                 Log.d(
@@ -269,35 +232,9 @@ fun StandaloneStatusGallery(context: Context) {
                     "FileUtils.getStatus() returned ${statuses.size} statuses"
                 )
 
-                // Log all statuses for debugging
-                statuses.forEachIndexed { index, status ->
-                    Log.d(
-                        "StatusGalleryActivity",
-                        "Status $index: ${status.fileName} (${status.filePath})"
-                    )
-                    Log.d("StatusGalleryActivity", "  - Size: ${status.fileSize} bytes")
-                    Log.d("StatusGalleryActivity", "  - Is video: ${status.isVideo}")
-                    Log.d("StatusGalleryActivity", "  - Last modified: ${status.lastModified}")
-                    Log.d(
-                        "StatusGalleryActivity",
-                        "  - File path empty: ${status.filePath.isEmpty()}"
-                    )
-                }
-
                 statusList = statuses.filter { it.filePath.isNotEmpty() }
                     .sortedByDescending { it.lastModified } // Sort by date, latest first
                 Log.d("StatusGalleryActivity", "Filtered to ${statusList.size} valid statuses")
-
-                // Log details about found statuses
-                statusList.forEachIndexed { index, status ->
-                    Log.d(
-                        "StatusGalleryActivity",
-                        "Valid Status $index: ${status.fileName} (${status.filePath})"
-                    )
-                    Log.d("StatusGalleryActivity", "  - Size: ${status.fileSize} bytes")
-                    Log.d("StatusGalleryActivity", "  - Is video: ${status.isVideo}")
-                    Log.d("StatusGalleryActivity", "  - Last modified: ${status.lastModified}")
-                }
 
                 isLoading = false
                 Log.d("StatusGalleryActivity", "✅ Status loading completed successfully")
@@ -307,27 +244,6 @@ fun StandaloneStatusGallery(context: Context) {
                 errorMessage = e.message
                 isLoading = false
             }
-        }
-    }
-
-    fun debugStatusDetection() {
-        coroutineScope.launch {
-            Log.d("StatusGalleryActivity", "=== DEBUGGING STATUS DETECTION ===")
-
-            // Check permissions
-            val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
-            Log.d("StatusGalleryActivity", "Has required permissions: $hasPermissions")
-
-            // Check SAF URI
-            val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-            val safUri = pref.getUriFromPreference()
-            Log.d("StatusGalleryActivity", "SAF URI from preferences: $safUri")
-
-            // Check all possible paths
-            val detector = StatusPathDetector()
-            detector.debugWhatsAppPaths()
-
-            Log.d("StatusGalleryActivity", "=== END DEBUGGING ===")
         }
     }
 
@@ -580,13 +496,6 @@ fun StandaloneStatusGallery(context: Context) {
                                             ) {
                                                 Text("Try Again", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
-                                            Spacer(modifier = Modifier.height(12.dp))
-                                            OutlinedButton(
-                                                onClick = { debugStatusDetection() },
-                                                modifier = Modifier.height(40.dp)
-                                            ) {
-                                                Text("Debug", color = primaryGreen)
-                                            }
                                         }
                                     }
                                 }
@@ -629,13 +538,6 @@ fun StandaloneStatusGallery(context: Context) {
                                             ) {
                                                 Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
-                                            Spacer(modifier = Modifier.height(12.dp))
-                                            OutlinedButton(
-                                                onClick = { debugStatusDetection() },
-                                                modifier = Modifier.height(40.dp)
-                                            ) {
-                                                Text("Debug Detection", color = primaryGreen)
-                                            }
                                         }
                                     }
                                 }
@@ -646,7 +548,7 @@ fun StandaloneStatusGallery(context: Context) {
                                         "Showing status grid with ${statusList.size} statuses"
                                     )
                                     LazyVerticalGrid(
-                                        columns = GridCells.Fixed(2),
+                                        columns = GridCells.Fixed(3),
                                         modifier = Modifier.fillMaxSize(),
                                         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -685,7 +587,7 @@ fun StandaloneStatusGallery(context: Context) {
                                     }
                                 }
 
-                                savedStatusesWithFavorites.isEmpty() -> {
+                                savedStatusList.isEmpty() && favoriteList.isEmpty() -> {
                                     Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
@@ -730,14 +632,8 @@ fun StandaloneStatusGallery(context: Context) {
                                 else -> {
                                     Log.d(
                                         "StatusGalleryActivity",
-                                        "Showing saved status grid with ${savedStatusesWithFavorites.size} statuses"
+                                        "Showing saved status grid with ${savedStatusList.size} saved and ${favoriteList.size} favorites"
                                     )
-                                    
-                                    // Organize saved statuses into favorites and others
-                                    val favoriteStatuses = savedStatusesWithFavorites.filter { it.isFavorite }
-                                        .sortedByDescending { it.favoriteMarkedDate ?: it.savedDate } // Sort by favorite marked time, fallback to saved time
-                                    val otherStatuses = savedStatusesWithFavorites.filter { !it.isFavorite }
-                                        .sortedByDescending { it.savedDate } // Sort by saved time
                                     
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(2),
@@ -746,7 +642,8 @@ fun StandaloneStatusGallery(context: Context) {
                                         verticalArrangement = Arrangement.spacedBy(2.dp),
                                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        if (favoriteStatuses.isNotEmpty()) {
+                                        // Show favorites first
+                                        if (favoriteList.isNotEmpty()) {
                                             item(span = { GridItemSpan(maxLineSpan) }) {
                                                 Column(
                                                     modifier = Modifier
@@ -764,48 +661,47 @@ fun StandaloneStatusGallery(context: Context) {
                                                             fontSize = 14.sp,
                                                             fontWeight = FontWeight.Medium
                                                         )
-                                                        Spacer(modifier = Modifier.width(8.dp)) // Small gap after text
+                                                        Spacer(modifier = Modifier.width(8.dp))
                                                         Box(
                                                             modifier = Modifier
                                                                 .height(1.dp)
                                                                 .weight(1f)
-                                                                .background(Color(0xFFE91E63)) // Same pink color as text
+                                                                .background(Color(0xFFE91E63))
                                                         )
                                                     }
                                                 }
                                             }
-                                            items(favoriteStatuses.size) { index ->
-                                                val savedStatus = favoriteStatuses[index]
-                                                val status = savedStatusList.find { it.filePath == savedStatus.statusUri }
-                                                status?.let {
-                                                    SavedStatusCardWithFav(
-                                                        status = it,
-                                                        isFavorite = savedStatus.isFavorite,
-                                                        context = context,
-                                                        thumbCache = thumbCache,
-                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                        onDelete = {
-                                                            statusToDelete = it
-                                                            showDeleteConfirmation = true
-                                                        },
-                                                        onFavoriteToggle = {
-                                                            toggleFavoriteStatus(savedStatus.statusUri)
-                                                        },
-                                                        onClick = {
-                                                            val actualIndex = savedStatusList.indexOf(it)
-                                                            if (actualIndex != -1) {
-                                                                selectedStatusIndex = actualIndex
-                                                                showStatusView = true
-                                                            }
+                                            items(favoriteList.size) { index ->
+                                                val status = favoriteList[index]
+                                                SavedStatusCardWithFav(
+                                                    status = status,
+                                                    isFavorite = true,
+                                                    context = context,
+                                                    thumbCache = thumbCache,
+                                                    getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                    onDelete = {
+                                                        statusToDelete = status
+                                                        showDeleteConfirmation = true
+                                                    },
+                                                    onFavoriteToggle = {
+                                                        unmarkAsFavorite(status)
+                                                    },
+                                                    onClick = {
+                                                        val actualIndex = favoriteList.indexOf(status)
+                                                        if (actualIndex != -1) {
+                                                            selectedStatusIndex = actualIndex
+                                                            showStatusView = true
                                                         }
-                                                    )
-                                                }
+                                                    }
+                                                )
                                             }
                                             item(span = { GridItemSpan(maxLineSpan) }) {
                                                 Spacer(modifier = Modifier.height(8.dp))
                                             }
                                         }
-                                        if (otherStatuses.isNotEmpty()) {
+                                        
+                                        // Show other saved statuses
+                                        if (savedStatusList.isNotEmpty()) {
                                             item(span = { GridItemSpan(maxLineSpan) }) {
                                                 Column(
                                                     modifier = Modifier
@@ -823,42 +719,39 @@ fun StandaloneStatusGallery(context: Context) {
                                                             fontSize = 14.sp,
                                                             fontWeight = FontWeight.Medium
                                                         )
-                                                        Spacer(modifier = Modifier.width(8.dp)) // Small gap after text
+                                                        Spacer(modifier = Modifier.width(8.dp))
                                                         Box(
                                                             modifier = Modifier
                                                                 .height(1.dp)
                                                                 .weight(1f)
-                                                                .background(Color(0xFF757575)) // Same gray color as text
+                                                                .background(Color(0xFF757575))
                                                         )
                                                     }
                                                 }
                                             }
-                                            items(otherStatuses.size) { index ->
-                                                val savedStatus = otherStatuses[index]
-                                                val status = savedStatusList.find { it.filePath == savedStatus.statusUri }
-                                                status?.let {
-                                                    SavedStatusCardWithFav(
-                                                        status = it,
-                                                        isFavorite = savedStatus.isFavorite,
-                                                        context = context,
-                                                        thumbCache = thumbCache,
-                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                        onDelete = {
-                                                            statusToDelete = it
-                                                            showDeleteConfirmation = true
-                                                        },
-                                                        onFavoriteToggle = {
-                                                            toggleFavoriteStatus(savedStatus.statusUri)
-                                                        },
-                                                        onClick = {
-                                                            val actualIndex = savedStatusList.indexOf(it)
-                                                            if (actualIndex != -1) {
-                                                                selectedStatusIndex = actualIndex
-                                                                showStatusView = true
-                                                            }
+                                            items(savedStatusList.size) { index ->
+                                                val status = savedStatusList[index]
+                                                SavedStatusCardWithFav(
+                                                    status = status,
+                                                    isFavorite = false,
+                                                    context = context,
+                                                    thumbCache = thumbCache,
+                                                    getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                    onDelete = {
+                                                        statusToDelete = status
+                                                        showDeleteConfirmation = true
+                                                    },
+                                                    onFavoriteToggle = {
+                                                        markAsFavorite(status)
+                                                    },
+                                                    onClick = {
+                                                        val actualIndex = savedStatusList.indexOf(status)
+                                                        if (actualIndex != -1) {
+                                                            selectedStatusIndex = actualIndex
+                                                            showStatusView = true
                                                         }
-                                                    )
-                                                }
+                                                    }
+                                                )
                                             }
                                         }
                                     }
