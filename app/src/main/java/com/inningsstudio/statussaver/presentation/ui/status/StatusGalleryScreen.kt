@@ -66,6 +66,10 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.DefaultLifecycleObserver
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +84,9 @@ fun StandaloneStatusGallery(context: Context) {
     var selectedStatusIndex by remember { mutableStateOf(0) }
     var currentTab by remember { mutableStateOf(0) } // 0 = Statuses, 1 = Saved
     var lastSavedStatusesHash by remember { mutableStateOf(0) }
+    var lastStatusesHash by remember { mutableStateOf(0) }
     var savedStatusesLoaded by remember { mutableStateOf(false) }
+    var statusesLoaded by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var statusToDelete by remember { mutableStateOf<StatusModel?>(null) }
     val coroutineScope = rememberCoroutineScope()
@@ -104,6 +110,11 @@ fun StandaloneStatusGallery(context: Context) {
 
     // Function to calculate hash of saved statuses for change detection
     fun calculateSavedStatusesHash(statuses: List<StatusModel>): Int {
+        return statuses.hashCode()
+    }
+
+    // Function to calculate hash of statuses for change detection
+    fun calculateStatusesHash(statuses: List<StatusModel>): Int {
         return statuses.hashCode()
     }
 
@@ -142,10 +153,71 @@ fun StandaloneStatusGallery(context: Context) {
         }
     }
 
+    fun loadStatuses() {
+        coroutineScope.launch {
+            Log.d("StatusGalleryActivity", "=== STARTING STATUS LOADING ===")
+            isLoading = true
+            errorMessage = null
+
+            val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+            val safUri = pref.getUriFromPreference()
+
+            Log.d("StatusGalleryActivity", "Loading statuses with SAF URI: $safUri")
+
+            try {
+                // Only check if SAF URI is present
+                if (safUri.isNullOrBlank()) {
+                    Log.e("StatusGalleryActivity", "❌ NO SAF URI - Cannot load statuses")
+                    errorMessage =
+                        "Please grant access to the WhatsApp .Statuses folder in onboarding/settings."
+                    isLoading = false
+                    return@launch
+                }
+
+                Log.d("StatusGalleryActivity", "Calling FileUtils.getStatus()...")
+                val statuses = FileUtils.getStatus(context, safUri ?: "")
+                Log.d(
+                    "StatusGalleryActivity",
+                    "FileUtils.getStatus() returned ${statuses.size} statuses"
+                )
+
+                val filteredStatuses = statuses.filter { it.filePath.isNotEmpty() }
+                    .sortedByDescending { it.lastModified } // Sort by date, latest first
+                Log.d("StatusGalleryActivity", "Filtered to ${filteredStatuses.size} valid statuses")
+                
+                // Calculate hash of new statuses
+                val newHash = calculateStatusesHash(filteredStatuses)
+                
+                // Only update state if there are actual changes
+                if (newHash != lastStatusesHash) {
+                    Log.d("StatusGalleryActivity", "Statuses changed, updating UI")
+                    statusList = filteredStatuses
+                    lastStatusesHash = newHash
+                } else {
+                    Log.d("StatusGalleryActivity", "No changes in statuses, skipping UI update")
+                }
+                statusesLoaded = true
+                isLoading = false
+                Log.d("StatusGalleryActivity", "✅ Status loading completed successfully")
+
+            } catch (e: Exception) {
+                Log.e("StatusGalleryActivity", "❌ Error loading statuses", e)
+                errorMessage = e.message
+                isLoading = false
+            }
+        }
+    }
+
     // Function to force refresh saved statuses (for manual refresh)
     fun forceRefreshSavedStatuses() {
         savedStatusesLoaded = false
         loadSavedStatuses()
+    }
+
+    // Function to force refresh statuses (for manual refresh)
+    fun forceRefreshStatuses() {
+        statusesLoaded = false
+        loadStatuses()
     }
 
     // Function to mark as favorite
@@ -204,66 +276,47 @@ fun StandaloneStatusGallery(context: Context) {
         }
     }
 
-    fun loadStatuses() {
-        coroutineScope.launch {
-            Log.d("StatusGalleryActivity", "=== STARTING STATUS LOADING ===")
-            isLoading = true
-            errorMessage = null
-
-            val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-            val safUri = pref.getUriFromPreference()
-
-            Log.d("StatusGalleryActivity", "Loading statuses with SAF URI: $safUri")
-
-            try {
-                // Only check if SAF URI is present
-                if (safUri.isNullOrBlank()) {
-                    Log.e("StatusGalleryActivity", "❌ NO SAF URI - Cannot load statuses")
-                    errorMessage =
-                        "Please grant access to the WhatsApp .Statuses folder in onboarding/settings."
-                    isLoading = false
-                    return@launch
-                }
-
-                Log.d("StatusGalleryActivity", "Calling FileUtils.getStatus()...")
-                val statuses = FileUtils.getStatus(context, safUri ?: "")
-                Log.d(
-                    "StatusGalleryActivity",
-                    "FileUtils.getStatus() returned ${statuses.size} statuses"
-                )
-
-                statusList = statuses.filter { it.filePath.isNotEmpty() }
-                    .sortedByDescending { it.lastModified } // Sort by date, latest first
-                Log.d("StatusGalleryActivity", "Filtered to ${statusList.size} valid statuses")
-
-                isLoading = false
-                Log.d("StatusGalleryActivity", "✅ Status loading completed successfully")
-
-            } catch (e: Exception) {
-                Log.e("StatusGalleryActivity", "❌ Error loading statuses", e)
-                errorMessage = e.message
-                isLoading = false
-            }
-        }
-    }
-
     val primaryGreen = Color(0xFF25D366)
     val darkGreen = Color(0xFF128C7E)
     val systemUiController = rememberSystemUiController()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     // Set status bar color for gallery
     SideEffect {
         systemUiController.setStatusBarColor(primaryGreen, darkIcons = false)
     }
 
+    // Reset loaded flags when app comes back to foreground to detect new statuses
+    DisposableEffect(lifecycleOwner) {
+        val observer = object : DefaultLifecycleObserver {
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
+                super.onStart(owner)
+                // App came to foreground, reset loaded flags to check for new statuses
+                Log.d("StatusGalleryActivity", "App came to foreground, resetting loaded flags")
+                statusesLoaded = false
+                savedStatusesLoaded = false
+            }
+        }
+        
+        lifecycleOwner.lifecycle.addObserver(observer)
+        
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     LaunchedEffect(Unit) {
+        // Initial load
         loadStatuses()
         loadSavedStatuses()
     }
 
-    // Load saved statuses only once when first switching to Saved tab
+    // Load statuses when switching to Statuses tab
     LaunchedEffect(currentTab) {
-        if (currentTab == 1 && !savedStatusesLoaded) {
+        if (currentTab == 0 && !statusesLoaded) {
+            loadStatuses()
+            statusesLoaded = true
+        } else if (currentTab == 1 && !savedStatusesLoaded) {
             loadSavedStatuses()
             savedStatusesLoaded = true
         }
@@ -333,7 +386,7 @@ fun StandaloneStatusGallery(context: Context) {
                                     IconButton(
                                         onClick = { 
                                             if (currentTab == 0) {
-                                                loadStatuses()
+                                                forceRefreshStatuses()
                                             } else {
                                                 forceRefreshSavedStatuses()
                                             }
@@ -490,7 +543,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             )
                                             Spacer(modifier = Modifier.height(24.dp))
                                             Button(
-                                                onClick = { loadStatuses() },
+                                                onClick = { forceRefreshStatuses() },
                                                 colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
                                                 modifier = Modifier.height(48.dp)
                                             ) {
@@ -532,7 +585,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             )
                                             Spacer(modifier = Modifier.height(24.dp))
                                             Button(
-                                                onClick = { loadStatuses() },
+                                                onClick = { forceRefreshStatuses() },
                                                 colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
                                                 modifier = Modifier.height(48.dp)
                                             ) {
