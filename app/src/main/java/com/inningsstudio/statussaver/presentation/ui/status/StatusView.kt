@@ -13,6 +13,10 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -26,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -41,14 +46,12 @@ import com.inningsstudio.statussaver.core.utils.FileUtils
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.data.model.StatusModel
-import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.ui.text.font.FontWeight
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +79,9 @@ fun StatusView(
     
     // State for delete confirmation dialog
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    
+    // State for toolbar visibility
+    var showToolbar by remember { mutableStateOf(true) }
 
     // System UI controller for professional status/nav bar handling
     val systemUiController = rememberSystemUiController()
@@ -155,7 +161,7 @@ fun StatusView(
 
     // Set system UI for full-screen status view
     SideEffect {
-        systemUiController.setStatusBarColor(Color.Black, darkIcons = false)
+        systemUiController.setStatusBarColor(Color.Transparent, darkIcons = false)
         systemUiController.setNavigationBarColor(Color.Black, darkIcons = false)
         systemUiController.isSystemBarsVisible = false
     }
@@ -189,38 +195,19 @@ fun StatusView(
         handleBackPress()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = { handleBackPress() }) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                actions = {
-                    Text(
-                        text = "${currentIndex + 1} / ${statusList.size}",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(end = 16.dp)
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black.copy(alpha = 0.7f)
-                )
-            )
-        },
-        containerColor = Color.Black
-    ) { innerPadding ->
+        Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Main content area - takes entire screen
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    showToolbar = !showToolbar
+                }
         ) {
             HorizontalPager(
                 pageCount = statusList.size,
@@ -273,8 +260,9 @@ fun StatusView(
                                     indication = null,
                                     interactionSource = remember { MutableInteractionSource() }
                                 ) {
-                                    // On tap: only show/hide controls, do not play/pause
+                                    // On tap: show/hide controls and toolbar
                                     showControls = !showControls
+                                    showToolbar = !showToolbar
                                 }
                         ) {
                             AndroidView(
@@ -302,7 +290,34 @@ fun StatusView(
                 }
             }
 
-            // Bottom action buttons in navigation bar area
+            // Partially transparent toolbar overlay - appears above media when visible
+            if (showToolbar) {
+                TopAppBar(
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = { handleBackPress() }) {
+                            Icon(
+                                imageVector = Icons.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.White
+                            )
+                        }
+                    },
+                    actions = {
+                        Text(
+                            text = "${currentIndex + 1} / ${statusList.size}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Black.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+
+            // Bottom action buttons - always visible
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -395,8 +410,6 @@ fun StatusView(
                     }
                 }
             }
-
-
         }
     }
 
