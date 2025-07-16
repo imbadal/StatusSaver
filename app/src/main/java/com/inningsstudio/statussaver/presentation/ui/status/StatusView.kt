@@ -298,35 +298,39 @@ fun StatusView(
                 )
             }
 
-            // Bottom action buttons - always visible
+                        // Bottom action buttons - always visible (vertical layout like Instagram Reels)
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 80.dp, end = 16.dp)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (isFromSavedStatuses) {
                         // Delete button for saved statuses
-                        FloatingActionButton(
+                        IconButton(
                             onClick = {
                                 showDeleteConfirmation = true
                             },
-                            containerColor = Color.Transparent,
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    color = Color.Black.copy(alpha = 0.6f),
+                                    shape = androidx.compose.foundation.shape.CircleShape
+                                )
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Delete,
                                 contentDescription = "Delete",
                                 tint = Color.White,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     } else {
                         // Download button for regular statuses
-                        FloatingActionButton(
+                        IconButton(
                             onClick = {
                                 val pref =
                                     PreferenceUtils(context.applicationContext as android.app.Application)
@@ -358,20 +362,24 @@ fun StatusView(
                                     }
                                 }
                             },
-                            containerColor = Color.Transparent,
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    color = Color.Black.copy(alpha = 0.6f),
+                                    shape = androidx.compose.foundation.shape.CircleShape
+                                )
                         ) {
                             Icon(
                                 painter = painterResource(id = R.drawable.baseline_download_24),
                                 contentDescription = "Download",
                                 tint = Color.White,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
 
                     // Share button (for both images and videos)
-                    FloatingActionButton(
+                    IconButton(
                         onClick = {
                             statusList.getOrNull(pagerState.currentPage)?.let { status ->
                                 coroutineScope.launch {
@@ -379,14 +387,18 @@ fun StatusView(
                                 }
                             }
                         },
-                        containerColor = Color.Transparent,
-                        modifier = Modifier.size(56.dp)
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                color = Color.Black.copy(alpha = 0.6f),
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Share,
                             contentDescription = "Share",
                             tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
