@@ -102,6 +102,9 @@ fun StandaloneStatusGallery(context: Context) {
     var statusFilterTab by remember { mutableStateOf(0) } // 0 = All, 1 = Image, 2 = Video
     var displayStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     
+    // Filter tabs for Saved Statuses
+    var savedFilterTab by remember { mutableStateOf(0) } // 0 = All, 1 = Favourites
+    
     // Settings state
     var showSettingsBottomSheet by remember { mutableStateOf(false) }
     var gridColumns by remember { mutableStateOf(3) } // Default: 3 columns
@@ -790,187 +793,189 @@ fun StandaloneStatusGallery(context: Context) {
                             }
                         }
                         1 -> { // Saved tab
-                            when {
-                                isLoadingSaved -> {
-                                    // Show shimmer grid for saved statuses
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(2),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // Filter tabs for Saved Statuses
+                                if (!isLoadingSaved && (savedStatusList.isNotEmpty() || favoriteList.isNotEmpty())) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color.White, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                                            .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        items(36) { // Show 36 shimmer items to fill entire screen height
-                                            ShimmerCard()
-                                        }
-                                    }
-                                }
-
-                                savedStatusList.isEmpty() && favoriteList.isEmpty() -> {
-                                    Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.padding(32.dp)
+                                        // Filter tabs
+                                        Row(
+                                            horizontalArrangement = Arrangement.Start
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Favorite,
-                                                contentDescription = "No Saved Statuses",
-                                                tint = Color.Gray,
-                                                modifier = Modifier.size(64.dp)
-                                            )
-                                            Spacer(modifier = Modifier.height(16.dp))
-                                            Text(
-                                                "No Saved Statuses",
-                                                color = Color.Black,
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                "Save some statuses to see them here",
-                                                color = Color.Gray,
-                                                fontSize = 14.sp,
-                                                textAlign = TextAlign.Center
-                                            )
-                                            Spacer(modifier = Modifier.height(24.dp))
-                                            Button(
-                                                onClick = { forceRefreshSavedStatuses() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
-                                                modifier = Modifier.height(48.dp)
+                                            // All tab
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(36.dp)
+                                                    .clickable { savedFilterTab = 0 }
+                                                    .background(
+                                                        if (savedFilterTab == 0) Color(0xFFE8F5E8) else Color.Transparent,
+                                                        RoundedCornerShape(6.dp)
+                                                    )
+                                                    .border(
+                                                        width = 1.5.dp,
+                                                        color = if (savedFilterTab == 0) primaryGreen else Color(0xFFE0E0E0),
+                                                        shape = RoundedCornerShape(6.dp)
+                                                    )
+                                                    .padding(horizontal = 20.dp),
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
+                                                Text(
+                                                    text = "All",
+                                                    color = if (savedFilterTab == 0) primaryGreen else Color(0xFF757575),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (savedFilterTab == 0) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            }
+                                            
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            
+                                            // Favourites tab
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(36.dp)
+                                                    .clickable { savedFilterTab = 1 }
+                                                    .background(
+                                                        if (savedFilterTab == 1) Color(0xFFE8F5E8) else Color.Transparent,
+                                                        RoundedCornerShape(6.dp)
+                                                    )
+                                                    .border(
+                                                        width = 1.5.dp,
+                                                        color = if (savedFilterTab == 1) primaryGreen else Color(0xFFE0E0E0),
+                                                        shape = RoundedCornerShape(6.dp)
+                                                    )
+                                                    .padding(horizontal = 16.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "Favourites",
+                                                    color = if (savedFilterTab == 1) primaryGreen else Color(0xFF757575),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (savedFilterTab == 1) FontWeight.Bold else FontWeight.Medium
+                                                )
                                             }
                                         }
                                     }
                                 }
-
-                                else -> {
-                                    Log.d(
-                                        "StatusGalleryActivity",
-                                        "Showing saved status grid with ${savedStatusList.size} saved and ${favoriteList.size} favorites"
-                                    )
-                                    
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(2),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                    ) {
-                                        // Show favorites first
-                                        if (favoriteList.isNotEmpty()) {
-                                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                                Column(
-                                                    modifier = Modifier
-                                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                                        .background(Color(0xFFFAFAFA), RoundedCornerShape(8.dp))
-                                                        .padding(horizontal = 4.dp, vertical = 8.dp)
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) {
-                                                        Text(
-                                                            text = "Favorites",
-                                                            color = Color(0xFFE91E63), // Pink/Red color for favorites
-                                                            fontSize = 14.sp,
-                                                            fontWeight = FontWeight.Medium
-                                                        )
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .height(1.dp)
-                                                                .weight(1f)
-                                                                .background(Color(0xFFE91E63))
-                                                        )
-                                                    }
+                                
+                                // Content area
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.White)
+                                ) {
+                                    when {
+                                        isLoadingSaved -> {
+                                            // Show shimmer grid for saved statuses
+                                            LazyVerticalGrid(
+                                                columns = GridCells.Fixed(2),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                            ) {
+                                                items(36) { // Show 36 shimmer items to fill entire screen height
+                                                    ShimmerCard()
                                                 }
-                                            }
-                                            items(favoriteList.size) { index ->
-                                                val status = favoriteList[index]
-                                                SavedStatusCardWithFav(
-                                                    status = status,
-                                                    isFavorite = true,
-                                                    context = context,
-                                                    thumbCache = thumbCache,
-                                                    getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                    onDelete = {
-                                                        statusToDelete = status
-                                                        showDeleteConfirmation = true
-                                                    },
-                                                    onFavoriteToggle = {
-                                                        unmarkAsFavorite(status)
-                                                    },
-                                                    onClick = {
-                                                        val actualIndex = favoriteList.indexOf(status)
-                                                        if (actualIndex != -1) {
-                                                            selectedStatusIndex = actualIndex
-                                                            showStatusView = true
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                                Spacer(modifier = Modifier.height(8.dp))
                                             }
                                         }
-                                        
-                                        // Show other saved statuses
-                                        if (savedStatusList.isNotEmpty()) {
-                                            item(span = { GridItemSpan(maxLineSpan) }) {
+
+                                        savedStatusList.isEmpty() && favoriteList.isEmpty() -> {
+                                            Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
                                                 Column(
-                                                    modifier = Modifier
-                                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                                        .background(Color(0xFFFAFAFA), RoundedCornerShape(8.dp))
-                                                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier.padding(32.dp)
                                                 ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.fillMaxWidth()
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Favorite,
+                                                        contentDescription = "No Saved Statuses",
+                                                        tint = Color.Gray,
+                                                        modifier = Modifier.size(64.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(16.dp))
+                                                    Text(
+                                                        "No Saved Statuses",
+                                                        color = Color.Black,
+                                                        fontSize = 18.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        "Save some statuses to see them here",
+                                                        color = Color.Gray,
+                                                        fontSize = 14.sp,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                    Spacer(modifier = Modifier.height(24.dp))
+                                                    Button(
+                                                        onClick = { forceRefreshSavedStatuses() },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                        modifier = Modifier.height(48.dp)
                                                     ) {
-                                                        Text(
-                                                            text = "Others",
-                                                            color = Color(0xFF757575), // Gray color for others
-                                                            fontSize = 14.sp,
-                                                            fontWeight = FontWeight.Medium
-                                                        )
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .height(1.dp)
-                                                                .weight(1f)
-                                                                .background(Color(0xFF757575))
-                                                        )
+                                                        Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
                                                     }
                                                 }
                                             }
-                                            items(savedStatusList.size) { index ->
-                                                val status = savedStatusList[index]
-                                                SavedStatusCardWithFav(
-                                                    status = status,
-                                                    isFavorite = false,
-                                                    context = context,
-                                                    thumbCache = thumbCache,
-                                                    getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                    onDelete = {
-                                                        statusToDelete = status
-                                                        showDeleteConfirmation = true
-                                                    },
-                                                    onFavoriteToggle = {
-                                                        markAsFavorite(status)
-                                                    },
-                                                    onClick = {
-                                                        val actualIndex = savedStatusList.indexOf(status)
-                                                        if (actualIndex != -1) {
-                                                            selectedStatusIndex = actualIndex
-                                                            showStatusView = true
+                                        }
+
+                                        else -> {
+                                            Log.d(
+                                                "StatusGalleryActivity",
+                                                "Showing saved status grid with ${savedStatusList.size} saved and ${favoriteList.size} favorites"
+                                            )
+                                            
+                                            // Filter and display saved statuses based on selected tab
+                                            val displaySavedList = when (savedFilterTab) {
+                                                0 -> favoriteList + savedStatusList // All
+                                                1 -> favoriteList // Favourites only
+                                                else -> favoriteList + savedStatusList
+                                            }
+                                            
+                                            LazyVerticalGrid(
+                                                columns = GridCells.Fixed(2),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentPadding = PaddingValues(16.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                items(displaySavedList.size) { index ->
+                                                    val status = displaySavedList[index]
+                                                    val isFavorite = favoriteList.contains(status)
+                                                    SavedStatusCardWithFav(
+                                                        status = status,
+                                                        isFavorite = isFavorite,
+                                                        context = context,
+                                                        thumbCache = thumbCache,
+                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                        onDelete = {
+                                                            statusToDelete = status
+                                                            showDeleteConfirmation = true
+                                                        },
+                                                        onFavoriteToggle = {
+                                                            if (isFavorite) {
+                                                                unmarkAsFavorite(status)
+                                                            } else {
+                                                                markAsFavorite(status)
+                                                            }
+                                                        },
+                                                        onClick = {
+                                                            val actualIndex = displaySavedList.indexOf(status)
+                                                            if (actualIndex != -1) {
+                                                                selectedStatusIndex = actualIndex
+                                                                showStatusView = true
+                                                            }
                                                         }
-                                                    }
-                                                )
+                                                    )
+                                                }
                                             }
                                         }
                                     }
