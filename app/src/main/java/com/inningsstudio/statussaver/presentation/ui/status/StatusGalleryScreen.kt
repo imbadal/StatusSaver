@@ -524,7 +524,7 @@ fun StandaloneStatusGallery(context: Context) {
                     }
                 }
             },
-            containerColor = Color(0xFFF8F9FA)
+            containerColor = Color(0xFFF5F5F5)
         ) { innerPadding ->
             Box(
                 modifier = Modifier
@@ -544,7 +544,8 @@ fun StandaloneStatusGallery(context: Context) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+                                            .background(Color.White, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                                            .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -648,7 +649,11 @@ fun StandaloneStatusGallery(context: Context) {
                                 }
                                 
                                 // Content area
-                                Box(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.White)
+                                ) {
                                     when {
                                         isLoading -> {
                                             // Show shimmer grid
@@ -759,13 +764,13 @@ fun StandaloneStatusGallery(context: Context) {
                                                 "StatusGalleryActivity",
                                                 "Showing status grid with ${displayStatusList.size} statuses (filter: ${statusFilterTab})"
                                             )
-                                            LazyVerticalGrid(
-                                                columns = GridCells.Fixed(gridColumns),
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                            ) {
+                                                                                LazyVerticalGrid(
+                                        columns = GridCells.Fixed(gridColumns),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
                                                 itemsIndexed(displayStatusList) { index, status ->
                                                     ModernStatusCard(
                                                         status = status,
@@ -1647,11 +1652,11 @@ fun ModernStatusCard(
     Card(
         modifier = Modifier
             .aspectRatio(1f)
-            .shadow(4.dp, RoundedCornerShape(0.dp))
+            .shadow(2.dp, RoundedCornerShape(8.dp))
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(0.dp)
+        shape = RoundedCornerShape(8.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (status.isVideo) {
