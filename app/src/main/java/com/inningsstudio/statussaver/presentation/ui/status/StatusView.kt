@@ -396,24 +396,7 @@ fun StatusView(
                 }
             }
 
-            // Status counter
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 100.dp)
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f)),
-                    modifier = Modifier.padding(8.dp)
-                ) {
-                    Text(
-                        text = "${currentIndex + 1} / ${statusList.size}",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-            }
+
         }
     }
 
