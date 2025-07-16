@@ -399,66 +399,160 @@ object FileUtils {
      */
     suspend fun getSavedStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         return@withContext try {
-            Log.d(TAG, "Reading saved statuses from DCIM: $SAVED_DIRECTORY")
+            Log.d(TAG, "=== READING SAVED STATUSES FROM FOLDER ===")
+            Log.d(TAG, "Directory path: $SAVED_DIRECTORY")
             val savedDir = File(SAVED_DIRECTORY)
-            val favouritesDir = File(FAVOURITES_DIRECTORY)
-            val favouriteNames = favouritesDir.listFiles()?.map { it.name }?.toSet() ?: emptySet()
+            
+            Log.d(TAG, "Directory exists: ${savedDir.exists()}")
+            Log.d(TAG, "Is directory: ${savedDir.isDirectory}")
+            Log.d(TAG, "Can read: ${savedDir.canRead()}")
+            Log.d(TAG, "Can write: ${savedDir.canWrite()}")
+            Log.d(TAG, "Absolute path: ${savedDir.absolutePath}")
+            
             if (!savedDir.exists() || !savedDir.isDirectory) {
                 Log.w(TAG, "Saved statuses directory does not exist: $SAVED_DIRECTORY")
                 return@withContext emptyList()
             }
+            
             val statusModels = mutableListOf<StatusModel>()
-            val files = savedDir.listFiles { file ->
-                file.isFile && isValidFile(file.absolutePath) && file.name !in favouriteNames
+            
+            // CRITICAL DEBUGGING: List ALL files first, no filtering
+            Log.d(TAG, "=== STEP 1: LISTING ALL FILES (NO FILTERS) ===")
+            val allFiles = savedDir.listFiles()
+            Log.d(TAG, "Total files found: ${allFiles?.size ?: 0}")
+            
+            if (allFiles != null) {
+                allFiles.forEach { file ->
+                    Log.d(TAG, "File: ${file.name}")
+                    Log.d(TAG, "  - isFile: ${file.isFile}")
+                    Log.d(TAG, "  - isDirectory: ${file.isDirectory}")
+                    Log.d(TAG, "  - isHidden: ${file.isHidden}")
+                    Log.d(TAG, "  - canRead: ${file.canRead()}")
+                    Log.d(TAG, "  - canWrite: ${file.canWrite()}")
+                    Log.d(TAG, "  - size: ${file.length()}")
+                    Log.d(TAG, "  - lastModified: ${file.lastModified()}")
+                    Log.d(TAG, "  - absolutePath: ${file.absolutePath}")
+                    
+                    // Test isValidFile for each file
+                    val isValid = isValidFile(file.absolutePath)
+                    Log.d(TAG, "  - isValidFile: $isValid")
+                    Log.d(TAG, "  ---")
+                }
             }
+            
+            // STEP 2: Try to get files with different methods
+            Log.d(TAG, "=== STEP 2: TRYING DIFFERENT FILE LISTING METHODS ===")
+            
+            // Method 1: Direct listFiles()
+            var files1 = savedDir.listFiles()
+            Log.d(TAG, "Method 1 - Direct listFiles(): ${files1?.size ?: 0} files")
+            
+            // Method 2: listFiles() with FileFilter
+            var files2 = savedDir.listFiles { file ->
+                file.isFile
+            }
+            Log.d(TAG, "Method 2 - listFiles() with isFile filter: ${files2?.size ?: 0} files")
+            
+            // Method 3: listFiles() with our custom filter
+            var files3 = savedDir.listFiles { file ->
+                file.isFile && isValidFile(file.absolutePath)
+            }
+            Log.d(TAG, "Method 3 - listFiles() with isValidFile filter: ${files3?.size ?: 0} files")
+            
+            // Method 4: Using File.list() and creating File objects
+            val fileNames = savedDir.list()
+            Log.d(TAG, "Method 4 - File.list() names: ${fileNames?.size ?: 0} names")
+            fileNames?.forEach { name ->
+                Log.d(TAG, "  Name: $name")
+            }
+            
+            // Use the best result
+            var files = files1
+            if (files == null || files.isEmpty()) {
+                files = files2
+                Log.d(TAG, "Using Method 2 results")
+            }
+            if (files == null || files.isEmpty()) {
+                files = files3
+                Log.d(TAG, "Using Method 3 results")
+            }
+            if (files == null || files.isEmpty()) {
+                // Create files from names
+                files = fileNames?.mapNotNull { name ->
+                    val file = File(savedDir, name)
+                    if (file.isFile) file else null
+                }?.toTypedArray()
+                Log.d(TAG, "Using Method 4 results: ${files?.size ?: 0} files")
+            }
+            
+            Log.d(TAG, "Final files array: ${files?.size ?: 0} files")
+            
+            // STEP 3: Process files
+            Log.d(TAG, "=== STEP 3: PROCESSING FILES ===")
             files?.forEach { file ->
                 try {
                     val fileName = file.name
                     val fileSize = file.length()
                     val lastModified = file.lastModified()
                     val isVideo = isVideo(file.absolutePath)
-                    if (isVideo) {
-                        try {
-                            val mediaMetadataRetriever = MediaMetadataRetriever()
-                            mediaMetadataRetriever.setDataSource(file.absolutePath)
-                            val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
-                            mediaMetadataRetriever.release()
+                    
+                    Log.d(TAG, "Processing file: $fileName")
+                    Log.d(TAG, "  - size: $fileSize")
+                    Log.d(TAG, "  - isVideo: $isVideo")
+                    Log.d(TAG, "  - isValidFile: ${isValidFile(file.absolutePath)}")
+                    
+                    // Only process if it's a valid file
+                    if (isValidFile(file.absolutePath)) {
+                        if (isVideo) {
+                            try {
+                                val mediaMetadataRetriever = MediaMetadataRetriever()
+                                mediaMetadataRetriever.setDataSource(file.absolutePath)
+                                val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                                mediaMetadataRetriever.release()
+                                statusModels.add(StatusModel(
+                                    id = file.absolutePath.hashCode().toLong(),
+                                    filePath = file.absolutePath,
+                                    fileName = fileName,
+                                    fileSize = fileSize,
+                                    lastModified = lastModified,
+                                    isVideo = true,
+                                    thumbnail = thumbnail
+                                ))
+                                Log.d(TAG, "✅ Added video status: $fileName")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error getting thumbnail for video: $fileName", e)
+                                statusModels.add(StatusModel(
+                                    id = file.absolutePath.hashCode().toLong(),
+                                    filePath = file.absolutePath,
+                                    fileName = fileName,
+                                    fileSize = fileSize,
+                                    lastModified = lastModified,
+                                    isVideo = true
+                                ))
+                                Log.d(TAG, "✅ Added video status (no thumbnail): $fileName")
+                            }
+                        } else {
+                            val imageRequest = ImageRequest.Builder(context).data(file.absolutePath).build()
                             statusModels.add(StatusModel(
                                 id = file.absolutePath.hashCode().toLong(),
                                 filePath = file.absolutePath,
                                 fileName = fileName,
                                 fileSize = fileSize,
                                 lastModified = lastModified,
-                                isVideo = true,
-                                thumbnail = thumbnail
+                                imageRequest = imageRequest
                             ))
-                        } catch (e: Exception) {
-                            statusModels.add(StatusModel(
-                                id = file.absolutePath.hashCode().toLong(),
-                                filePath = file.absolutePath,
-                                fileName = fileName,
-                                fileSize = fileSize,
-                                lastModified = lastModified,
-                                isVideo = true
-                            ))
+                            Log.d(TAG, "✅ Added image status: $fileName")
                         }
                     } else {
-                        val imageRequest = ImageRequest.Builder(context).data(file.absolutePath).build()
-                        statusModels.add(StatusModel(
-                            id = file.absolutePath.hashCode().toLong(),
-                            filePath = file.absolutePath,
-                            fileName = fileName,
-                            fileSize = fileSize,
-                            lastModified = lastModified,
-                            imageRequest = imageRequest
-                        ))
+                        Log.d(TAG, "❌ Skipping invalid file: $fileName")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error processing saved file: ${file.name}", e)
                 }
             }
+            
             val sortedStatusModels = statusModels.sortedByDescending { it.lastModified }
-            Log.d(TAG, "Retrieved ${sortedStatusModels.size} saved statuses from folder")
+            Log.d(TAG, "=== FINAL RESULT: Retrieved ${sortedStatusModels.size} saved statuses from folder ===")
             sortedStatusModels
         } catch (e: Exception) {
             Log.e(TAG, "Error getting saved statuses from folder", e)
@@ -630,11 +724,17 @@ object FileUtils {
             "heic", "heif", "tiff", "tif"
         )
         
-        Log.d(TAG, "File: $path, Extension: '$extension', IsNoMedia: $isNoMedia, IsMediaFile: $isMediaFile")
-        
         // Accept all media files, reject only .nomedia files
         val isValid = !isNoMedia && isMediaFile
-        Log.d(TAG, "File validation result: $isValid")
+        
+        // Only log for debugging when there are issues
+        if (!isValid) {
+            Log.d(TAG, "File validation failed: $path")
+            Log.d(TAG, "  - Extension: '$extension'")
+            Log.d(TAG, "  - IsNoMedia: $isNoMedia")
+            Log.d(TAG, "  - IsMediaFile: $isMediaFile")
+            Log.d(TAG, "  - Final result: $isValid")
+        }
         
         return isValid
     }
