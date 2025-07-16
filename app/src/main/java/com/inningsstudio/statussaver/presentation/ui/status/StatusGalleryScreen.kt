@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
@@ -70,6 +71,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +100,11 @@ fun StandaloneStatusGallery(context: Context) {
     // Filter tabs for Statuses
     var statusFilterTab by remember { mutableStateOf(0) } // 0 = All, 1 = Image, 2 = Video
     var displayStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
+    
+    // Settings state
+    var showSettingsBottomSheet by remember { mutableStateOf(false) }
+    var gridColumns by remember { mutableStateOf(3) } // Default: 3 columns
+    var sortOrder by remember { mutableStateOf(0) } // 0 = Latest first, 1 = Oldest first
     
     val coroutineScope = rememberCoroutineScope()
 
@@ -133,9 +145,19 @@ fun StandaloneStatusGallery(context: Context) {
         }
     }
 
-    // Update display list when source list or filter changes
-    LaunchedEffect(statusList, statusFilterTab) {
-        displayStatusList = filterStatuses(statusList, statusFilterTab)
+    // Function to sort statuses based on sort order
+    fun sortStatuses(statuses: List<StatusModel>, sortOrder: Int): List<StatusModel> {
+        return when (sortOrder) {
+            0 -> statuses.sortedByDescending { it.lastModified } // Latest first
+            1 -> statuses.sortedBy { it.lastModified } // Oldest first
+            else -> statuses.sortedByDescending { it.lastModified } // Default: Latest first
+        }
+    }
+
+    // Update display list when source list, filter, or sort order changes
+    LaunchedEffect(statusList, statusFilterTab, sortOrder) {
+        val filteredStatuses = filterStatuses(statusList, statusFilterTab)
+        displayStatusList = sortStatuses(filteredStatuses, sortOrder)
     }
 
     fun loadSavedStatuses() {
@@ -522,84 +544,103 @@ fun StandaloneStatusGallery(context: Context) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
-                                        horizontalArrangement = Arrangement.Start
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // All tab
-                                        Box(
-                                            modifier = Modifier
-                                                .height(36.dp)
-                                                .clickable { statusFilterTab = 0 }
-                                                .background(
-                                                    if (statusFilterTab == 0) Color(0xFFE8F5E8) else Color.Transparent,
-                                                    RoundedCornerShape(6.dp)
-                                                )
-                                                .border(
-                                                    width = 1.5.dp,
-                                                    color = if (statusFilterTab == 0) primaryGreen else Color(0xFFE0E0E0),
-                                                    shape = RoundedCornerShape(6.dp)
-                                                )
-                                                .padding(horizontal = 20.dp),
-                                            contentAlignment = Alignment.Center
+                                        // Filter tabs
+                                        Row(
+                                            horizontalArrangement = Arrangement.Start
                                         ) {
-                                            Text(
-                                                text = "All",
-                                                color = if (statusFilterTab == 0) primaryGreen else Color(0xFF757575),
-                                                fontSize = 13.sp,
-                                                fontWeight = if (statusFilterTab == 0) FontWeight.Bold else FontWeight.Medium
-                                            )
+                                            // All tab
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(36.dp)
+                                                    .clickable { statusFilterTab = 0 }
+                                                    .background(
+                                                        if (statusFilterTab == 0) Color(0xFFE8F5E8) else Color.Transparent,
+                                                        RoundedCornerShape(6.dp)
+                                                    )
+                                                    .border(
+                                                        width = 1.5.dp,
+                                                        color = if (statusFilterTab == 0) primaryGreen else Color(0xFFE0E0E0),
+                                                        shape = RoundedCornerShape(6.dp)
+                                                    )
+                                                    .padding(horizontal = 20.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "All",
+                                                    color = if (statusFilterTab == 0) primaryGreen else Color(0xFF757575),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (statusFilterTab == 0) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            }
+                                            
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            
+                                            // Image tab
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(36.dp)
+                                                    .clickable { statusFilterTab = 1 }
+                                                    .background(
+                                                        if (statusFilterTab == 1) Color(0xFFE8F5E8) else Color.Transparent,
+                                                        RoundedCornerShape(6.dp)
+                                                    )
+                                                    .border(
+                                                        width = 1.5.dp,
+                                                        color = if (statusFilterTab == 1) primaryGreen else Color(0xFFE0E0E0),
+                                                        shape = RoundedCornerShape(6.dp)
+                                                    )
+                                                    .padding(horizontal = 16.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "Image",
+                                                    color = if (statusFilterTab == 1) primaryGreen else Color(0xFF757575),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (statusFilterTab == 1) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            }
+                                            
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            
+                                            // Video tab
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(36.dp)
+                                                    .clickable { statusFilterTab = 2 }
+                                                    .background(
+                                                        if (statusFilterTab == 2) Color(0xFFE8F5E8) else Color.Transparent,
+                                                        RoundedCornerShape(6.dp)
+                                                    )
+                                                    .border(
+                                                        width = 1.5.dp,
+                                                        color = if (statusFilterTab == 2) primaryGreen else Color(0xFFE0E0E0),
+                                                        shape = RoundedCornerShape(6.dp)
+                                                    )
+                                                    .padding(horizontal = 16.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "Video",
+                                                    color = if (statusFilterTab == 2) primaryGreen else Color(0xFF757575),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (statusFilterTab == 2) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            }
                                         }
                                         
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        
-                                        // Image tab
-                                        Box(
-                                            modifier = Modifier
-                                                .height(36.dp)
-                                                .clickable { statusFilterTab = 1 }
-                                                .background(
-                                                    if (statusFilterTab == 1) Color(0xFFE8F5E8) else Color.Transparent,
-                                                    RoundedCornerShape(6.dp)
-                                                )
-                                                .border(
-                                                    width = 1.5.dp,
-                                                    color = if (statusFilterTab == 1) primaryGreen else Color(0xFFE0E0E0),
-                                                    shape = RoundedCornerShape(6.dp)
-                                                )
-                                                .padding(horizontal = 16.dp),
-                                            contentAlignment = Alignment.Center
+                                        // Settings icon
+                                        IconButton(
+                                            onClick = { showSettingsBottomSheet = true },
+                                            modifier = Modifier.size(36.dp)
                                         ) {
-                                            Text(
-                                                text = "Image",
-                                                color = if (statusFilterTab == 1) primaryGreen else Color(0xFF757575),
-                                                fontSize = 13.sp,
-                                                fontWeight = if (statusFilterTab == 1) FontWeight.Bold else FontWeight.Medium
-                                            )
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        
-                                        // Video tab
-                                        Box(
-                                            modifier = Modifier
-                                                .height(36.dp)
-                                                .clickable { statusFilterTab = 2 }
-                                                .background(
-                                                    if (statusFilterTab == 2) Color(0xFFE8F5E8) else Color.Transparent,
-                                                    RoundedCornerShape(6.dp)
-                                                )
-                                                .border(
-                                                    width = 1.5.dp,
-                                                    color = if (statusFilterTab == 2) primaryGreen else Color(0xFFE0E0E0),
-                                                    shape = RoundedCornerShape(6.dp)
-                                                )
-                                                .padding(horizontal = 16.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "Video",
-                                                color = if (statusFilterTab == 2) primaryGreen else Color(0xFF757575),
-                                                fontSize = 13.sp,
-                                                fontWeight = if (statusFilterTab == 2) FontWeight.Bold else FontWeight.Medium
+                                            Icon(
+                                                imageVector = Icons.Filled.Settings,
+                                                contentDescription = "Settings",
+                                                tint = primaryGreen,
+                                                modifier = Modifier.size(20.dp)
                                             )
                                         }
                                     }
@@ -718,7 +759,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 "Showing status grid with ${displayStatusList.size} statuses (filter: ${statusFilterTab})"
                                             )
                                             LazyVerticalGrid(
-                                                columns = GridCells.Fixed(3),
+                                                columns = GridCells.Fixed(gridColumns),
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
                                                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -997,6 +1038,203 @@ fun StandaloneStatusGallery(context: Context) {
             titleContentColor = Color.Black,
             textContentColor = Color.Gray
         )
+    }
+    
+    // Settings Bottom Sheet
+    if (showSettingsBottomSheet) {
+        val bottomSheetState = rememberModalBottomSheetState()
+        
+        ModalBottomSheet(
+            onDismissRequest = { showSettingsBottomSheet = false },
+            sheetState = bottomSheetState,
+            containerColor = Color.White,
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(4.dp)
+                            .background(Color.Gray, RoundedCornerShape(2.dp))
+                    )
+                }
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+            ) {
+                // Header
+                Text(
+                    text = "Display Settings",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 24.dp)
+                )
+                
+                // Grid Layout Section
+                Text(
+                    text = "Grid Layout",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // 2 Columns option
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clickable { gridColumns = 2 }
+                            .background(
+                                if (gridColumns == 2) primaryGreen else Color(0xFFF5F5F5),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (gridColumns == 2) primaryGreen else Color(0xFFE0E0E0),
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "2 Columns",
+                            color = if (gridColumns == 2) Color.White else Color.Black,
+                            fontSize = 14.sp,
+                            fontWeight = if (gridColumns == 2) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                    
+                    // 3 Columns option
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clickable { gridColumns = 3 }
+                            .background(
+                                if (gridColumns == 3) primaryGreen else Color(0xFFF5F5F5),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (gridColumns == 3) primaryGreen else Color(0xFFE0E0E0),
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "3 Columns",
+                            color = if (gridColumns == 3) Color.White else Color.Black,
+                            fontSize = 14.sp,
+                            fontWeight = if (gridColumns == 3) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                    
+                    // 4 Columns option
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clickable { gridColumns = 4 }
+                            .background(
+                                if (gridColumns == 4) primaryGreen else Color(0xFFF5F5F5),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (gridColumns == 4) primaryGreen else Color(0xFFE0E0E0),
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "4 Columns",
+                            color = if (gridColumns == 4) Color.White else Color.Black,
+                            fontSize = 14.sp,
+                            fontWeight = if (gridColumns == 4) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                // Sort Order Section
+                Text(
+                    text = "Sort Order",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Latest first option
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { sortOrder = 0 }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = sortOrder == 0,
+                            onClick = { sortOrder = 0 },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = primaryGreen,
+                                unselectedColor = Color.Gray
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Latest First",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Black,
+                            fontWeight = if (sortOrder == 0) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    }
+                    
+                    // Oldest first option
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { sortOrder = 1 }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = sortOrder == 1,
+                            onClick = { sortOrder = 1 },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = primaryGreen,
+                                unselectedColor = Color.Gray
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Oldest First",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Black,
+                            fontWeight = if (sortOrder == 1) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
     }
 }
 
