@@ -33,21 +33,27 @@ fun SavedStatusScreen() {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     
     // Filter tabs for Saved Statuses
-    var savedFilterTab by remember { mutableStateOf(0) } // 0 = All, 1 = Favourites
+    var savedFilterTab by remember { mutableStateOf(0) } // 0 = Favourites, 1 = Others
     var displaySavedList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     
-    // Function to filter saved statuses based on selected tab
-    fun filterSavedStatuses(allStatuses: List<StatusModel>, favorites: List<StatusModel>, filterTab: Int): List<StatusModel> {
+    // Function to filter and sort saved statuses based on selected tab
+    fun filterAndSortSavedStatuses(allStatuses: List<StatusModel>, favorites: List<StatusModel>, filterTab: Int): List<StatusModel> {
         return when (filterTab) {
-            0 -> allStatuses + favorites // All saved statuses
-            1 -> favorites // Favourites only
-            else -> allStatuses + favorites
+            0 -> {
+                // Favourites - sort by last modified time (latest first)
+                favorites.sortedByDescending { it.lastModified }
+            }
+            1 -> {
+                // Others (non-favorites) - sort by last modified time (latest first)
+                allStatuses.sortedByDescending { it.lastModified }
+            }
+            else -> favorites.sortedByDescending { it.lastModified }
         }
     }
     
     // Update display list when source lists or filter changes
     LaunchedEffect(savedStatuses, favoriteStatuses, savedFilterTab) {
-        displaySavedList = filterSavedStatuses(savedStatuses, favoriteStatuses, savedFilterTab)
+        displaySavedList = filterAndSortSavedStatuses(savedStatuses, favoriteStatuses, savedFilterTab)
     }
     
     // Load saved statuses when the screen is first displayed
@@ -113,19 +119,16 @@ fun SavedStatusScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = when (savedFilterTab) {
-                            0 -> "No saved statuses found"
-                            1 -> "No favourite statuses found"
-                            else -> "No saved statuses found"
-                        },
-                        style = MaterialTheme.typography.bodyLarge
+                        text = "No Status Available",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = when (savedFilterTab) {
-                            0 -> "Saved statuses will appear here"
-                            1 -> "Favourite statuses will appear here"
-                            else -> "Saved statuses will appear here"
+                            0 -> "No favourite statuses available"
+                            1 -> "No other saved statuses available"
+                            else -> "No saved statuses available"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -146,7 +149,7 @@ fun SavedStatusScreen() {
                         Row(
                             horizontalArrangement = Arrangement.Start
                         ) {
-                            // All tab
+                            // Favourites tab
                             Box(
                                 modifier = Modifier
                                     .height(36.dp)
@@ -160,11 +163,11 @@ fun SavedStatusScreen() {
                                         color = if (savedFilterTab == 0) Color(0xFF4CAF50) else Color(0xFFE0E0E0),
                                         shape = RoundedCornerShape(6.dp)
                                     )
-                                    .padding(horizontal = 20.dp),
+                                    .padding(horizontal = 16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "All",
+                                    text = "Favourites",
                                     color = if (savedFilterTab == 0) Color(0xFF4CAF50) else Color(0xFF757575),
                                     fontSize = 13.sp,
                                     fontWeight = if (savedFilterTab == 0) FontWeight.Bold else FontWeight.Medium
@@ -173,7 +176,7 @@ fun SavedStatusScreen() {
                             
                             Spacer(modifier = Modifier.width(12.dp))
                             
-                            // Favourites tab
+                            // Others tab
                             Box(
                                 modifier = Modifier
                                     .height(36.dp)
@@ -191,7 +194,7 @@ fun SavedStatusScreen() {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Favourites",
+                                    text = "Others",
                                     color = if (savedFilterTab == 1) Color(0xFF4CAF50) else Color(0xFF757575),
                                     fontSize = 13.sp,
                                     fontWeight = if (savedFilterTab == 1) FontWeight.Bold else FontWeight.Medium

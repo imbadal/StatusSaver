@@ -103,7 +103,7 @@ fun StandaloneStatusGallery(context: Context) {
     var displayStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     
     // Filter tabs for Saved Statuses
-    var savedFilterTab by remember { mutableStateOf(0) } // 0 = All, 1 = Favourites
+    var savedFilterTab by remember { mutableStateOf(0) } // 0 = Favourites, 1 = Others
     
     // Settings state
     var showSettingsBottomSheet by remember { mutableStateOf(false) }
@@ -733,7 +733,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                     )
                                                     Spacer(modifier = Modifier.height(16.dp))
                                                     Text(
-                                                        "No Statuses Found",
+                                                        "No Status Available",
                                                         color = Color.Black,
                                                         fontSize = 18.sp,
                                                         fontWeight = FontWeight.Bold
@@ -742,9 +742,9 @@ fun StandaloneStatusGallery(context: Context) {
                                                     Text(
                                                         when (statusFilterTab) {
                                                             0 -> "Make sure you have granted folder permission and have WhatsApp statuses"
-                                                            1 -> "No image statuses found"
-                                                            2 -> "No video statuses found"
-                                                            else -> "No statuses found"
+                                                            1 -> "No image statuses available"
+                                                            2 -> "No video statuses available"
+                                                            else -> "No statuses available"
                                                         },
                                                         color = Color.Gray,
                                                         fontSize = 14.sp,
@@ -808,7 +808,7 @@ fun StandaloneStatusGallery(context: Context) {
                                         Row(
                                             horizontalArrangement = Arrangement.Start
                                         ) {
-                                            // All tab
+                                            // Favourites tab
                                             Box(
                                                 modifier = Modifier
                                                     .height(36.dp)
@@ -822,11 +822,11 @@ fun StandaloneStatusGallery(context: Context) {
                                                         color = if (savedFilterTab == 0) primaryGreen else Color(0xFFE0E0E0),
                                                         shape = RoundedCornerShape(6.dp)
                                                     )
-                                                    .padding(horizontal = 20.dp),
+                                                    .padding(horizontal = 16.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = "All",
+                                                    text = "Favourites",
                                                     color = if (savedFilterTab == 0) primaryGreen else Color(0xFF757575),
                                                     fontSize = 13.sp,
                                                     fontWeight = if (savedFilterTab == 0) FontWeight.Bold else FontWeight.Medium
@@ -835,7 +835,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             
                                             Spacer(modifier = Modifier.width(12.dp))
                                             
-                                            // Favourites tab
+                                            // Others tab
                                             Box(
                                                 modifier = Modifier
                                                     .height(36.dp)
@@ -853,7 +853,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = "Favourites",
+                                                    text = "Others",
                                                     color = if (savedFilterTab == 1) primaryGreen else Color(0xFF757575),
                                                     fontSize = 13.sp,
                                                     fontWeight = if (savedFilterTab == 1) FontWeight.Bold else FontWeight.Medium
@@ -869,6 +869,13 @@ fun StandaloneStatusGallery(context: Context) {
                                         .fillMaxSize()
                                         .background(Color.White)
                                 ) {
+                                    // Calculate display list for saved statuses
+                                    val displaySavedList = when (savedFilterTab) {
+                                        0 -> favoriteList // Favourites only
+                                        1 -> savedStatusList // Others only
+                                        else -> favoriteList
+                                    }
+                                    
                                     when {
                                         isLoadingSaved -> {
                                             // Show shimmer grid for saved statuses
@@ -885,7 +892,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             }
                                         }
 
-                                        savedStatusList.isEmpty() && favoriteList.isEmpty() -> {
+                                        displaySavedList.isEmpty() -> {
                                             Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
                                             Box(
                                                 modifier = Modifier.fillMaxSize(),
@@ -903,14 +910,18 @@ fun StandaloneStatusGallery(context: Context) {
                                                     )
                                                     Spacer(modifier = Modifier.height(16.dp))
                                                     Text(
-                                                        "No Saved Statuses",
+                                                        "No Status Available",
                                                         color = Color.Black,
                                                         fontSize = 18.sp,
                                                         fontWeight = FontWeight.Bold
                                                     )
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     Text(
-                                                        "Save some statuses to see them here",
+                                                        when (savedFilterTab) {
+                                                            0 -> "No favourite statuses available"
+                                                            1 -> "No other saved statuses available"
+                                                            else -> "No saved statuses available"
+                                                        },
                                                         color = Color.Gray,
                                                         fontSize = 14.sp,
                                                         textAlign = TextAlign.Center
@@ -932,13 +943,6 @@ fun StandaloneStatusGallery(context: Context) {
                                                 "StatusGalleryActivity",
                                                 "Showing saved status grid with ${savedStatusList.size} saved and ${favoriteList.size} favorites"
                                             )
-                                            
-                                            // Filter and display saved statuses based on selected tab
-                                            val displaySavedList = when (savedFilterTab) {
-                                                0 -> favoriteList + savedStatusList // All
-                                                1 -> favoriteList // Favourites only
-                                                else -> favoriteList + savedStatusList
-                                            }
                                             
                                             LazyVerticalGrid(
                                                 columns = GridCells.Fixed(2),
