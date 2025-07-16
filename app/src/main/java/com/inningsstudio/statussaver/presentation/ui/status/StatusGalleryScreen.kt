@@ -111,10 +111,44 @@ fun StandaloneStatusGallery(context: Context) {
             isLoadingSaved = true
 
             try {
-                // Use the new folder-based function instead of database
+                // Get saved statuses from DCIM folder (primary source)
                 val savedStatuses = FileUtils.getSavedStatusesFromFolder(context)
-                val savedStatusesWithFavs = FileUtils.getSavedStatusesWithFavorites(context)
                 Log.d("StatusGalleryActivity", "Found ${savedStatuses.size} saved statuses from folder")
+                
+                // Get favorite information from database (secondary source)
+                val favoriteStatuses = FileUtils.getFavoriteStatusesFromDatabase(context)
+                Log.d("StatusGalleryActivity", "Found ${favoriteStatuses.size} favorite statuses from database")
+                
+                // Create a map of favorite statuses for quick lookup
+                val favoriteMap = favoriteStatuses.associateBy { it.statusUri }
+                
+                // Combine folder statuses with favorite information
+                val combinedStatuses = savedStatuses.map { status ->
+                    val favoriteInfo = favoriteMap[status.filePath]
+                    if (favoriteInfo != null) {
+                        // Create a SavedStatusEntity with favorite info
+                        SavedStatusEntity(
+                            statusUri = status.filePath,
+                            fileName = status.fileName,
+                            isFavorite = favoriteInfo.isFavorite,
+                            savedDate = status.lastModified,
+                            favoriteMarkedDate = favoriteInfo.favoriteMarkedDate,
+                            fileSize = status.fileSize,
+                            isVideo = status.isVideo
+                        )
+                    } else {
+                        // Create a SavedStatusEntity without favorite info
+                        SavedStatusEntity(
+                            statusUri = status.filePath,
+                            fileName = status.fileName,
+                            isFavorite = false,
+                            savedDate = status.lastModified,
+                            favoriteMarkedDate = null,
+                            fileSize = status.fileSize,
+                            isVideo = status.isVideo
+                        )
+                    }
+                }
                 
                 // Calculate hash of new statuses
                 val newHash = calculateSavedStatusesHash(savedStatuses)
@@ -123,7 +157,7 @@ fun StandaloneStatusGallery(context: Context) {
                 if (newHash != lastSavedStatusesHash) {
                     Log.d("StatusGalleryActivity", "Saved statuses changed, updating UI")
                     savedStatusList = savedStatuses
-                    savedStatusesWithFavorites = savedStatusesWithFavs
+                    savedStatusesWithFavorites = combinedStatuses
                     lastSavedStatusesHash = newHash
                 } else {
                     Log.d("StatusGalleryActivity", "No changes in saved statuses, skipping UI update")
@@ -148,14 +182,17 @@ fun StandaloneStatusGallery(context: Context) {
     fun toggleFavoriteStatus(statusUri: String) {
         coroutineScope.launch {
             try {
+                Log.d("StatusGalleryActivity", "Toggling favorite status: $statusUri")
                 val success = FileUtils.toggleFavoriteStatus(context, statusUri)
                 if (success) {
-                    // Refresh the saved statuses with favorites
-                    val updatedSavedStatusesWithFavs = FileUtils.getSavedStatusesWithFavorites(context)
-                    savedStatusesWithFavorites = updatedSavedStatusesWithFavs
+                    Log.d("StatusGalleryActivity", "✅ Favorite status toggled successfully")
+                    // Refresh saved statuses to update the UI
+                    loadSavedStatuses()
+                } else {
+                    Log.e("StatusGalleryActivity", "❌ Failed to toggle favorite status")
                 }
             } catch (e: Exception) {
-                Log.e("StatusGalleryActivity", "Error toggling favorite status", e)
+                Log.e("StatusGalleryActivity", "❌ Error toggling favorite status", e)
             }
         }
     }

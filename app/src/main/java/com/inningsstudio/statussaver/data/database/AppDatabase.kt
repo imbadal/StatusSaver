@@ -37,9 +37,25 @@ abstract class AppDatabase : RoomDatabase() {
                     "status_saver_database"
                 )
                 .addMigrations(MIGRATION_1_2)
+                .fallbackToDestructiveMigration() // Allow destructive migration for fresh installs
                 .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+        
+        /**
+         * Check if database exists and has any data
+         * This helps determine if we need to create the database on fresh install
+         */
+        fun hasDatabaseData(context: Context): Boolean {
+            return try {
+                val database = getDatabase(context)
+                val dao = database.savedStatusDao()
+                val count = kotlinx.coroutines.runBlocking { dao.getSavedStatusesCount() }
+                count > 0
+            } catch (e: Exception) {
+                false
             }
         }
     }

@@ -356,16 +356,132 @@ object FileUtils {
     }
 
     /**
-     * Get saved statuses with favorite information from database
+     * Get saved statuses from DCIM folder, sorted by actual file lastModified time
+     * This is the primary method for loading saved statuses - no database dependency
      */
-    suspend fun getSavedStatusesWithFavorites(context: Context): List<SavedStatusEntity> = withContext(Dispatchers.IO) {
+    suspend fun getSavedStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         return@withContext try {
+            Log.d(TAG, "Reading saved statuses from DCIM: $SAVED_DIRECTORY")
+            
+            val savedDir = File(SAVED_DIRECTORY)
+            if (!savedDir.exists() || !savedDir.isDirectory) {
+                Log.w(TAG, "Saved statuses directory does not exist: $SAVED_DIRECTORY")
+                return@withContext emptyList()
+            }
+            
+            val statusModels = mutableListOf<StatusModel>()
+            
+            // Get all files from DCIM/StatusWp/statuses folder
+            val files = savedDir.listFiles { file ->
+                file.isFile && isValidFile(file.absolutePath)
+            }
+            
+            Log.d(TAG, "Found ${files?.size ?: 0} files in saved directory")
+            
+            files?.forEach { file ->
+                try {
+                    val fileName = file.name
+                    val fileSize = file.length()
+                    val lastModified = file.lastModified()
+                    val isVideo = isVideo(file.absolutePath)
+                    
+                    Log.d(TAG, "Processing saved file: $fileName (size: $fileSize, video: $isVideo)")
+                    
+                    if (isVideo) {
+                        // For videos, try to get thumbnail
+                        try {
+                            val mediaMetadataRetriever = MediaMetadataRetriever()
+                            mediaMetadataRetriever.setDataSource(file.absolutePath)
+                            val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                            mediaMetadataRetriever.release()
+                            
+                            statusModels.add(StatusModel(
+                                id = file.absolutePath.hashCode().toLong(),
+                                filePath = file.absolutePath,
+                                fileName = fileName,
+                                fileSize = fileSize,
+                                lastModified = lastModified,
+                                isVideo = true,
+                                thumbnail = thumbnail
+                            ))
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error getting thumbnail for video: $fileName", e)
+                            // Add without thumbnail
+                            statusModels.add(StatusModel(
+                                id = file.absolutePath.hashCode().toLong(),
+                                filePath = file.absolutePath,
+                                fileName = fileName,
+                                fileSize = fileSize,
+                                lastModified = lastModified,
+                                isVideo = true
+                            ))
+                        }
+                    } else {
+                        // For images, create ImageRequest
+                        val imageRequest = ImageRequest.Builder(context).data(file.absolutePath).build()
+                        statusModels.add(StatusModel(
+                            id = file.absolutePath.hashCode().toLong(),
+                            filePath = file.absolutePath,
+                            fileName = fileName,
+                            fileSize = fileSize,
+                            lastModified = lastModified,
+                            imageRequest = imageRequest
+                        ))
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing saved file: ${file.name}", e)
+                }
+            }
+            
+            // Sort by lastModified time (latest first)
+            val sortedStatusModels = statusModels.sortedByDescending { it.lastModified }
+            
+            Log.d(TAG, "Retrieved ${sortedStatusModels.size} saved statuses from folder")
+            sortedStatusModels
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting saved statuses from folder", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Get favorite status information from database only
+     * This function only returns favorite status data, not the actual files
+     */
+    suspend fun getFavoriteStatusesFromDatabase(context: Context): List<SavedStatusEntity> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            // Only create database if it has data or is needed
+            if (!AppDatabase.hasDatabaseData(context)) {
+                Log.d(TAG, "Database has no data, returning empty list for favorites")
+                return@withContext emptyList()
+            }
+            
             val database = AppDatabase.getDatabase(context)
             val savedStatusDao = database.savedStatusDao()
             savedStatusDao.getAllSavedStatusesSync()
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting saved statuses from database", e)
+            Log.e(TAG, "Error getting favorite statuses from database", e)
             emptyList()
+        }
+    }
+
+    /**
+     * Check if a status is marked as favorite in database
+     */
+    suspend fun isStatusFavorite(context: Context, statusUri: String): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            // Only create database if it has data or is needed
+            if (!AppDatabase.hasDatabaseData(context)) {
+                Log.d(TAG, "Database has no data, status is not favorite: $statusUri")
+                return@withContext false
+            }
+            
+            val database = AppDatabase.getDatabase(context)
+            val savedStatusDao = database.savedStatusDao()
+            savedStatusDao.isFavorite(statusUri)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking favorite status: $statusUri", e)
+            false
         }
     }
 
@@ -385,8 +501,21 @@ object FileUtils {
                 Log.d(TAG, "Toggled favorite status for: $statusUri (favorite: $newFavoriteStatus, marked at: $favoriteMarkedDate)")
                 true
             } else {
-                Log.w(TAG, "Status not found in database: $statusUri")
-                false
+                // If status doesn't exist in database, create it as favorite
+                val newFavoriteStatus = true
+                val favoriteMarkedDate = System.currentTimeMillis()
+                val savedStatus = SavedStatusEntity(
+                    statusUri = statusUri,
+                    fileName = statusUri.substringAfterLast("/", statusUri),
+                    isFavorite = newFavoriteStatus,
+                    savedDate = System.currentTimeMillis(),
+                    favoriteMarkedDate = favoriteMarkedDate,
+                    fileSize = 0L,
+                    isVideo = statusUri.lowercase().endsWith(".mp4")
+                )
+                savedStatusDao.insertSavedStatus(savedStatus)
+                Log.d(TAG, "Created new favorite status: $statusUri")
+                true
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error toggling favorite status: $statusUri", e)
@@ -395,7 +524,7 @@ object FileUtils {
     }
 
     /**
-     * Save status to database when it's saved to folder
+     * Save status to database when it's saved to folder (for favorite tracking)
      */
     suspend fun saveStatusToDatabase(context: Context, statusUri: String, fileName: String, fileSize: Long, isVideo: Boolean): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
@@ -412,7 +541,7 @@ object FileUtils {
             )
 
             savedStatusDao.insertSavedStatus(savedStatus)
-            Log.d(TAG, "Saved status to database: $statusUri")
+            Log.d(TAG, "Saved status to database for favorite tracking: $statusUri")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error saving status to database: $statusUri", e)
@@ -803,90 +932,6 @@ object FileUtils {
         } catch (e: Exception) {
             Log.e(TAG, "Error saving status to folder", e)
             false
-        }
-    }
-
-    /**
-     * Get saved statuses from DCIM folder, sorted by actual file lastModified time
-     */
-    suspend fun getSavedStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
-        return@withContext try {
-            Log.d(TAG, "Reading saved statuses from DCIM: $SAVED_DIRECTORY")
-            
-            val savedDir = File(SAVED_DIRECTORY)
-            if (!savedDir.exists() || !savedDir.isDirectory) {
-                Log.w(TAG, "Saved statuses directory does not exist: $SAVED_DIRECTORY")
-                return@withContext emptyList()
-            }
-            
-            val statusModels = mutableListOf<StatusModel>()
-            
-            // Get all files from DCIM/StatusWp/statuses folder
-            savedDir.listFiles()?.forEach { file ->
-                try {
-                    if (file.isFile && isValidFile(file.name)) {
-                        val fileName = file.name
-                        val fileSize = file.length()
-                        val lastModified = file.lastModified()
-                        val isVideo = fileName.lowercase().endsWith(".mp4")
-                        
-                        Log.d(TAG, "Found saved file: $fileName (size: $fileSize, lastModified: $lastModified, isVideo: $isVideo)")
-                        
-                        if (isVideo) {
-                            // For videos, try to get thumbnail
-                            try {
-                                val mediaMetadataRetriever = MediaMetadataRetriever()
-                                mediaMetadataRetriever.setDataSource(file.absolutePath)
-                                val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
-                                mediaMetadataRetriever.release()
-                                
-                                statusModels.add(StatusModel(
-                                    id = file.absolutePath.hashCode().toLong(),
-                                    filePath = file.absolutePath,
-                                    fileName = fileName,
-                                    fileSize = fileSize,
-                                    lastModified = lastModified,
-                                    isVideo = true,
-                                    thumbnail = thumbnail
-                                ))
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error getting thumbnail for video: $fileName", e)
-                                // Add without thumbnail
-                                statusModels.add(StatusModel(
-                                    id = file.absolutePath.hashCode().toLong(),
-                                    filePath = file.absolutePath,
-                                    fileName = fileName,
-                                    fileSize = fileSize,
-                                    lastModified = lastModified,
-                                    isVideo = true
-                                ))
-                            }
-                        } else {
-                            // For images, create ImageRequest
-                            val imageRequest = ImageRequest.Builder(context).data(file.absolutePath).build()
-                            statusModels.add(StatusModel(
-                                id = file.absolutePath.hashCode().toLong(),
-                                filePath = file.absolutePath,
-                                fileName = fileName,
-                                fileSize = fileSize,
-                                lastModified = lastModified,
-                                imageRequest = imageRequest
-                            ))
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error processing saved file: ${file.name}", e)
-                }
-            }
-            
-            // Sort by lastModified time (latest first)
-            val sortedStatusModels = statusModels.sortedByDescending { it.lastModified }
-            
-            Log.d(TAG, "Retrieved ${sortedStatusModels.size} saved statuses from folder")
-            sortedStatusModels
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting saved statuses from folder", e)
-            emptyList()
         }
     }
 
