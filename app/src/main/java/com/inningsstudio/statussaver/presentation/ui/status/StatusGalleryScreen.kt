@@ -89,6 +89,11 @@ fun StandaloneStatusGallery(context: Context) {
     var statusesLoaded by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var statusToDelete by remember { mutableStateOf<StatusModel?>(null) }
+    
+    // Filter tabs for Statuses
+    var statusFilterTab by remember { mutableStateOf(0) } // 0 = All, 1 = Image, 2 = Video
+    var displayStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
+    
     val coroutineScope = rememberCoroutineScope()
 
     // Pager state for swipeable tabs
@@ -116,6 +121,21 @@ fun StandaloneStatusGallery(context: Context) {
     // Function to calculate hash of statuses for change detection
     fun calculateStatusesHash(statuses: List<StatusModel>): Int {
         return statuses.hashCode()
+    }
+
+    // Function to filter statuses based on selected tab
+    fun filterStatuses(statuses: List<StatusModel>, filterTab: Int): List<StatusModel> {
+        return when (filterTab) {
+            0 -> statuses // All
+            1 -> statuses.filter { !it.isVideo } // Image only
+            2 -> statuses.filter { it.isVideo } // Video only
+            else -> statuses
+        }
+    }
+
+    // Update display list when source list or filter changes
+    LaunchedEffect(statusList, statusFilterTab) {
+        displayStatusList = filterStatuses(statusList, statusFilterTab)
     }
 
     fun loadSavedStatuses() {
@@ -324,7 +344,7 @@ fun StandaloneStatusGallery(context: Context) {
 
     if (showStatusView) {
         StatusView(
-            statusList = if (currentTab == 0) statusList else savedStatusList,
+            statusList = if (currentTab == 0) displayStatusList else savedStatusList,
             initialIndex = selectedStatusIndex,
             isFromSavedStatuses = currentTab == 1,
             onBackPressed = { showStatusView = false },
@@ -495,129 +515,224 @@ fun StandaloneStatusGallery(context: Context) {
                 ) { page ->
                     when (page) {
                         0 -> { // Statuses tab
-                            when {
-                                isLoading -> {
-                                    // Show shimmer grid
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(3),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // Filter tabs for Statuses
+                                if (!isLoading && errorMessage == null && statusList.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        items(36) { // Show 36 shimmer items to fill entire screen height
-                                            ShimmerCard()
-                                        }
-                                    }
-                                }
-
-                                errorMessage != null -> {
-                                    Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.padding(32.dp)
+                                        // All tab
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(36.dp)
+                                                .clickable { statusFilterTab = 0 }
+                                                .background(
+                                                    if (statusFilterTab == 0) Color.Black else Color(0xFFF0F0F0),
+                                                    RoundedCornerShape(18.dp)
+                                                )
+                                                .border(
+                                                    width = if (statusFilterTab == 0) 1.dp else 0.dp,
+                                                    color = if (statusFilterTab == 0) Color.Red else Color.Transparent,
+                                                    shape = RoundedCornerShape(18.dp)
+                                                ),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Refresh,
-                                                contentDescription = "Error",
-                                                tint = Color.Gray,
-                                                modifier = Modifier.size(64.dp)
-                                            )
-                                            Spacer(modifier = Modifier.height(16.dp))
                                             Text(
-                                                "Something went wrong",
-                                                color = Color.Black,
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Bold
+                                                text = "All",
+                                                color = if (statusFilterTab == 0) Color.White else Color.Black,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (statusFilterTab == 0) FontWeight.Bold else FontWeight.Medium
                                             )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                errorMessage ?: "Unknown error",
-                                                color = Color.Gray,
-                                                fontSize = 14.sp,
-                                                textAlign = TextAlign.Center
-                                            )
-                                            Spacer(modifier = Modifier.height(24.dp))
-                                            Button(
-                                                onClick = { forceRefreshStatuses() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
-                                                modifier = Modifier.height(48.dp)
-                                            ) {
-                                                Text("Try Again", color = Color.White, fontWeight = FontWeight.Medium)
-                                            }
                                         }
-                                    }
-                                }
-
-                                statusList.isEmpty() -> {
-                                    Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            modifier = Modifier.padding(32.dp)
+                                        
+                                        // Image tab
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(36.dp)
+                                                .clickable { statusFilterTab = 1 }
+                                                .background(
+                                                    if (statusFilterTab == 1) Color.Black else Color(0xFFF0F0F0),
+                                                    RoundedCornerShape(18.dp)
+                                                )
+                                                .border(
+                                                    width = if (statusFilterTab == 1) 1.dp else 0.dp,
+                                                    color = if (statusFilterTab == 1) Color.Red else Color.Transparent,
+                                                    shape = RoundedCornerShape(18.dp)
+                                                ),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Home,
-                                                contentDescription = "No Statuses",
-                                                tint = Color.Gray,
-                                                modifier = Modifier.size(64.dp)
-                                            )
-                                            Spacer(modifier = Modifier.height(16.dp))
                                             Text(
-                                                "No Statuses Found",
-                                                color = Color.Black,
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Bold
+                                                text = "Image",
+                                                color = if (statusFilterTab == 1) Color.White else Color.Black,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (statusFilterTab == 1) FontWeight.Bold else FontWeight.Medium
                                             )
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                        }
+                                        
+                                        // Video tab
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(36.dp)
+                                                .clickable { statusFilterTab = 2 }
+                                                .background(
+                                                    if (statusFilterTab == 2) Color.Black else Color(0xFFF0F0F0),
+                                                    RoundedCornerShape(18.dp)
+                                                )
+                                                .border(
+                                                    width = if (statusFilterTab == 2) 1.dp else 0.dp,
+                                                    color = if (statusFilterTab == 2) Color.Red else Color.Transparent,
+                                                    shape = RoundedCornerShape(18.dp)
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
                                             Text(
-                                                "Make sure you have granted folder permission and have WhatsApp statuses",
-                                                color = Color.Gray,
-                                                fontSize = 14.sp,
-                                                textAlign = TextAlign.Center
+                                                text = "Video",
+                                                color = if (statusFilterTab == 2) Color.White else Color.Black,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (statusFilterTab == 2) FontWeight.Bold else FontWeight.Medium
                                             )
-                                            Spacer(modifier = Modifier.height(24.dp))
-                                            Button(
-                                                onClick = { forceRefreshStatuses() },
-                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
-                                                modifier = Modifier.height(48.dp)
-                                            ) {
-                                                Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
-                                            }
                                         }
                                     }
                                 }
-
-                                else -> {
-                                    Log.d(
-                                        "StatusGalleryActivity",
-                                        "Showing status grid with ${statusList.size} statuses"
-                                    )
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(3),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                    ) {
-                                        itemsIndexed(statusList) { index, status ->
-                                            ModernStatusCard(
-                                                status = status,
-                                                context = context,
-                                                thumbCache = thumbCache,
-                                                getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                onClick = {
-                                                    selectedStatusIndex = index
-                                                    showStatusView = true
+                                
+                                // Content area
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    when {
+                                        isLoading -> {
+                                            // Show shimmer grid
+                                            LazyVerticalGrid(
+                                                columns = GridCells.Fixed(3),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                            ) {
+                                                items(36) { // Show 36 shimmer items to fill entire screen height
+                                                    ShimmerCard()
                                                 }
+                                            }
+                                        }
+
+                                        errorMessage != null -> {
+                                            Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier.padding(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Refresh,
+                                                        contentDescription = "Error",
+                                                        tint = Color.Gray,
+                                                        modifier = Modifier.size(64.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(16.dp))
+                                                    Text(
+                                                        "Something went wrong",
+                                                        color = Color.Black,
+                                                        fontSize = 18.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        errorMessage ?: "Unknown error",
+                                                        color = Color.Gray,
+                                                        fontSize = 14.sp,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                    Spacer(modifier = Modifier.height(24.dp))
+                                                    Button(
+                                                        onClick = { forceRefreshStatuses() },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                        modifier = Modifier.height(48.dp)
+                                                    ) {
+                                                        Text("Try Again", color = Color.White, fontWeight = FontWeight.Medium)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        displayStatusList.isEmpty() -> {
+                                            Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier.padding(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Home,
+                                                        contentDescription = "No Statuses",
+                                                        tint = Color.Gray,
+                                                        modifier = Modifier.size(64.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(16.dp))
+                                                    Text(
+                                                        "No Statuses Found",
+                                                        color = Color.Black,
+                                                        fontSize = 18.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        when (statusFilterTab) {
+                                                            0 -> "Make sure you have granted folder permission and have WhatsApp statuses"
+                                                            1 -> "No image statuses found"
+                                                            2 -> "No video statuses found"
+                                                            else -> "No statuses found"
+                                                        },
+                                                        color = Color.Gray,
+                                                        fontSize = 14.sp,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                    Spacer(modifier = Modifier.height(24.dp))
+                                                    Button(
+                                                        onClick = { forceRefreshStatuses() },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                        modifier = Modifier.height(48.dp)
+                                                    ) {
+                                                        Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        else -> {
+                                            Log.d(
+                                                "StatusGalleryActivity",
+                                                "Showing status grid with ${displayStatusList.size} statuses (filter: ${statusFilterTab})"
                                             )
+                                            LazyVerticalGrid(
+                                                columns = GridCells.Fixed(3),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                            ) {
+                                                itemsIndexed(displayStatusList) { index, status ->
+                                                    ModernStatusCard(
+                                                        status = status,
+                                                        context = context,
+                                                        thumbCache = thumbCache,
+                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                        onClick = {
+                                                            selectedStatusIndex = index
+                                                            showStatusView = true
+                                                        }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
