@@ -83,7 +83,7 @@ class OnBoardingActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = ContextCompat.getColor(this, R.color.purple_700)
+        window.statusBarColor = ContextCompat.getColor(this, R.color.whatsapp_dark_green)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         preferenceUtils = PreferenceUtils(application)
         
