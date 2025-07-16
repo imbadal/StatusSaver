@@ -190,14 +190,11 @@ fun StandaloneStatusGallery(context: Context) {
             Log.d("StatusGalleryActivity", "Loading statuses with SAF URI: $safUri")
 
             try {
-                // First, let's check if we have permissions
-                val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
-                Log.d("StatusGalleryActivity", "Has required permissions: $hasPermissions")
-
-                if (!hasPermissions) {
-                    Log.e("StatusGalleryActivity", "❌ NO PERMISSIONS - Cannot load statuses")
+                // Only check if SAF URI is present
+                if (safUri.isNullOrBlank()) {
+                    Log.e("StatusGalleryActivity", "❌ NO SAF URI - Cannot load statuses")
                     errorMessage =
-                        "Media permissions are required. Please grant permissions in app settings."
+                        "Please grant access to the WhatsApp .Statuses folder in onboarding/settings."
                     isLoading = false
                     return@launch
                 }

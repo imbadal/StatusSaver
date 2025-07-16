@@ -26,21 +26,12 @@ object StorageAccessHelper {
     
     /**
      * Check if app has required permissions
+     * Since we use SAF (Storage Access Framework), we only need to check if SAF URI is available
      */
     fun hasRequiredPermissions(context: Context): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ (API 33+) - Check media permissions
-            val img = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES)
-            val vid = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO)
-            val aud = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO)
-            
-            img == PackageManager.PERMISSION_GRANTED &&
-            vid == PackageManager.PERMISSION_GRANTED &&
-            aud == PackageManager.PERMISSION_GRANTED
-        } else {
-            // Android 12 and below (API < 33) - Check READ_EXTERNAL_STORAGE
-            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-        }
+        // For SAF-based access, we don't need media permissions
+        // The permission check is handled by checking if SAF URI is available
+        return true
     }
     
     /**

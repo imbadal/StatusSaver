@@ -39,8 +39,7 @@ class OnBoardingActivity : AppCompatActivity() {
 
     private var currentStep = 0
     private var folderPermissionGranted = false
-    private var mediaPermissionsGranted = false
-    private val totalSteps: Int = 3
+    private val totalSteps: Int = 2
 
     // Activity result launcher for folder selection
     private val folderSelectionLauncher = registerForActivityResult(
@@ -62,24 +61,12 @@ class OnBoardingActivity : AppCompatActivity() {
                 val actualPath = treeUri.toString()
                 preferenceUtils.setUriToPreference(actualPath)
                 folderPermissionGranted = true
-                updateStepUI()
+                moveToNextStep()
             }
         }
     }
 
-    // Activity result launcher for permissions
-    private val permissionLauncher = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val allGranted = permissions.values.all { it }
-        if (allGranted) {
-            mediaPermissionsGranted = true
-            Toast.makeText(this, "Media permissions granted!", Toast.LENGTH_SHORT).show()
-            updateStepUI()
-        } else {
-            Toast.makeText(this, "Media permissions are required to access WhatsApp statuses", Toast.LENGTH_LONG).show()
-        }
-    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,7 +91,6 @@ class OnBoardingActivity : AppCompatActivity() {
         initializeViews()
         
         // Check current permission status
-        mediaPermissionsGranted = StorageAccessHelper.hasRequiredPermissions(this)
         folderPermissionGranted = !safUri.isNullOrBlank()
         
         updateStepUI()
@@ -127,38 +113,15 @@ class OnBoardingActivity : AppCompatActivity() {
         // Update content and button
         when (currentStep) {
             0 -> {
-                onboardingTitle.text = if (mediaPermissionsGranted) "Permissions Granted!" else "Grant Media Permissions"
-                onboardingDescription.text = if (mediaPermissionsGranted)
-                    "Great! You've granted the necessary media permissions. Let's continue to the next step."
-                else
-                    "We need access to your media files to read WhatsApp statuses. Please grant the required permissions."
-                onboardingActionButton.text = if (mediaPermissionsGranted) "Continue" else "Grant Permissions"
+                onboardingTitle.text = "Pick .Statuses Folder"
+                onboardingDescription.text = "We need access to your WhatsApp .Statuses folder to save your statuses. Please pick the folder using the system folder picker."
+                onboardingActionButton.text = "Pick .Statuses Folder"
                 onboardingActionButton.isEnabled = true
                 onboardingActionButton.setOnClickListener {
-                    if (mediaPermissionsGranted) {
-                        moveToNextStep()
-                    } else {
-                        requestMediaPermissions()
-                    }
+                    pickFolder()
                 }
             }
             1 -> {
-                onboardingTitle.text = if (folderPermissionGranted) "Folder Selected!" else "Pick .Statuses Folder"
-                onboardingDescription.text = if (folderPermissionGranted)
-                    "Great! You've selected the WhatsApp .Statuses folder. You can now proceed."
-                else
-                    "We need access to your WhatsApp .Statuses folder to save your statuses. Please pick the folder using the system folder picker."
-                onboardingActionButton.text = if (folderPermissionGranted) "Continue" else "Pick .Statuses Folder"
-                onboardingActionButton.isEnabled = true
-                onboardingActionButton.setOnClickListener {
-                    if (folderPermissionGranted) {
-                        moveToNextStep()
-                    } else {
-                        pickFolder()
-                    }
-                }
-            }
-            2 -> {
                 onboardingTitle.text = "Welcome to StatusSaver!"
                 onboardingDescription.text = "You're all set! Now you can save and manage your WhatsApp statuses easily. Tap 'Get Started' to begin!"
                 onboardingActionButton.text = "Get Started"
@@ -170,24 +133,7 @@ class OnBoardingActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestMediaPermissions() {
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ (API 33+)
-            arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO,
-                Manifest.permission.READ_MEDIA_AUDIO
-            )
-        } else {
-            // Android 12 and below
-            arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-        }
-        
-        permissionLauncher.launch(permissions)
-    }
+
 
     private fun updateStepIndicators() {
         stepIndicatorContainer.removeAllViews()
@@ -215,7 +161,7 @@ class OnBoardingActivity : AppCompatActivity() {
     }
 
     private fun completeOnboarding() {
-        if (mediaPermissionsGranted && folderPermissionGranted) {
+        if (folderPermissionGranted) {
             preferenceUtils.setOnboardingCompleted(true)
             navigateToMainActivity()
         } else {
@@ -231,41 +177,29 @@ class OnBoardingActivity : AppCompatActivity() {
 
     private fun pickFolder() {
         val targetPath = "Android/media/com.whatsapp/WhatsApp/Media/.Statuses"
-        val context = this
-        AlertDialog.Builder(this)
-            .setTitle("Grant WhatsApp Status Folder Access")
-            .setMessage(
-                "If the next screen does not open the .Statuses folder, please navigate to:\n\n" +
-                "Android > media > com.whatsapp > WhatsApp > Media > .Statuses\n\n" +
-                "and select it. This is required to access WhatsApp statuses."
-            )
-            .setPositiveButton("Continue") { _, _ ->
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        val sm = getSystemService(Context.STORAGE_SERVICE) as StorageManager
-                        val storageVolume = sm.primaryStorageVolume
-                        var intent = storageVolume.createOpenDocumentTreeIntent()
-                        val initialUri = intent.getParcelableExtra<Uri>(DocumentsContract.EXTRA_INITIAL_URI)
-                        val replace = initialUri.toString().replace("/root/", "/document/")
-                        val finalUri = Uri.parse("$replace%3A" + targetPath.replace("/", "%2F"))
-                        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, finalUri)
-                        intent.putExtra("android.content.extra.SHOW_ADVANCED", true)
-                        intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                        folderSelectionLauncher.launch(intent)
-                    } else {
-                        val treeUri = Uri.parse("content://com.android.externalstorage.documents/tree/primary%3A" + Uri.encode(targetPath))
-                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                            putExtra(DocumentsContract.EXTRA_INITIAL_URI, treeUri)
-                            putExtra("android.content.extra.SHOW_ADVANCED", true)
-                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                        }
-                        folderSelectionLauncher.launch(intent)
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Error opening folder picker", Toast.LENGTH_LONG).show()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val sm = getSystemService(Context.STORAGE_SERVICE) as StorageManager
+                val storageVolume = sm.primaryStorageVolume
+                var intent = storageVolume.createOpenDocumentTreeIntent()
+                val initialUri = intent.getParcelableExtra<Uri>(DocumentsContract.EXTRA_INITIAL_URI)
+                val replace = initialUri.toString().replace("/root/", "/document/")
+                val finalUri = Uri.parse("$replace%3A" + targetPath.replace("/", "%2F"))
+                intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, finalUri)
+                intent.putExtra("android.content.extra.SHOW_ADVANCED", true)
+                intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                folderSelectionLauncher.launch(intent)
+            } else {
+                val treeUri = Uri.parse("content://com.android.externalstorage.documents/tree/primary%3A" + Uri.encode(targetPath))
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    putExtra(DocumentsContract.EXTRA_INITIAL_URI, treeUri)
+                    putExtra("android.content.extra.SHOW_ADVANCED", true)
+                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 }
+                folderSelectionLauncher.launch(intent)
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error opening folder picker", Toast.LENGTH_LONG).show()
+        }
     }
 }

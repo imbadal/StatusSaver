@@ -36,7 +36,7 @@ object FileUtils {
 
     private val SAVED_DIRECTORY =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-            .toString() + File.separator + "inningsstudio" + File.separator + "Status Saver"
+            .toString() + File.separator + "StatusWp" + File.separator + "statuses"
 
     private fun isVideo(path: String): Boolean {
         return (path.substring(path.length - 3) == MP4)
@@ -262,10 +262,12 @@ object FileUtils {
                 val safUri = Uri.parse(safUriString)
                 val folderDoc = DocumentFile.fromTreeUri(context, safUri)
                 if (folderDoc != null) {
-                    val statusWpFolder = folderDoc.findFile("StatusWp")
-                    if (statusWpFolder != null && statusWpFolder.isDirectory) {
-                        Log.d(TAG, "Reading saved statuses from SAF/StatusWp: ${statusWpFolder.uri}")
-                        for (file in statusWpFolder.listFiles()) {
+                                    val statusWpFolder = folderDoc.findFile("StatusWp")
+                if (statusWpFolder != null && statusWpFolder.isDirectory) {
+                    val statusesFolder = statusWpFolder.findFile("statuses")
+                    if (statusesFolder != null && statusesFolder.isDirectory) {
+                        Log.d(TAG, "Reading saved statuses from SAF/StatusWp/statuses: ${statusesFolder.uri}")
+                        for (file in statusesFolder.listFiles()) {
                             if (file.isFile && isValidFile(file.name ?: "")) {
                                 val fileName = file.name ?: ""
                                 val fileSize = file.length()
@@ -297,8 +299,11 @@ object FileUtils {
                         }
                         usedSAF = true
                     } else {
-                        Log.w(TAG, "StatusWp folder not found in SAF location: $safUriString")
+                        Log.w(TAG, "statuses folder not found in SAF location: $safUriString")
                     }
+                } else {
+                    Log.w(TAG, "StatusWp folder not found in SAF location: $safUriString")
+                }
                 } else {
                     Log.w(TAG, "Could not get DocumentFile from SAF URI: $safUriString")
                 }
@@ -675,7 +680,7 @@ object FileUtils {
         return@withContext try {
             Log.d(TAG, "=== STARTING SAVE OPERATION ===")
             Log.d(TAG, "Source file: $filePath")
-            Log.d(TAG, "Destination folder URI: $folderUri")
+            Log.d(TAG, "Using DCIM path for saving: $SAVED_DIRECTORY")
 
             // Handle both file paths and content URIs
             val isContentUri = filePath.startsWith("content://")
@@ -703,63 +708,43 @@ object FileUtils {
                 val mimeType = context.contentResolver.getType(sourceUri) ?: "application/octet-stream"
                 Log.d(TAG, "MIME type from URI: $mimeType")
 
-                // Get the folder document
-                val folderDoc = DocumentFile.fromTreeUri(context, folderUri)
-                if (folderDoc == null) {
-                    Log.e(TAG, "Failed to get folder document from URI: $folderUri")
-                    return@withContext false
-                }
-
-                Log.d(TAG, "Folder document obtained: ${folderDoc.name}")
-
-                // Create StatusWp subfolder if it doesn't exist
-                var statusWpFolder = folderDoc?.findFile("StatusWp")
-                if (statusWpFolder == null) {
-                    Log.d(TAG, "Creating StatusWp folder...")
-                    statusWpFolder = folderDoc?.createDirectory("StatusWp")
-                    if (statusWpFolder == null) {
-                        Log.e(TAG, "Failed to create StatusWp folder")
+                // Create the destination directory
+                val destinationDir = File(SAVED_DIRECTORY)
+                if (!destinationDir.exists()) {
+                    val created = destinationDir.mkdirs()
+                    if (!created) {
+                        Log.e(TAG, "Failed to create destination directory: $SAVED_DIRECTORY")
                         return@withContext false
                     }
-                    Log.d(TAG, "StatusWp folder created successfully")
-                } else {
-                    Log.d(TAG, "StatusWp folder already exists")
+                    Log.d(TAG, "Created destination directory: $SAVED_DIRECTORY")
                 }
 
-                // Create the new file in StatusWp folder
-                val newFile = statusWpFolder.createFile(mimeType, fileName)
-                if (newFile == null) {
-                    Log.e(TAG, "Failed to create new file: $fileName")
-                    return@withContext false
-                }
+                // Create the destination file
+                val destinationFile = File(destinationDir, fileName)
+                Log.d(TAG, "Destination file: ${destinationFile.absolutePath}")
 
-                Log.d(TAG, "New file created: ${newFile.name}")
-
-                // Copy the file content from content URI to new file
-                context.contentResolver.openInputStream(sourceUri)?.use { inStream ->
-                    context.contentResolver.openOutputStream(newFile.uri)?.use { outStream ->
+                // Copy the file content
+                context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
+                    destinationFile.outputStream().use { outputStream ->
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var totalBytes = 0L
 
-                        while (inStream.read(buffer).also { bytesRead = it } != -1) {
-                            outStream.write(buffer, 0, bytesRead)
+                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                            outputStream.write(buffer, 0, bytesRead)
                             totalBytes += bytesRead
                         }
 
                         Log.d(TAG, "File copied successfully: $totalBytes bytes")
-                    } ?: run {
-                        Log.e(TAG, "Failed to open output stream for new file")
-                        return@run false
                     }
                 } ?: run {
                     Log.e(TAG, "Failed to open input stream for source URI")
-                    return@run false
+                    return@withContext false
                 }
 
                 // Save to database after successful file save
                 val isVideo = mimeType.startsWith("video/")
-                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), fileName, fileSize, isVideo)
+                val savedToDb = saveStatusToDatabase(context, destinationFile.absolutePath, fileName, fileSize, isVideo)
                 Log.d(TAG, "Saved to database: $savedToDb")
 
                 Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
@@ -775,72 +760,40 @@ object FileUtils {
 
                 Log.d(TAG, "Source file exists, size: ${sourceFile.length()} bytes")
 
-                // Get the folder document
-                val folderDoc = DocumentFile.fromTreeUri(context, folderUri)
-                if (folderDoc == null) {
-                    Log.e(TAG, "Failed to get folder document from URI: $folderUri")
-                    return@withContext false
-                }
-
-                Log.d(TAG, "Folder document obtained: ${folderDoc.name}")
-
-                // Create StatusWp subfolder if it doesn't exist
-                var statusWpFolder = folderDoc.findFile("StatusWp")
-                if (statusWpFolder == null) {
-                    Log.d(TAG, "Creating StatusWp folder...")
-                    statusWpFolder = folderDoc.createDirectory("StatusWp")
-                    if (statusWpFolder == null) {
-                        Log.e(TAG, "Failed to create StatusWp folder")
+                // Create the destination directory
+                val destinationDir = File(SAVED_DIRECTORY)
+                if (!destinationDir.exists()) {
+                    val created = destinationDir.mkdirs()
+                    if (!created) {
+                        Log.e(TAG, "Failed to create destination directory: $SAVED_DIRECTORY")
                         return@withContext false
                     }
-                    Log.d(TAG, "StatusWp folder created successfully")
-                } else {
-                    Log.d(TAG, "StatusWp folder already exists")
+                    Log.d(TAG, "Created destination directory: $SAVED_DIRECTORY")
                 }
 
-                // Determine MIME type
-                val mimeType = when {
-                    filePath.lowercase().endsWith(".mp4") -> "video/mp4"
-                    filePath.lowercase().endsWith(".jpg") || filePath.lowercase().endsWith(".jpeg") -> "image/jpeg"
-                    filePath.lowercase().endsWith(".png") -> "image/png"
-                    filePath.lowercase().endsWith(".gif") -> "image/gif"
-                    filePath.lowercase().endsWith(".webp") -> "image/webp"
-                    else -> "application/octet-stream"
-                }
-
-                Log.d(TAG, "MIME type: $mimeType")
-
-                // Create the new file in StatusWp folder
-                val newFile = statusWpFolder.createFile(mimeType, sourceFile.name)
-                if (newFile == null) {
-                    Log.e(TAG, "Failed to create new file: ${sourceFile.name}")
-                    return@withContext false
-                }
-
-                Log.d(TAG, "New file created: ${newFile.name}")
+                // Create the destination file
+                val destinationFile = File(destinationDir, sourceFile.name)
+                Log.d(TAG, "Destination file: ${destinationFile.absolutePath}")
 
                 // Copy the file content
-                context.contentResolver.openOutputStream(newFile.uri)?.use { outStream ->
-                    sourceFile.inputStream().use { inStream ->
+                sourceFile.inputStream().use { inputStream ->
+                    destinationFile.outputStream().use { outputStream ->
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var totalBytes = 0L
 
-                        while (inStream.read(buffer).also { bytesRead = it } != -1) {
-                            outStream.write(buffer, 0, bytesRead)
+                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                            outputStream.write(buffer, 0, bytesRead)
                             totalBytes += bytesRead
                         }
 
                         Log.d(TAG, "File copied successfully: $totalBytes bytes")
                     }
-                } ?: run {
-                    Log.e(TAG, "Failed to open output stream for new file")
-                    return@run false
                 }
 
                 // Save to database after successful file save
-                val isVideo = mimeType.startsWith("video/")
-                val savedToDb = saveStatusToDatabase(context, newFile.uri.toString(), sourceFile.name, sourceFile.length(), isVideo)
+                val isVideo = sourceFile.name.lowercase().endsWith(".mp4")
+                val savedToDb = saveStatusToDatabase(context, destinationFile.absolutePath, sourceFile.name, sourceFile.length(), isVideo)
                 Log.d(TAG, "Saved to database: $savedToDb")
 
                 Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
@@ -854,42 +807,27 @@ object FileUtils {
     }
 
     /**
-     * Get saved statuses from folder, sorted by actual file lastModified time
+     * Get saved statuses from DCIM folder, sorted by actual file lastModified time
      */
     suspend fun getSavedStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         return@withContext try {
-            val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-            val safUri = pref.getUriFromPreference()
+            Log.d(TAG, "Reading saved statuses from DCIM: $SAVED_DIRECTORY")
             
-            if (safUri.isNullOrBlank()) {
-                Log.w(TAG, "No SAF URI found for saved statuses")
-                return@withContext emptyList()
-            }
-            
-            val folderUri = Uri.parse(safUri)
-            val folderDoc = DocumentFile.fromTreeUri(context, folderUri)
-            
-            if (folderDoc == null) {
-                Log.w(TAG, "Failed to get folder document from URI: $folderUri")
-                return@withContext emptyList()
-            }
-            
-            // Find StatusWp subfolder
-            val statusWpFolder = folderDoc.findFile("StatusWp")
-            if (statusWpFolder == null || !statusWpFolder.exists()) {
-                Log.w(TAG, "StatusWp folder not found")
+            val savedDir = File(SAVED_DIRECTORY)
+            if (!savedDir.exists() || !savedDir.isDirectory) {
+                Log.w(TAG, "Saved statuses directory does not exist: $SAVED_DIRECTORY")
                 return@withContext emptyList()
             }
             
             val statusModels = mutableListOf<StatusModel>()
             
-            // Get all files from StatusWp folder
-            statusWpFolder.listFiles().forEach { documentFile ->
+            // Get all files from DCIM/StatusWp/statuses folder
+            savedDir.listFiles()?.forEach { file ->
                 try {
-                    if (documentFile.isFile && isValidFile(documentFile.name ?: "")) {
-                        val fileName = documentFile.name ?: ""
-                        val fileSize = documentFile.length()
-                        val lastModified = documentFile.lastModified()
+                    if (file.isFile && isValidFile(file.name)) {
+                        val fileName = file.name
+                        val fileSize = file.length()
+                        val lastModified = file.lastModified()
                         val isVideo = fileName.lowercase().endsWith(".mp4")
                         
                         Log.d(TAG, "Found saved file: $fileName (size: $fileSize, lastModified: $lastModified, isVideo: $isVideo)")
@@ -898,13 +836,13 @@ object FileUtils {
                             // For videos, try to get thumbnail
                             try {
                                 val mediaMetadataRetriever = MediaMetadataRetriever()
-                                mediaMetadataRetriever.setDataSource(context, documentFile.uri)
+                                mediaMetadataRetriever.setDataSource(file.absolutePath)
                                 val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
                                 mediaMetadataRetriever.release()
                                 
                                 statusModels.add(StatusModel(
-                                    id = documentFile.uri.hashCode().toLong(),
-                                    filePath = documentFile.uri.toString(),
+                                    id = file.absolutePath.hashCode().toLong(),
+                                    filePath = file.absolutePath,
                                     fileName = fileName,
                                     fileSize = fileSize,
                                     lastModified = lastModified,
@@ -915,8 +853,8 @@ object FileUtils {
                                 Log.e(TAG, "Error getting thumbnail for video: $fileName", e)
                                 // Add without thumbnail
                                 statusModels.add(StatusModel(
-                                    id = documentFile.uri.hashCode().toLong(),
-                                    filePath = documentFile.uri.toString(),
+                                    id = file.absolutePath.hashCode().toLong(),
+                                    filePath = file.absolutePath,
                                     fileName = fileName,
                                     fileSize = fileSize,
                                     lastModified = lastModified,
@@ -925,10 +863,10 @@ object FileUtils {
                             }
                         } else {
                             // For images, create ImageRequest
-                            val imageRequest = ImageRequest.Builder(context).data(documentFile.uri).build()
+                            val imageRequest = ImageRequest.Builder(context).data(file.absolutePath).build()
                             statusModels.add(StatusModel(
-                                id = documentFile.uri.hashCode().toLong(),
-                                filePath = documentFile.uri.toString(),
+                                id = file.absolutePath.hashCode().toLong(),
+                                filePath = file.absolutePath,
                                 fileName = fileName,
                                 fileSize = fileSize,
                                 lastModified = lastModified,
@@ -937,7 +875,7 @@ object FileUtils {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error processing saved file: ${documentFile.name}", e)
+                    Log.e(TAG, "Error processing saved file: ${file.name}", e)
                 }
             }
             
