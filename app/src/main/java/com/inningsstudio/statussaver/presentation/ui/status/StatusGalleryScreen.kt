@@ -58,7 +58,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
@@ -77,6 +77,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import com.inningsstudio.statussaver.R
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -631,16 +632,16 @@ fun StandaloneStatusGallery(context: Context) {
                                             }
                                         }
                                         
-                                        // Settings icon
+                                        // Control icon
                                         IconButton(
                                             onClick = { showSettingsBottomSheet = true },
                                             modifier = Modifier.size(36.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Filled.Settings,
-                                                contentDescription = "Settings",
-                                                tint = primaryGreen,
-                                                modifier = Modifier.size(20.dp)
+                                                painter = painterResource(id = R.drawable.outline_dataset_24),
+                                                contentDescription = "Display Controls",
+                                                tint = Color(0xFF9E9E9E),
+                                                modifier = Modifier.size(30.dp)
                                             )
                                         }
                                     }
@@ -1108,12 +1109,52 @@ fun StandaloneStatusGallery(context: Context) {
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "2 Columns",
-                            color = if (gridColumns == 2) Color.White else Color.Black,
-                            fontSize = 14.sp,
-                            fontWeight = if (gridColumns == 2) FontWeight.Bold else FontWeight.Medium
-                        )
+                        // 2x2 Grid Icon
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            if (gridColumns == 2) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            if (gridColumns == 2) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            if (gridColumns == 2) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            if (gridColumns == 2) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                            }
+                        }
                     }
                     
                     // 3 Columns option
@@ -1133,12 +1174,68 @@ fun StandaloneStatusGallery(context: Context) {
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "3 Columns",
-                            color = if (gridColumns == 3) Color.White else Color.Black,
-                            fontSize = 14.sp,
-                            fontWeight = if (gridColumns == 3) FontWeight.Bold else FontWeight.Medium
-                        )
+                        // 3x2 Grid Icon
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            if (gridColumns == 3) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            if (gridColumns == 3) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            if (gridColumns == 3) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            if (gridColumns == 3) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            if (gridColumns == 3) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            if (gridColumns == 3) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                            }
+                        }
                     }
                     
                     // 4 Columns option
@@ -1158,12 +1255,84 @@ fun StandaloneStatusGallery(context: Context) {
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "4 Columns",
-                            color = if (gridColumns == 4) Color.White else Color.Black,
-                            fontSize = 14.sp,
-                            fontWeight = if (gridColumns == 4) FontWeight.Bold else FontWeight.Medium
-                        )
+                        // 4x2 Grid Icon
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+                            }
+                        }
                     }
                 }
                 
