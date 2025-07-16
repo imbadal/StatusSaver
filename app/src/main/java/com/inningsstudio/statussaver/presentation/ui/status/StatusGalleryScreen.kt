@@ -51,8 +51,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import com.google.accompanist.pager.HorizontalPager
-import com.google.accompanist.pager.rememberPagerState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -104,7 +104,7 @@ fun StandaloneStatusGallery(context: Context) {
     var displayStatusList by remember { mutableStateOf<List<StatusModel>>(emptyList()) }
     
     // Filter tabs for Saved Statuses
-    var savedFilterTab by remember { mutableStateOf(0) } // 0 = Favourites, 1 = Others
+    var savedFilterTab by remember { mutableStateOf(0) } // 0 = Saved, 1 = Favourites
     
     // Settings state
     var showSettingsBottomSheet by remember { mutableStateOf(false) }
@@ -644,7 +644,7 @@ fun StandaloneStatusGallery(context: Context) {
                     .padding(innerPadding)
             ) {
                 HorizontalPager(
-                    count = 2,
+                    pageCount = 2,
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
@@ -657,12 +657,12 @@ fun StandaloneStatusGallery(context: Context) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .background(Color.White, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-                                            .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                            .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         // Filter tabs
                                         Row(
+                                            modifier = Modifier.weight(1f),
                                             horizontalArrangement = Arrangement.Start
                                         ) {
                                             // All tab
@@ -745,10 +745,12 @@ fun StandaloneStatusGallery(context: Context) {
                                             }
                                         }
                                         
-                                        // Control icon
-                                        IconButton(
-                                            onClick = { showSettingsBottomSheet = true },
-                                            modifier = Modifier.size(36.dp)
+                                        // Control icon (settings)
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clickable { showSettingsBottomSheet = true },
+                                            contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 painter = painterResource(id = R.drawable.outline_dataset_24),
@@ -917,7 +919,7 @@ fun StandaloneStatusGallery(context: Context) {
                                         Row(
                                             horizontalArrangement = Arrangement.Start
                                         ) {
-                                            // Favourites tab
+                                            // Saved tab
                                             Box(
                                                 modifier = Modifier
                                                     .height(36.dp)
@@ -935,7 +937,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = "Favourites",
+                                                    text = "Saved",
                                                     color = if (savedFilterTab == 0) primaryGreen else Color(0xFF757575),
                                                     fontSize = 13.sp,
                                                     fontWeight = if (savedFilterTab == 0) FontWeight.Bold else FontWeight.Medium
@@ -944,7 +946,7 @@ fun StandaloneStatusGallery(context: Context) {
                                             
                                             Spacer(modifier = Modifier.width(12.dp))
                                             
-                                            // Others tab
+                                            // Favourites tab
                                             Box(
                                                 modifier = Modifier
                                                     .height(36.dp)
@@ -962,7 +964,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = "Others",
+                                                    text = "Favourites",
                                                     color = if (savedFilterTab == 1) primaryGreen else Color(0xFF757575),
                                                     fontSize = 13.sp,
                                                     fontWeight = if (savedFilterTab == 1) FontWeight.Bold else FontWeight.Medium
@@ -980,9 +982,9 @@ fun StandaloneStatusGallery(context: Context) {
                                 ) {
                                     // Calculate display list for saved statuses
                                     val displaySavedList = when (savedFilterTab) {
-                                        0 -> favoriteList // Favourites only
-                                        1 -> savedStatusList // Others only
-                                        else -> favoriteList
+                                        0 -> savedStatusList // Saved only
+                                        1 -> favoriteList // Favourites only
+                                        else -> savedStatusList
                                     }
                                     
                                     when {
@@ -1027,8 +1029,8 @@ fun StandaloneStatusGallery(context: Context) {
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     Text(
                                                         when (savedFilterTab) {
-                                                            0 -> "No favourite statuses available"
-                                                            1 -> "No other saved statuses available"
+                                                            0 -> "No saved statuses available"
+                                                            1 -> "No favourite statuses available"
                                                             else -> "No saved statuses available"
                                                         },
                                                         color = Color.Gray,
