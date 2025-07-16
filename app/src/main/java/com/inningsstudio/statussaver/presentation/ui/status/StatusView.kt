@@ -9,16 +9,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
@@ -28,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -63,10 +65,8 @@ fun StatusView(
     onStatusSaved: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    var currentIndex by remember { mutableStateOf(initialIndex) }
     val coroutineScope = rememberCoroutineScope()
-    val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
-    val flingBehavior = rememberSnapFlingBehavior(lazyListState)
+    val pagerState = rememberPagerState(initialPage = initialIndex)
 
     // Track ExoPlayer instances to terminate them on back press
     val players = remember { mutableListOf<ExoPlayer>() }
@@ -91,7 +91,7 @@ fun StatusView(
         if (uri != null) {
             context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             PreferenceUtils(context.applicationContext as android.app.Application).setUriToPreference(uri.toString())
-            statusList.getOrNull(currentIndex)?.let { status ->
+            statusList.getOrNull(pagerState.currentPage)?.let { status ->
                 coroutineScope.launch {
                     Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
                     val success = FileUtils.saveStatusToFolder(context, uri, status.filePath)
@@ -150,15 +150,6 @@ fun StatusView(
         }
     }
 
-    val pagerState = rememberPagerState(initialPage = initialIndex)
-
-    // Track current index when user swipes
-    LaunchedEffect(pagerState.currentPage) {
-        if (pagerState.currentPage != currentIndex) {
-            currentIndex = pagerState.currentPage
-        }
-    }
-
     // Set system UI for full-screen status view
     SideEffect {
         systemUiController.setStatusBarColor(Color.Transparent, darkIcons = false)
@@ -195,90 +186,75 @@ fun StatusView(
         handleBackPress()
     }
 
-        Box(
+    Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Main content area - takes entire screen
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() }
-                ) {
-                    showToolbar = !showToolbar
-                }
-        ) {
-            HorizontalPager(
-                pageCount = statusList.size,
-                state = pagerState,
-                modifier = Modifier.fillMaxSize()
-            ) { index ->
-                val status = statusList[index]
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                ) {
-                    if (status.isVideo) {
-                        // Video player with tap-to-show-controls and play/pause
-                        var player by remember { mutableStateOf<ExoPlayer?>(null) }
-                        var showControls by remember { mutableStateOf(false) }
-
-                        DisposableEffect(key1 = index) {
-                            val newPlayer = ExoPlayer.Builder(context).build().apply {
-                                val mediaItem = MediaItem.fromUri(status.filePath)
-                                setMediaItem(mediaItem)
-                                prepare()
-                            }
-                            player = newPlayer
-                            players.add(newPlayer)
-
-                            onDispose {
-                                try {
-                                    newPlayer.release()
-                                    players.remove(newPlayer)
-                                } catch (e: Exception) {
-                                    // Ignore errors during release
-                                }
-                            }
-                        }
-
-                        // Pause if not the current page, play if current
-                        LaunchedEffect(pagerState.currentPage) {
-                            if (pagerState.currentPage == index) {
-                                player?.playWhenReady = true
-                                player?.play()
-                            } else {
-                                player?.pause()
-                            }
-                        }
-
-                        // Synchronize video controls with toolbar visibility
-                        LaunchedEffect(showToolbar) {
-                            showControls = showToolbar
-                        }
-                        
-                        AndroidView(
-                            factory = { context ->
-                                StyledPlayerView(context).apply {
-                                    useController = showControls
-                                }
-                            },
-                            update = { playerView ->
-                                playerView.player = player
-                                playerView.useController = showControls
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        // Image viewer
-                        AsyncImage(
-                            model = status.filePath,
-                            contentDescription = "Status image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
+        // VerticalPager for Reels-like experience
+        VerticalPager(
+            state = pagerState,
+            pageCount = statusList.size,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            val status = statusList[page]
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) {
+                        showToolbar = !showToolbar
                     }
+            ) {
+                if (status.isVideo) {
+                    // Video player with tap-to-show-controls and play/pause
+                    var player by remember { mutableStateOf<ExoPlayer?>(null) }
+                    var showControls by remember { mutableStateOf(false) }
+
+                    DisposableEffect(key1 = page) {
+                        val newPlayer = ExoPlayer.Builder(context).build().apply {
+                            val mediaItem = MediaItem.fromUri(status.filePath)
+                            setMediaItem(mediaItem)
+                            prepare()
+                        }
+                        player = newPlayer
+                        players.add(newPlayer)
+
+                        onDispose {
+                            try {
+                                newPlayer.release()
+                                players.remove(newPlayer)
+                            } catch (e: Exception) {
+                                // Ignore errors during release
+                            }
+                        }
+                    }
+
+                    // Synchronize video controls with toolbar visibility
+                    LaunchedEffect(showToolbar) {
+                        showControls = showToolbar
+                    }
+                    
+                    AndroidView(
+                        factory = { context ->
+                            StyledPlayerView(context).apply {
+                                useController = showControls
+                            }
+                        },
+                        update = { playerView ->
+                            playerView.player = player
+                            playerView.useController = showControls
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    // Image viewer
+                    AsyncImage(
+                        model = status.filePath,
+                        contentDescription = "Status image",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
                 }
             }
 
@@ -297,7 +273,7 @@ fun StatusView(
                     },
                     actions = {
                         Text(
-                            text = "${currentIndex + 1} / ${statusList.size}",
+                            text = "${pagerState.currentPage + 1} / ${statusList.size}",
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium
                         )
@@ -343,7 +319,7 @@ fun StatusView(
                                     PreferenceUtils(context.applicationContext as android.app.Application)
                                 val folderUri = pref.getUriFromPreference()
                                 val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
-                                statusList.getOrNull(currentIndex)?.let { status ->
+                                statusList.getOrNull(pagerState.currentPage)?.let { status ->
                                     coroutineScope.launch {
                                         if (!hasPermissions) {
                                             showPermissionDialog = true
@@ -384,7 +360,7 @@ fun StatusView(
                     // Share button (for both images and videos)
                     FloatingActionButton(
                         onClick = {
-                            statusList.getOrNull(currentIndex)?.let { status ->
+                            statusList.getOrNull(pagerState.currentPage)?.let { status ->
                                 coroutineScope.launch {
                                     FileUtils.shareStatus(context, status.filePath)
                                 }
@@ -441,7 +417,7 @@ fun StatusView(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        statusList.getOrNull(currentIndex)?.let { status ->
+                        statusList.getOrNull(pagerState.currentPage)?.let { status ->
                             coroutineScope.launch {
                                 val success = FileUtils.deleteSavedStatus(context, status.filePath)
                                 Toast.makeText(
@@ -475,4 +451,4 @@ fun StatusView(
             textContentColor = Color.Gray
         )
     }
-} 
+}
