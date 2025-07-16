@@ -43,6 +43,7 @@ import com.inningsstudio.statussaver.data.model.StatusModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import java.io.File
 import android.app.Activity
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
@@ -332,15 +333,67 @@ fun StandaloneStatusGallery(context: Context) {
         systemUiController.setStatusBarColor(primaryGreen, darkIcons = false)
     }
 
-    // Reset loaded flags when app comes back to foreground to detect new statuses
+    // Live update when app comes to foreground
     DisposableEffect(lifecycleOwner) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
                 super.onStart(owner)
-                // App came to foreground, reset loaded flags to check for new statuses
-                Log.d("StatusGalleryActivity", "App came to foreground, resetting loaded flags")
-                statusesLoaded = false
-                savedStatusesLoaded = false
+                // App came to foreground, check for new statuses
+                Log.d("StatusGalleryActivity", "App came to foreground, checking for new statuses")
+                
+                // Check for new statuses based on current tab
+                if (currentTab == 0) {
+                    // Statuses tab - check for new WhatsApp statuses
+                    coroutineScope.launch {
+                        val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+                        val safUri = pref.getUriFromPreference()
+                        
+                        if (!safUri.isNullOrBlank()) {
+                            try {
+                                val newStatuses = FileUtils.getStatus(context, safUri)
+                                    .filter { it.filePath.isNotEmpty() }
+                                    .sortedByDescending { it.lastModified }
+                                
+                                // Calculate hash of new statuses
+                                val newHash = calculateStatusesHash(newStatuses)
+                                
+                                // Only update if there are actual changes
+                                if (newHash != lastStatusesHash) {
+                                    Log.d("StatusGalleryActivity", "New statuses detected, updating UI")
+                                    statusList = newStatuses
+                                    lastStatusesHash = newHash
+                                } else {
+                                    Log.d("StatusGalleryActivity", "No new statuses found")
+                                }
+                            } catch (e: Exception) {
+                                Log.e("StatusGalleryActivity", "Error checking for new statuses", e)
+                            }
+                        }
+                    }
+                } else {
+                    // Saved tab - check for new saved statuses
+                    coroutineScope.launch {
+                        try {
+                            val newSavedStatuses = FileUtils.getSavedStatusesFromFolder(context)
+                            val newFavorites = FileUtils.getFavoriteStatusesFromFolder(context)
+                            
+                            // Calculate hash of new saved statuses
+                            val newHash = calculateSavedStatusesHash(newSavedStatuses + newFavorites)
+                            
+                            // Only update if there are actual changes
+                            if (newHash != lastSavedStatusesHash) {
+                                Log.d("StatusGalleryActivity", "New saved statuses detected, updating UI")
+                                savedStatusList = newSavedStatuses
+                                favoriteList = newFavorites
+                                lastSavedStatusesHash = newHash
+                            } else {
+                                Log.d("StatusGalleryActivity", "No new saved statuses found")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("StatusGalleryActivity", "Error checking for new saved statuses", e)
+                        }
+                    }
+                }
             }
         }
         
@@ -355,6 +408,62 @@ fun StandaloneStatusGallery(context: Context) {
         // Initial load
         loadStatuses()
         loadSavedStatuses()
+    }
+    
+    // Periodic background check for new statuses while app is in foreground
+    LaunchedEffect(currentTab) {
+        while (true) {
+            delay(15000) // Check every 15 seconds to be less aggressive
+            
+            // Only check if app is in foreground (current tab is active)
+            if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                // Check for new statuses based on current tab
+                if (currentTab == 0) {
+                    // Statuses tab - check for new WhatsApp statuses
+                    val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+                    val safUri = pref.getUriFromPreference()
+                    
+                    if (!safUri.isNullOrBlank()) {
+                        try {
+                            val newStatuses = FileUtils.getStatus(context, safUri)
+                                .filter { it.filePath.isNotEmpty() }
+                                .sortedByDescending { it.lastModified }
+                            
+                            // Calculate hash of new statuses
+                            val newHash = calculateStatusesHash(newStatuses)
+                            
+                            // Only update if there are actual changes
+                            if (newHash != lastStatusesHash) {
+                                Log.d("StatusGalleryActivity", "New statuses detected during background check, updating UI")
+                                statusList = newStatuses
+                                lastStatusesHash = newHash
+                            }
+                        } catch (e: Exception) {
+                            Log.e("StatusGalleryActivity", "Error during background status check", e)
+                        }
+                    }
+                } else {
+                    // Saved tab - check for new saved statuses
+                    try {
+                        val newSavedStatuses = FileUtils.getSavedStatusesFromFolder(context)
+                        val newFavorites = FileUtils.getFavoriteStatusesFromFolder(context)
+                        
+                        // Calculate hash of new saved statuses
+                        val newHash = calculateSavedStatusesHash(newSavedStatuses + newFavorites)
+                        
+                        // Only update if there are actual changes
+                        if (newHash != lastSavedStatusesHash) {
+                            Log.d("StatusGalleryActivity", "New saved statuses detected during background check, updating UI")
+                            savedStatusList = newSavedStatuses
+                            favoriteList = newFavorites
+                            lastSavedStatusesHash = newHash
+                        }
+                    } catch (e: Exception) {
+                        Log.e("StatusGalleryActivity", "Error during background saved status check", e)
+                    }
+                }
+            }
+        }
     }
 
     // Load statuses when switching to Statuses tab
