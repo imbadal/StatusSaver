@@ -216,17 +216,30 @@ fun StatusView(
                             val mediaItem = MediaItem.fromUri(status.filePath)
                             setMediaItem(mediaItem)
                             prepare()
+                            play() // Auto-play video when loaded
                         }
                         player = newPlayer
                         players.add(newPlayer)
 
                         onDispose {
                             try {
+                                newPlayer.pause()
                                 newPlayer.release()
                                 players.remove(newPlayer)
                             } catch (e: Exception) {
                                 // Ignore errors during release
                             }
+                        }
+                    }
+
+                    // Handle video playback on page changes
+                    LaunchedEffect(pagerState.currentPage) {
+                        if (pagerState.currentPage == page) {
+                            // Auto-play video when this page becomes current
+                            player?.play()
+                        } else {
+                            // Pause video when swiping away from this page
+                            player?.pause()
                         }
                     }
 
