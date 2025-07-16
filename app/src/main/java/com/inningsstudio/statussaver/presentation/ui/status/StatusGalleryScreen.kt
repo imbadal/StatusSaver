@@ -521,80 +521,84 @@ fun StandaloneStatusGallery(context: Context) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
+                                        horizontalArrangement = Arrangement.Start
                                     ) {
                                         // All tab
                                         Box(
                                             modifier = Modifier
-                                                .weight(1f)
                                                 .height(36.dp)
                                                 .clickable { statusFilterTab = 0 }
                                                 .background(
-                                                    if (statusFilterTab == 0) Color.Black else Color(0xFFF0F0F0),
-                                                    RoundedCornerShape(18.dp)
+                                                    if (statusFilterTab == 0) Color(0xFFE8F5E8) else Color.Transparent,
+                                                    RoundedCornerShape(6.dp)
                                                 )
                                                 .border(
-                                                    width = if (statusFilterTab == 0) 1.dp else 0.dp,
-                                                    color = if (statusFilterTab == 0) Color.Red else Color.Transparent,
-                                                    shape = RoundedCornerShape(18.dp)
-                                                ),
+                                                    width = 1.5.dp,
+                                                    color = if (statusFilterTab == 0) primaryGreen else Color(0xFFE0E0E0),
+                                                    shape = RoundedCornerShape(6.dp)
+                                                )
+                                                .padding(horizontal = 20.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "All",
-                                                color = if (statusFilterTab == 0) Color.White else Color.Black,
-                                                fontSize = 12.sp,
+                                                color = if (statusFilterTab == 0) primaryGreen else Color(0xFF757575),
+                                                fontSize = 13.sp,
                                                 fontWeight = if (statusFilterTab == 0) FontWeight.Bold else FontWeight.Medium
                                             )
                                         }
                                         
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        
                                         // Image tab
                                         Box(
                                             modifier = Modifier
-                                                .weight(1f)
                                                 .height(36.dp)
                                                 .clickable { statusFilterTab = 1 }
                                                 .background(
-                                                    if (statusFilterTab == 1) Color.Black else Color(0xFFF0F0F0),
-                                                    RoundedCornerShape(18.dp)
+                                                    if (statusFilterTab == 1) Color(0xFFE8F5E8) else Color.Transparent,
+                                                    RoundedCornerShape(6.dp)
                                                 )
                                                 .border(
-                                                    width = if (statusFilterTab == 1) 1.dp else 0.dp,
-                                                    color = if (statusFilterTab == 1) Color.Red else Color.Transparent,
-                                                    shape = RoundedCornerShape(18.dp)
-                                                ),
+                                                    width = 1.5.dp,
+                                                    color = if (statusFilterTab == 1) primaryGreen else Color(0xFFE0E0E0),
+                                                    shape = RoundedCornerShape(6.dp)
+                                                )
+                                                .padding(horizontal = 16.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "Image",
-                                                color = if (statusFilterTab == 1) Color.White else Color.Black,
-                                                fontSize = 12.sp,
+                                                color = if (statusFilterTab == 1) primaryGreen else Color(0xFF757575),
+                                                fontSize = 13.sp,
                                                 fontWeight = if (statusFilterTab == 1) FontWeight.Bold else FontWeight.Medium
                                             )
                                         }
                                         
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        
                                         // Video tab
                                         Box(
                                             modifier = Modifier
-                                                .weight(1f)
                                                 .height(36.dp)
                                                 .clickable { statusFilterTab = 2 }
                                                 .background(
-                                                    if (statusFilterTab == 2) Color.Black else Color(0xFFF0F0F0),
-                                                    RoundedCornerShape(18.dp)
+                                                    if (statusFilterTab == 2) Color(0xFFE8F5E8) else Color.Transparent,
+                                                    RoundedCornerShape(6.dp)
                                                 )
                                                 .border(
-                                                    width = if (statusFilterTab == 2) 1.dp else 0.dp,
-                                                    color = if (statusFilterTab == 2) Color.Red else Color.Transparent,
-                                                    shape = RoundedCornerShape(18.dp)
-                                                ),
+                                                    width = 1.5.dp,
+                                                    color = if (statusFilterTab == 2) primaryGreen else Color(0xFFE0E0E0),
+                                                    shape = RoundedCornerShape(6.dp)
+                                                )
+                                                .padding(horizontal = 16.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "Video",
-                                                color = if (statusFilterTab == 2) Color.White else Color.Black,
-                                                fontSize = 12.sp,
+                                                color = if (statusFilterTab == 2) primaryGreen else Color(0xFF757575),
+                                                fontSize = 13.sp,
                                                 fontWeight = if (statusFilterTab == 2) FontWeight.Bold else FontWeight.Medium
                                             )
                                         }
