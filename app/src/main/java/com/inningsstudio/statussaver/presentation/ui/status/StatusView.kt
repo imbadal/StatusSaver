@@ -54,6 +54,39 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Delete
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import androidx.compose.ui.draw.drawBehind
+
+import androidx.compose.ui.graphics.drawscope.Stroke
+import kotlinx.coroutines.delay
+
+// Helper composable for circular icon with green stroke
+@Composable
+fun CircularIconWithStroke(
+    icon: @Composable () -> Unit,
+    borderColor: Color,
+    borderWidth: Float = 6f, // Increased from 4f
+    backgroundColor: Color = Color.Black.copy(alpha = 0.6f),
+    showStroke: Boolean = true, // New parameter to control stroke visibility
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .drawBehind {
+                if (showStroke) {
+                    drawCircle(
+                        color = borderColor,
+                        radius = size.minDimension / 2f - borderWidth / 2f,
+                        style = Stroke(width = borderWidth)
+                    )
+                }
+            }
+            .background(color = backgroundColor, shape = androidx.compose.foundation.shape.CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        icon()
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -106,6 +139,15 @@ fun StatusView(
                 }
             }
         }
+    }
+
+    // Add state for download progress
+    var isDownloading by remember { mutableStateOf(false) }
+    var isDownloaded by remember { mutableStateOf(false) }
+
+    // Reset isDownloaded when the user changes the current page
+    LaunchedEffect(pagerState.currentPage) {
+        isDownloaded = false
     }
 
     // Observe lifecycle to pause/resume media
@@ -330,75 +372,94 @@ fun StatusView(
                         }
                     } else {
                         // Download button for regular statuses
-                        IconButton(
-                            onClick = {
-                                val pref =
-                                    PreferenceUtils(context.applicationContext as android.app.Application)
-                                val folderUri = pref.getUriFromPreference()
-                                val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
-                                statusList.getOrNull(pagerState.currentPage)?.let { status ->
-                                    coroutineScope.launch {
-                                        if (!hasPermissions) {
-                                            showPermissionDialog = true
-                                        } else if (folderUri.isNullOrBlank()) {
-                                            folderPickerLauncher.launch(null)
-                                        } else {
-                                            val uri = Uri.parse(folderUri)
-                                            Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
-                                            val success = FileUtils.saveStatusToFolder(
-                                                context,
-                                                uri,
-                                                status.filePath
-                                            )
-                                            Toast.makeText(
-                                                context,
-                                                if (success) "Saved successfully" else "Failed to save",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            if (success) {
-                                                onStatusSaved()
+                        CircularIconWithStroke(
+                            borderColor = Color(0xFF25D366), // WhatsApp green
+                            showStroke = !isDownloading, // Hide stroke when downloading
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clickable(enabled = !isDownloading) {
+                                    val pref = PreferenceUtils(context.applicationContext as android.app.Application)
+                                    val folderUri = pref.getUriFromPreference()
+                                    val hasPermissions = StorageAccessHelper.hasRequiredPermissions(context)
+                                    statusList.getOrNull(pagerState.currentPage)?.let { status ->
+                                        coroutineScope.launch {
+                                            if (!hasPermissions) {
+                                                showPermissionDialog = true
+                                            } else if (folderUri.isNullOrBlank()) {
+                                                folderPickerLauncher.launch(null)
+                                            } else {
+                                                val uri = Uri.parse(folderUri)
+                                                Toast.makeText(context, "Saving status...", Toast.LENGTH_SHORT).show()
+                                                isDownloading = true
+                                                val startTime = System.currentTimeMillis()
+                                                val success = FileUtils.saveStatusToFolder(
+                                                    context,
+                                                    uri,
+                                                    status.filePath
+                                                )
+                                                val elapsed = System.currentTimeMillis() - startTime
+                                                val minDuration = 1500L
+                                                if (elapsed < minDuration) {
+                                                    delay(minDuration - elapsed)
+                                                }
+                                                isDownloading = false
+                                                isDownloaded = success
+                                                Toast.makeText(
+                                                    context,
+                                                    if (success) "Saved successfully" else "Failed to save",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                                if (success) {
+                                                    onStatusSaved()
+                                                }
                                             }
                                         }
                                     }
-                                }
-                            },
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(
-                                    color = Color.Black.copy(alpha = 0.6f),
-                                    shape = androidx.compose.foundation.shape.CircleShape
-                                )
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_download_24),
-                                contentDescription = "Download",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-
-                    // Share button (for both images and videos)
-                    IconButton(
-                        onClick = {
-                            statusList.getOrNull(pagerState.currentPage)?.let { status ->
-                                coroutineScope.launch {
-                                    FileUtils.shareStatus(context, status.filePath)
+                                },
+                            icon = {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (isDownloading) {
+                                        // Calculate the exact radius to match the stroke
+                                        val strokeRadius = 24.dp - 3.dp // 48dp/2 - borderWidth/2
+                                        CircularProgressIndicator(
+                                            color = Color(0xFF25D366),
+                                            strokeWidth = 6.dp,
+                                            modifier = Modifier.size(strokeRadius * 2)
+                                        )
+                                    }
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.baseline_download_24),
+                                        contentDescription = "Download",
+                                        tint = if (isDownloaded) Color(0xFF25D366) else Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
                             }
-                        },
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                color = Color.Black.copy(alpha = 0.6f),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Share,
-                            contentDescription = "Share",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp)) // Reduced from 20.dp
+
+                        // Share button (for both images and videos)
+                        CircularIconWithStroke(
+                            borderColor = Color(0xFF25D366),
+                            showStroke = true,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clickable {
+                                    statusList.getOrNull(pagerState.currentPage)?.let { status ->
+                                        coroutineScope.launch {
+                                            FileUtils.shareStatus(context, status.filePath)
+                                        }
+                                    }
+                                },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Share,
+                                    contentDescription = "Share",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         )
                     }
                 }
