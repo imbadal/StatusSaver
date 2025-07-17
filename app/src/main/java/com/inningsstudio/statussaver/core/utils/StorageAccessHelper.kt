@@ -35,15 +35,12 @@ object StorageAccessHelper {
     }
     
     /**
-     * Get WhatsApp statuses using MediaStore API - ENHANCED VERSION
-     * Based on successful commercial apps
+     * Get WhatsApp statuses using MediaStore API - OPTIMIZED VERSION
      */
     suspend fun getStatusesViaMediaStore(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         val statuses = mutableListOf<StatusModel>()
         
         try {
-            Log.d(TAG, "=== STARTING MEDIASTORE STATUS DETECTION ===")
-            
             // Query for images in WhatsApp status directory
             val imageProjection = arrayOf(
                 MediaStore.Images.Media._ID,
@@ -53,49 +50,37 @@ object StorageAccessHelper {
                 MediaStore.Images.Media.SIZE
             )
             
-            // Multiple selection patterns to catch different WhatsApp installations
-            val imageSelections = arrayOf(
-                "${MediaStore.Images.Media.DATA} LIKE '%/.Statuses/%'",
-                "${MediaStore.Images.Media.DATA} LIKE '%WhatsApp%Status%'",
-                "${MediaStore.Images.Media.DATA} LIKE '%Android/media/com.whatsapp%Status%'",
-                "${MediaStore.Images.Media.DATA} LIKE '%Android/media/com.whatsapp.w4b%Status%'"
-            )
+            // Most common selection pattern first
+            val imageSelection = "${MediaStore.Images.Media.DATA} LIKE '%/.Statuses/%'"
             
-            for (selection in imageSelections) {
-                Log.d(TAG, "Trying image selection: $selection")
-                
-                context.contentResolver.query(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    imageProjection,
-                    selection,
-                    null,
-                    "${MediaStore.Images.Media.DATE_ADDED} DESC"
-                )?.use { cursor ->
-                    Log.d(TAG, "Found ${cursor.count} images via MediaStore with selection: $selection")
+            context.contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                imageProjection,
+                imageSelection,
+                null,
+                "${MediaStore.Images.Media.DATE_ADDED} DESC"
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+                    val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+                    val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+                    val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
                     
-                    while (cursor.moveToNext()) {
-                        val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-                        val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-                        val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
-                        val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
-                        
-                        val path = cursor.getString(pathIndex)
-                        val name = cursor.getString(nameIndex)
-                        val dateAdded = cursor.getLong(dateIndex)
-                        val size = cursor.getLong(sizeIndex)
-                        
-                        if (isValidStatusFile(name, "image/*")) {
-                            Log.d(TAG, "Found status image via MediaStore: $name")
-                            val imageRequest = coil.request.ImageRequest.Builder(context).data(path).build()
-                            statuses.add(StatusModel(
-                                id = path.hashCode().toLong(),
-                                filePath = path,
-                                fileName = name,
-                                fileSize = size,
-                                lastModified = dateAdded * 1000, // Convert to milliseconds
-                                imageRequest = imageRequest
-                            ))
-                        }
+                    val path = cursor.getString(pathIndex)
+                    val name = cursor.getString(nameIndex)
+                    val dateAdded = cursor.getLong(dateIndex)
+                    val size = cursor.getLong(sizeIndex)
+                    
+                    if (isValidStatusFile(name, "image/*")) {
+                        val imageRequest = coil.request.ImageRequest.Builder(context).data(path).build()
+                        statuses.add(StatusModel(
+                            id = path.hashCode().toLong(),
+                            filePath = path,
+                            fileName = name,
+                            fileSize = size,
+                            lastModified = dateAdded * 1000, // Convert to milliseconds
+                            imageRequest = imageRequest
+                        ))
                     }
                 }
             }
@@ -109,66 +94,53 @@ object StorageAccessHelper {
                 MediaStore.Video.Media.SIZE
             )
             
-            val videoSelections = arrayOf(
-                "${MediaStore.Video.Media.DATA} LIKE '%/.Statuses/%'",
-                "${MediaStore.Video.Media.DATA} LIKE '%WhatsApp%Status%'",
-                "${MediaStore.Video.Media.DATA} LIKE '%Android/media/com.whatsapp%Status%'",
-                "${MediaStore.Video.Media.DATA} LIKE '%Android/media/com.whatsapp.w4b%Status%'"
-            )
+            val videoSelection = "${MediaStore.Video.Media.DATA} LIKE '%/.Statuses/%'"
             
-            for (selection in videoSelections) {
-                Log.d(TAG, "Trying video selection: $selection")
-                
-                context.contentResolver.query(
-                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                    videoProjection,
-                    selection,
-                    null,
-                    "${MediaStore.Video.Media.DATE_ADDED} DESC"
-                )?.use { cursor ->
-                    Log.d(TAG, "Found ${cursor.count} videos via MediaStore with selection: $selection")
+            context.contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                videoProjection,
+                videoSelection,
+                null,
+                "${MediaStore.Video.Media.DATE_ADDED} DESC"
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
+                    val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                    val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+                    val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
                     
-                    while (cursor.moveToNext()) {
-                        val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
-                        val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-                        val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
-                        val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
-                        
-                        val path = cursor.getString(pathIndex)
-                        val name = cursor.getString(nameIndex)
-                        val dateAdded = cursor.getLong(dateIndex)
-                        val size = cursor.getLong(sizeIndex)
-                        
-                        if (isValidStatusFile(name, "video/*")) {
-                            Log.d(TAG, "Found status video via MediaStore: $name")
-                            try {
-                                val mediaMetadataRetriever = android.media.MediaMetadataRetriever()
-                                mediaMetadataRetriever.setDataSource(path)
-                                val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
-                                mediaMetadataRetriever.release()
-                                
-                                statuses.add(StatusModel(
-                                    id = path.hashCode().toLong(),
-                                    filePath = path,
-                                    fileName = name,
-                                    fileSize = size,
-                                    lastModified = dateAdded * 1000, // Convert to milliseconds
-                                    isVideo = true,
-                                    thumbnail = thumbnail
-                                ))
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error processing video via MediaStore: $name", e)
-                            }
+                    val path = cursor.getString(pathIndex)
+                    val name = cursor.getString(nameIndex)
+                    val dateAdded = cursor.getLong(dateIndex)
+                    val size = cursor.getLong(sizeIndex)
+                    
+                    if (isValidStatusFile(name, "video/*")) {
+                        try {
+                            val mediaMetadataRetriever = android.media.MediaMetadataRetriever()
+                            mediaMetadataRetriever.setDataSource(path)
+                            val thumbnail = mediaMetadataRetriever.getFrameAtTime(1000000)
+                            mediaMetadataRetriever.release()
+                            
+                            statuses.add(StatusModel(
+                                id = path.hashCode().toLong(),
+                                filePath = path,
+                                fileName = name,
+                                fileSize = size,
+                                lastModified = dateAdded * 1000, // Convert to milliseconds
+                                isVideo = true,
+                                thumbnail = thumbnail
+                            ))
+                        } catch (e: Exception) {
+                            // Skip problematic video files
                         }
                     }
                 }
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error querying MediaStore", e)
+            // Handle errors silently
         }
         
-        Log.d(TAG, "Total statuses found via MediaStore: ${statuses.size}")
         return@withContext statuses
     }
     

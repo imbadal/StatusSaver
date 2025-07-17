@@ -48,45 +48,30 @@ object FileUtils {
     suspend fun getStatus(context: Context, statusUri: String): List<StatusModel> = withContext(Dispatchers.IO) {
         val files = mutableListOf<StatusModel>()
         
-        Log.d(TAG, "=== STARTING STATUS DETECTION ===")
-        Log.d(TAG, "Android version: ${android.os.Build.VERSION.SDK_INT}")
-        Log.d(TAG, "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-        
         // Check if we have required permissions
         if (!StorageAccessHelper.hasRequiredPermissions(context)) {
-            Log.w(TAG, "Missing required permissions for Android ${android.os.Build.VERSION.SDK_INT}")
             return@withContext files
         }
         
         // Check if statusUri is empty or invalid
         if (statusUri.isBlank()) {
-            Log.w(TAG, "Status URI is empty, trying multiple detection methods")
-            
-            // Method 1: Try MediaStore API (Android 10+)
-            Log.d(TAG, "Method 1: Trying MediaStore API")
+            // Method 1: Try MediaStore API (Android 10+) - most efficient
             val mediaStoreStatuses = StorageAccessHelper.getStatusesViaMediaStore(context)
             if (mediaStoreStatuses.isNotEmpty()) {
-                Log.d(TAG, "Found ${mediaStoreStatuses.size} statuses via MediaStore")
                 files.addAll(mediaStoreStatuses)
-            }
-            
-            // Method 2: Try comprehensive path detection
-            Log.d(TAG, "Method 2: Trying comprehensive path detection")
-            val detector = StatusPathDetector()
-            val availablePaths = detector.getAllPossibleStatusPaths()
-            if (availablePaths.isNotEmpty()) {
-                Log.d(TAG, "Found ${availablePaths.size} available status paths")
-                for (path in availablePaths) {
-                    Log.d(TAG, "Using detected path: $path")
-                    val pathStatuses = getStatusFromPath(context, path)
-                    if (pathStatuses.isNotEmpty()) {
-                        Log.d(TAG, "Found ${pathStatuses.size} statuses in path: $path")
-                        files.addAll(pathStatuses)
-                        break // Use the first path that has statuses
+            } else {
+                // Method 2: Try comprehensive path detection
+                val detector = StatusPathDetector()
+                val availablePaths = detector.getAllPossibleStatusPaths()
+                if (availablePaths.isNotEmpty()) {
+                    for (path in availablePaths) {
+                        val pathStatuses = getStatusFromPath(context, path)
+                        if (pathStatuses.isNotEmpty()) {
+                            files.addAll(pathStatuses)
+                            break // Use the first path that has statuses
+                        }
                     }
                 }
-            } else {
-                Log.w(TAG, "No WhatsApp status paths found")
             }
         } else {
             // Check if the input is a file path or a URI
@@ -94,42 +79,34 @@ object FileUtils {
             
             if (isFilePath) {
                 // Handle as file path
-                Log.d(TAG, "Treating input as file path: $statusUri")
                 return@withContext getStatusFromPath(context, statusUri)
             } else {
                 // Handle as URI - try SAF
-                Log.d(TAG, "Treating input as URI: $statusUri")
                 val safStatuses = StorageAccessHelper.getStatusesViaSAF(context, statusUri)
                 files.addAll(safStatuses)
             }
         }
         
-        Log.d(TAG, "Total statuses found: ${files.size}")
+        // Add minimal padding items for UI
+        if (files.isNotEmpty()) {
+            files.addAll(listOf(
+                StatusModel(
+                    id = 0L,
+                    filePath = "",
+                    fileName = "",
+                    fileSize = 0L,
+                    lastModified = 0L
+                ),
+                StatusModel(
+                    id = 0L,
+                    filePath = "",
+                    fileName = "",
+                    fileSize = 0L,
+                    lastModified = 0L
+                )
+            ))
+        }
         
-        // Add padding items for UI
-        files.addAll(listOf(
-            StatusModel(
-                id = 0L,
-                filePath = "",
-                fileName = "",
-                fileSize = 0L,
-                lastModified = 0L
-            ),
-            StatusModel(
-                id = 0L,
-                filePath = "",
-                fileName = "",
-                fileSize = 0L,
-                lastModified = 0L
-            ),
-            StatusModel(
-                id = 0L,
-                filePath = "",
-                fileName = "",
-                fileSize = 0L,
-                lastModified = 0L
-            )
-        ))
         statusList.clear()
         statusList.addAll(files)
         return@withContext files
@@ -143,31 +120,18 @@ object FileUtils {
         
         try {
             val directory = File(path)
-            Log.d(TAG, "Checking directory: ${directory.absolutePath}")
-            Log.d(TAG, "Directory exists: ${directory.exists()}")
-            Log.d(TAG, "Is directory: ${directory.isDirectory}")
             
             if (directory.exists() && directory.isDirectory) {
-                // First, try to list all files including hidden ones
+                // List all files including hidden ones
                 val allFiles = directory.listFiles { file ->
-                    // Accept all files for debugging received statuses
                     true
                 }
-                Log.d(TAG, "All files (including hidden): ${allFiles?.size ?: 0}")
                 
                 if (!allFiles.isNullOrEmpty()) {
-                    Log.d(TAG, "=== ALL FILES IN STATUS DIRECTORY ===")
-                    allFiles.forEach { file ->
-                        Log.d(TAG, "File: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}, size: ${file.length()}")
-                    }
-                    Log.d(TAG, "=== END ALL FILES ===")
-                    
                     // Process all files (including hidden ones) for received statuses
                     allFiles.forEach { file ->
-                        Log.d(TAG, "Processing file: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}")
                         val filePath = file.absolutePath
                         if (isValidFile(filePath)) {
-                            Log.d(TAG, "Processing valid status file: $filePath")
                             if (isVideo(filePath)) {
                                 try {
                                     val mediaMetadataRetriever = MediaMetadataRetriever()
@@ -183,9 +147,8 @@ object FileUtils {
                                         isVideo = true,
                                         thumbnail = thumbnail
                                     ))
-                                    Log.d(TAG, "Added video status: $filePath")
                                 } catch (e: Exception) {
-                                    Log.e(TAG, "Error processing video status: $filePath", e)
+                                    // Skip problematic video files
                                 }
                             } else {
                                 val imageRequest = ImageRequest.Builder(context).data(filePath).build()
@@ -197,59 +160,35 @@ object FileUtils {
                                     lastModified = file.lastModified(),
                                     imageRequest = imageRequest
                                 ))
-                                Log.d(TAG, "Added image status: $filePath")
                             }
-                        } else {
-                            Log.d(TAG, "Skipping invalid status file: $filePath")
                         }
-                    }
-                } else {
-                    Log.d(TAG, "No files found in status directory (including hidden files)")
-                    
-                    // Try alternative approach - list files without filter
-                    try {
-                        val rawFiles = directory.listFiles()
-                        Log.d(TAG, "Raw file listing: ${rawFiles?.size ?: 0} files")
-                        rawFiles?.forEach { file ->
-                            Log.d(TAG, "Raw file: ${file.name}, isHidden: ${file.isHidden}, isFile: ${file.isFile}")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error listing raw files", e)
                     }
                 }
-            } else {
-                Log.w(TAG, "Directory does not exist or is not a directory: $path")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading status from path: $path", e)
+            // Handle errors silently to avoid blocking UI
         }
         
-        Log.d(TAG, "Total received status files found: ${files.size}")
+        // Add minimal padding items for UI
+        if (files.isNotEmpty()) {
+            files.addAll(listOf(
+                StatusModel(
+                    id = 0L,
+                    filePath = "",
+                    fileName = "",
+                    fileSize = 0L,
+                    lastModified = 0L
+                ),
+                StatusModel(
+                    id = 0L,
+                    filePath = "",
+                    fileName = "",
+                    fileSize = 0L,
+                    lastModified = 0L
+                )
+            ))
+        }
         
-        // Add padding items for UI
-        files.addAll(listOf(
-            StatusModel(
-                id = 0L,
-                filePath = "",
-                fileName = "",
-                fileSize = 0L,
-                lastModified = 0L
-            ),
-            StatusModel(
-                id = 0L,
-                filePath = "",
-                fileName = "",
-                fileSize = 0L,
-                lastModified = 0L
-            ),
-            StatusModel(
-                id = 0L,
-                filePath = "",
-                fileName = "",
-                fileSize = 0L,
-                lastModified = 0L
-            )
-        ))
         statusList.clear()
         statusList.addAll(files)
         return@withContext files

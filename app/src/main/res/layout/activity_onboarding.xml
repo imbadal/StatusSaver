@@ -104,6 +104,7 @@
 
         <!-- Action button -->
         <LinearLayout
+            android:id="@+id/onboardingActionButtonContainer"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
             android:orientation="horizontal"
@@ -113,8 +114,9 @@
             android:paddingEnd="8dp"
             android:clickable="true"
             android:focusable="true"
-            android:foreground="?android:attr/selectableItemBackground"
-            android:layout_gravity="center">
+            android:layout_gravity="center"
+            android:minWidth="120dp"
+            android:minHeight="48dp">
 
             <TextView
                 android:id="@+id/onboardingActionButton"

@@ -25,17 +25,12 @@ class NavigationManager(private val context: Context) {
                 return OnBoardingActivity::class.java
             }
             
-            // Everything is set up, stay in StatusGalleryActivity
+            // Everything is set up, go to StatusGalleryActivity
             return StatusGalleryActivity::class.java
         }
         
         fun navigateToNextActivity(context: Context) {
             val nextActivity = getNextActivity(context)
-            
-            if (nextActivity == StatusGalleryActivity::class.java) {
-                // Stay in current activity if it's StatusGalleryActivity
-                return
-            }
             
             val intent = Intent(context, nextActivity)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

@@ -28,44 +28,81 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 class OnBoardingActivity : AppCompatActivity() {
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var onboardingTitle: TextView
     private lateinit var onboardingDescription: TextView
     private lateinit var onboardingActionButton: TextView
-
+    private lateinit var onboardingActionButtonContainer: LinearLayout
 
     private var currentStep = 0
     private var folderPermissionGranted = false
     private val totalSteps: Int = 2
+    
+    // Debouncing variables
+    private var isProcessingClick = false
+    private var lastClickTime = 0L
+    private val CLICK_DEBOUNCE_TIME = 500L // 500ms debounce
 
     // Activity result launcher for folder selection
     private val folderSelectionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        android.util.Log.d("OnBoardingActivity", "Folder selection result: ${result.resultCode}")
         if (result.resultCode == RESULT_OK) {
             val treeUri = result.data?.data
+            android.util.Log.d("OnBoardingActivity", "Selected URI: $treeUri")
             treeUri?.let {
-                // Check if the last segment is '.Statuses'
-                val pickedFolderName = DocumentFile.fromTreeUri(this, treeUri)?.name
-                if (pickedFolderName != ".Statuses") {
-                    Toast.makeText(this, "Please select the .Statuses folder itself, not its parent.", Toast.LENGTH_LONG).show()
-                    return@let
+                // Process folder selection in background
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        android.util.Log.d("OnBoardingActivity", "Processing folder selection")
+                        // Check if the last segment is '.Statuses'
+                        val pickedFolderName = DocumentFile.fromTreeUri(this@OnBoardingActivity, treeUri)?.name
+                        android.util.Log.d("OnBoardingActivity", "Picked folder name: $pickedFolderName")
+                        if (pickedFolderName != ".Statuses") {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@OnBoardingActivity, "Please select the .Statuses folder itself, not its parent.", Toast.LENGTH_LONG).show()
+                                resetButtonState()
+                            }
+                            return@launch
+                        }
+                        
+                        android.util.Log.d("OnBoardingActivity", "Taking persistable URI permission")
+                        // Take permission in background
+                        contentResolver.takePersistableUriPermission(
+                            treeUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                        
+                        val actualPath = treeUri.toString()
+                        android.util.Log.d("OnBoardingActivity", "Saving URI to preferences: $actualPath")
+                        preferenceUtils.setUriToPreference(actualPath)
+                        folderPermissionGranted = true
+                        
+                        withContext(Dispatchers.Main) {
+                            android.util.Log.d("OnBoardingActivity", "Moving to next step")
+                            moveToNextStep()
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("OnBoardingActivity", "Error processing folder selection", e)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@OnBoardingActivity, "Error processing folder selection", Toast.LENGTH_LONG).show()
+                            resetButtonState()
+                        }
+                    }
                 }
-                contentResolver.takePersistableUriPermission(
-                    treeUri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                val actualPath = treeUri.toString()
-                preferenceUtils.setUriToPreference(actualPath)
-                folderPermissionGranted = true
-                moveToNextStep()
+            } ?: run {
+                android.util.Log.w("OnBoardingActivity", "No URI in result data")
+                resetButtonState()
             }
+        } else {
+            android.util.Log.w("OnBoardingActivity", "Folder selection cancelled or failed")
+            resetButtonState()
         }
     }
-
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,28 +110,45 @@ class OnBoardingActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         preferenceUtils = PreferenceUtils(application)
         
-        // Check if we already have everything we need
-        if (!NavigationManager.shouldShowPrivacyPolicy(this) && !NavigationManager.shouldShowOnboarding(this)) {
-            // Everything is already set up, go to status gallery activity
-            NavigationManager.navigateToNextActivity(this)
-            finish()
-            return
+        // Check if we already have everything we need in background
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val shouldShowPrivacyPolicy = NavigationManager.shouldShowPrivacyPolicy(this@OnBoardingActivity)
+                val shouldShowOnboarding = NavigationManager.shouldShowOnboarding(this@OnBoardingActivity)
+                
+                if (!shouldShowPrivacyPolicy && !shouldShowOnboarding) {
+                    // Everything is already set up, go to status gallery activity
+                    withContext(Dispatchers.Main) {
+                        NavigationManager.navigateToNextActivity(this@OnBoardingActivity)
+                        finish()
+                    }
+                    return@launch
+                }
+                
+                withContext(Dispatchers.Main) {
+                    setContentView(R.layout.activity_onboarding)
+                    initializeViews()
+                    
+                    // Check current permission status
+                    val safUri = preferenceUtils.getUriFromPreference()
+                    folderPermissionGranted = !safUri.isNullOrBlank()
+                    
+                    updateStepUI()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@OnBoardingActivity, "Error initializing app", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
         }
-        
-        setContentView(R.layout.activity_onboarding)
-        initializeViews()
-        
-        // Check current permission status
-        val safUri = preferenceUtils.getUriFromPreference()
-        folderPermissionGranted = !safUri.isNullOrBlank()
-        
-        updateStepUI()
     }
 
     private fun initializeViews() {
         onboardingTitle = findViewById(R.id.onboardingTitle)
         onboardingDescription = findViewById(R.id.onboardingDescription)
         onboardingActionButton = findViewById(R.id.onboardingActionButton)
+        onboardingActionButtonContainer = findViewById(R.id.onboardingActionButtonContainer)
     }
 
     private fun updateStepUI() {
@@ -105,8 +159,18 @@ class OnBoardingActivity : AppCompatActivity() {
                 onboardingDescription.text = "To save your WhatsApp statuses, we need access to your .Statuses folder. Please select the folder when prompted."
                 onboardingActionButton.text = "Select Folder"
                 onboardingActionButton.isEnabled = true
-                onboardingActionButton.setOnClickListener {
-                    pickFolder()
+                
+                // Set click listener on the container
+                onboardingActionButtonContainer.setOnClickListener {
+                    android.util.Log.d("OnBoardingActivity", "Select Folder button clicked")
+                    if (isClickAllowed()) {
+                        onboardingActionButton.isEnabled = false
+                        onboardingActionButton.text = "Processing..."
+                        val start = System.currentTimeMillis()
+                        pickFolder()
+                        val end = System.currentTimeMillis()
+                        android.util.Log.d("OnBoardingActivity", "pickFolder() triggered in ${end - start} ms")
+                    }
                 }
             }
             1 -> {
@@ -114,37 +178,91 @@ class OnBoardingActivity : AppCompatActivity() {
                 onboardingDescription.text = "Perfect! You can now save and manage your WhatsApp statuses easily. Let's get started."
                 onboardingActionButton.text = "Get Started"
                 onboardingActionButton.isEnabled = true
-                onboardingActionButton.setOnClickListener {
-                    completeOnboarding()
+                
+                // Set click listener on the container
+                onboardingActionButtonContainer.setOnClickListener {
+                    android.util.Log.d("OnBoardingActivity", "Get Started button clicked")
+                    if (isClickAllowed()) {
+                        onboardingActionButton.isEnabled = false
+                        onboardingActionButton.text = "Processing..."
+                        val start = System.currentTimeMillis()
+                        completeOnboarding()
+                        val end = System.currentTimeMillis()
+                        android.util.Log.d("OnBoardingActivity", "completeOnboarding() triggered in ${end - start} ms")
+                    }
                 }
             }
         }
     }
 
-
-
-
+    private fun isClickAllowed(): Boolean {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastClickTime < CLICK_DEBOUNCE_TIME || isProcessingClick) {
+            android.util.Log.d("OnBoardingActivity", "Click blocked - debouncing or processing")
+            return false
+        }
+        lastClickTime = currentTime
+        isProcessingClick = true
+        android.util.Log.d("OnBoardingActivity", "Click allowed")
+        return true
+    }
 
     private fun moveToNextStep() {
         if (currentStep < totalSteps - 1) {
             currentStep++
             updateStepUI()
         }
+        isProcessingClick = false
+        onboardingActionButton.isEnabled = true
+        onboardingActionButton.text = if (currentStep == 0) "Select Folder" else "Get Started"
     }
 
     private fun completeOnboarding() {
         if (folderPermissionGranted) {
-            preferenceUtils.setOnboardingCompleted(true)
-            NavigationManager.navigateToNextActivity(this)
-            finish()
+            // Process completion in background
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val start = System.currentTimeMillis()
+                    preferenceUtils.setOnboardingCompleted(true)
+                    val end = System.currentTimeMillis()
+                    android.util.Log.d("OnBoardingActivity", "setOnboardingCompleted() took ${end - start} ms")
+                    
+                    withContext(Dispatchers.Main) {
+                        try {
+                            android.util.Log.d("OnBoardingActivity", "Starting navigation to next activity")
+                            NavigationManager.navigateToNextActivity(this@OnBoardingActivity)
+                            android.util.Log.d("OnBoardingActivity", "Navigation completed, finishing activity")
+                            finish()
+                        } catch (e: Exception) {
+                            android.util.Log.e("OnBoardingActivity", "Error during navigation", e)
+                            Toast.makeText(this@OnBoardingActivity, "Error navigating to next screen", Toast.LENGTH_LONG).show()
+                            resetButtonState()
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("OnBoardingActivity", "Error completing onboarding", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@OnBoardingActivity, "Error completing onboarding", Toast.LENGTH_LONG).show()
+                        resetButtonState()
+                    }
+                }
+            }
         } else {
             Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
+            resetButtonState()
         }
+    }
+
+    private fun resetButtonState() {
+        isProcessingClick = false
+        onboardingActionButton.isEnabled = true
+        onboardingActionButton.text = if (currentStep == 0) "Select Folder" else "Get Started"
     }
 
     private fun pickFolder() {
         val targetPath = "Android/media/com.whatsapp/WhatsApp/Media/.Statuses"
         try {
+            android.util.Log.d("OnBoardingActivity", "Opening folder picker")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val sm = getSystemService(Context.STORAGE_SERVICE) as StorageManager
                 val storageVolume = sm.primaryStorageVolume
@@ -166,7 +284,9 @@ class OnBoardingActivity : AppCompatActivity() {
                 folderSelectionLauncher.launch(intent)
             }
         } catch (e: Exception) {
+            android.util.Log.e("OnBoardingActivity", "Error opening folder picker", e)
             Toast.makeText(this, "Error opening folder picker", Toast.LENGTH_LONG).show()
+            resetButtonState()
         }
     }
 }

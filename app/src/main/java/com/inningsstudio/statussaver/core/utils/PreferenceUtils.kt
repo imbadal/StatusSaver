@@ -3,6 +3,7 @@ package com.inningsstudio.statussaver.core.utils
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.inningsstudio.statussaver.core.constants.Const
 import androidx.activity.ComponentActivity
 import com.google.gson.Gson
@@ -10,57 +11,75 @@ import com.google.gson.reflect.TypeToken
 import com.inningsstudio.statussaver.data.model.SavedStatusModel
 
 class PreferenceUtils(private val application: Application) {
+    private val prefs: SharedPreferences by lazy {
+        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+    }
+
+    // In-memory cache
+    private var cachedUri: String? = null
+    private var cachedOnboardingCompleted: Boolean? = null
+    private var cachedPrivacyPolicyAccepted: Boolean? = null
 
     fun getUriFromPreference(): String? {
-        return application.getSharedPreferences(
-            Const.APP_PREFERENCE,
-            ComponentActivity.MODE_PRIVATE
-        )?.getString(
-            Const.STATUS_URI, ""
-        )
+        if (cachedUri != null) return cachedUri
+        val start = System.currentTimeMillis()
+        val value = prefs.getString(Const.STATUS_URI, "")
+        val end = System.currentTimeMillis()
+        Log.d("PreferenceUtils", "getUriFromPreference took ${end - start} ms")
+        cachedUri = value
+        return value
     }
 
     fun setUriToPreference(statusUri: String) {
-        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .edit()
-            .putString(Const.STATUS_URI, statusUri)
-            .apply()
+        val start = System.currentTimeMillis()
+        prefs.edit().putString(Const.STATUS_URI, statusUri).apply()
+        val end = System.currentTimeMillis()
+        Log.d("PreferenceUtils", "setUriToPreference took ${end - start} ms")
+        cachedUri = statusUri
     }
 
     fun isOnboardingCompleted(): Boolean {
-        return application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .getBoolean("onboarding_completed", false)
+        if (cachedOnboardingCompleted != null) return cachedOnboardingCompleted!!
+        val start = System.currentTimeMillis()
+        val value = prefs.getBoolean("onboarding_completed", false)
+        val end = System.currentTimeMillis()
+        Log.d("PreferenceUtils", "isOnboardingCompleted took ${end - start} ms")
+        cachedOnboardingCompleted = value
+        return value
     }
 
     fun setOnboardingCompleted(completed: Boolean) {
-        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .edit()
-            .putBoolean("onboarding_completed", completed)
-            .apply()
+        val start = System.currentTimeMillis()
+        prefs.edit().putBoolean("onboarding_completed", completed).apply()
+        val end = System.currentTimeMillis()
+        Log.d("PreferenceUtils", "setOnboardingCompleted took ${end - start} ms")
+        cachedOnboardingCompleted = completed
     }
 
     fun getPermissionAttempts(): Int {
-        return application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .getInt("permission_attempts", 0)
+        return prefs.getInt("permission_attempts", 0)
     }
 
     fun setPermissionAttempts(attempts: Int) {
-        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .edit()
-            .putInt("permission_attempts", attempts)
-            .apply()
+        prefs.edit().putInt("permission_attempts", attempts).apply()
     }
 
     fun isPrivacyPolicyAccepted(): Boolean {
-        return application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .getBoolean("privacy_policy_accepted", false)
+        if (cachedPrivacyPolicyAccepted != null) return cachedPrivacyPolicyAccepted!!
+        val start = System.currentTimeMillis()
+        val value = prefs.getBoolean("privacy_policy_accepted", false)
+        val end = System.currentTimeMillis()
+        Log.d("PreferenceUtils", "isPrivacyPolicyAccepted took ${end - start} ms")
+        cachedPrivacyPolicyAccepted = value
+        return value
     }
 
     fun setPrivacyPolicyAccepted(accepted: Boolean) {
-        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
-            .edit()
-            .putBoolean("privacy_policy_accepted", accepted)
-            .apply()
+        val start = System.currentTimeMillis()
+        prefs.edit().putBoolean("privacy_policy_accepted", accepted).apply()
+        val end = System.currentTimeMillis()
+        Log.d("PreferenceUtils", "setPrivacyPolicyAccepted took ${end - start} ms")
+        cachedPrivacyPolicyAccepted = accepted
     }
 
     companion object {
