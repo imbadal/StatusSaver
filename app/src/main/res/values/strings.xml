@@ -2,7 +2,7 @@
     <string name="app_name">Status Saver</string>
     <string name="screen_title_home">Home</string>
     <string name="screen_title_settings">Settings</string>
-    <string name="title_activity_status_view">StatusViewActivity</string>
+
     <string name="privacy_policy_url">https://inningsstudio-status-saver.web.app/privacy-policy</string>
     <string name="read_privacy_policy">Read Privacy Policy</string>
     <string name="privacy_policy_description">Before using our app, please read our Privacy Policy to understand how we handle your data.</string>
