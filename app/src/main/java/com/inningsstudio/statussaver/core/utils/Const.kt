@@ -1,4 +1,4 @@
-package com.inningsstudio.statussaver.core.constants
+package com.inningsstudio.statussaver.core.utils
 
 object Const {
 

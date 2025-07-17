@@ -4,17 +4,15 @@ import android.content.Context
 import android.content.Intent
 import android.database.Cursor
 import android.media.MediaMetadataRetriever
-import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Environment
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import coil.request.ImageRequest
-import com.inningsstudio.statussaver.core.constants.Const.MP4
-import com.inningsstudio.statussaver.core.constants.Const.NO_MEDIA
+import com.inningsstudio.statussaver.core.utils.Const.MP4
+import com.inningsstudio.statussaver.core.utils.Const.NO_MEDIA
 import com.inningsstudio.statussaver.data.model.StatusModel
-import com.inningsstudio.statussaver.data.model.SavedStatusModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -22,7 +20,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.io.OutputStream
 import androidx.core.content.FileProvider
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption

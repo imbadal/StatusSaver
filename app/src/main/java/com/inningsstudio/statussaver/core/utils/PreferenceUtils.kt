@@ -4,11 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import com.inningsstudio.statussaver.core.constants.Const
 import androidx.activity.ComponentActivity
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import com.inningsstudio.statussaver.data.model.SavedStatusModel
 
 class PreferenceUtils(private val application: Application) {
     private val prefs: SharedPreferences by lazy {
