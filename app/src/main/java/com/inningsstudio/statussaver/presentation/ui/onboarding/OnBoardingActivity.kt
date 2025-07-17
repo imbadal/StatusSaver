@@ -78,8 +78,8 @@ class OnBoardingActivity : AppCompatActivity() {
         val hasRequiredPermissions = StorageAccessHelper.hasRequiredPermissions(this)
         
         if (!safUri.isNullOrBlank() && onboardingCompleted && hasRequiredPermissions) {
-            // Everything is already set up, go to main activity
-            val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.MainActivity::class.java)
+            // Everything is already set up, go to status gallery activity
+            val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.status.StatusGalleryActivity::class.java)
             startActivity(intent)
             finish()
             return

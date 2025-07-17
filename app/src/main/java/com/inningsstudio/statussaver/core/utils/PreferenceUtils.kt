@@ -51,6 +51,18 @@ class PreferenceUtils(private val application: Application) {
             .apply()
     }
 
+    fun isPrivacyPolicyAccepted(): Boolean {
+        return application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .getBoolean("privacy_policy_accepted", false)
+    }
+
+    fun setPrivacyPolicyAccepted(accepted: Boolean) {
+        application.getSharedPreferences(Const.APP_PREFERENCE, ComponentActivity.MODE_PRIVATE)
+            .edit()
+            .putBoolean("privacy_policy_accepted", accepted)
+            .apply()
+    }
+
     companion object {
         private const val PREF_NAME = Const.PREF_NAME
         private const val KEY_FIRST_TIME = Const.KEY_FIRST_TIME

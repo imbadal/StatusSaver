@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:orientation="vertical"
+    tools:context=".presentation.ui.privacy.PrivacyPolicyActivity">
+
+    <!-- Toolbar with App Icon and Name -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp"
+        android:background="@color/whatsapp_green">
+
+        <!-- App icon with background -->
+        <FrameLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/icon_background"
+            android:layout_marginEnd="12dp">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/baseline_download_24"
+                android:padding="8dp"
+                android:contentDescription="App Icon"
+                app:tint="@color/whatsapp_green" />
+
+        </FrameLayout>
+
+        <!-- App name -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:gravity="center_vertical" />
+
+    </LinearLayout>
+
+    <!-- Privacy Policy Header -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Privacy Policy"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:gravity="center"
+        android:padding="24dp"
+        android:background="@color/white" />
+
+    <!-- Privacy Policy Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="24dp"
+        android:fillViewport="true">
+
+        <TextView
+            android:id="@+id/privacyText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="This Privacy Policy describes how StatusWp collects, uses, and protects your information when you use our application.\n\n\n1. Information We Collect\nWe collect access to your WhatsApp statuses folder to save and manage your statuses locally on your device.\n\n\n2. How We Use Your Information\nWe use the folder access to:\n• Save your WhatsApp statuses to your device\n• Display your saved statuses within the app\n• Manage and organize your statuses\n\n\n3. Data Storage\nAll your statuses are stored locally on your device. We do not upload, transmit, or store your data on any external servers.\n\n\n4. Permissions\nWe require the following permissions:\n• Storage access to read and save statuses\n• Folder access to manage your statuses\n\n\n5. Your Rights\nYou have the right to:\n• Revoke folder access at any time\n• Delete saved statuses from your device\n• Uninstall the app to remove all data\n\n\n6. Contact Us\nIf you have any questions about this Privacy Policy, please contact us through the app settings.\n\n\n7. Data Collection\nWe do not collect any personal information from your device. All data processing happens locally on your device.\n\n\n8. Third-Party Services\nWe do not use any third-party services that collect or process your data.\n\n\n9. Children's Privacy\nThis app is not intended for children under 13. We do not knowingly collect personal information from children under 13.\n\n\n10. Changes to This Policy\nWe may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page."
+            android:textSize="16sp"
+            android:textColor="@color/gray"
+            android:lineSpacingExtra="6dp"
+            android:alpha="0.9" />
+
+    </ScrollView>
+
+    <!-- Bottom Section with Checkbox and Button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        android:background="@color/white">
+
+        <!-- Checkbox -->
+        <CheckBox
+            android:id="@+id/privacyCheckBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="I have read and agree to the Privacy Policy"
+            android:textSize="16sp"
+            android:textColor="@color/black"
+            android:layout_marginBottom="24dp"
+            android:buttonTint="@color/whatsapp_green" />
+
+        <!-- Proceed Button -->
+        <Button
+            android:id="@+id/proceedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Agree &amp; Proceed"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:background="@drawable/primary_button"
+            android:enabled="false"
+            android:alpha="0.5"
+            android:paddingStart="32dp"
+            android:paddingEnd="32dp"
+            android:layout_gravity="center" />
+
+    </LinearLayout>
+
+</LinearLayout> 
