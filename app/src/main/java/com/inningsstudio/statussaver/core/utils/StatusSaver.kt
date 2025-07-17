@@ -20,15 +20,17 @@ object StatusSaver {
 
     val SAVED_DIRECTORY =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-            .toString() + File.separator + "Status Saver" + File.separator + "statuses"
+            .toString() + File.separator + "Status Saver" + File.separator + "downloaded"
 
     val FAVOURITES_DIRECTORY =
         SAVED_DIRECTORY + File.separator + "favourites"
 
+    /**
+     * Get all saved statuses (excluding favorites)
+     */
     suspend fun getSavedStatus(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         val savedFiles = mutableListOf<StatusModel>()
         
-        // Read saved statuses from the Status Saver directory (not from WhatsApp's .Statuses folder)
         val savedDir = File(SAVED_DIRECTORY)
         Log.d(TAG, "Reading saved statuses from: ${savedDir.absolutePath}")
         
@@ -63,9 +65,42 @@ object StatusSaver {
         return@withContext savedFiles
     }
 
+    /**
+     * Get all favorite statuses
+     */
+    suspend fun getFavoriteStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
+        val favoriteFiles = mutableListOf<StatusModel>()
+        val favoritesDir = File(FAVOURITES_DIRECTORY)
+        
+        if (favoritesDir.exists() && favoritesDir.isDirectory) {
+            val files = favoritesDir.listFiles()
+            if (!files.isNullOrEmpty()) {
+                files.forEach { file ->
+                    if (file.isFile && file.canRead()) {
+                        val isVideo = file.name.lowercase().endsWith(".mp4")
+                        favoriteFiles.add(StatusModel(
+                            id = file.absolutePath.hashCode().toLong(),
+                            filePath = file.absolutePath,
+                            fileName = file.name,
+                            fileSize = file.length(),
+                            lastModified = file.lastModified(),
+                            isVideo = isVideo
+                        ))
+                    }
+                }
+            }
+        }
+        
+        return@withContext favoriteFiles
+    }
+
+    /**
+     * Mark a status as favorite by moving it from saved to favorites folder
+     */
     suspend fun markAsFavorite(context: Context, filePath: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
-            Log.d(TAG, "Attempting to mark as favorite: $filePath")
+            Log.d(TAG, "=== MARK AS FAVORITE OPERATION ===")
+            Log.d(TAG, "Input file path: $filePath")
             
             // SECURITY CHECK: Ensure we only operate on files from Status Saver directory
             if (!isFileInStatusSaverDirectory(filePath)) {
@@ -116,13 +151,36 @@ object StatusSaver {
                 val sourceFile = File(filePath)
                 val destFile = File(favoritesDir, sourceFile.name)
                 
+                Log.d(TAG, "File move operation:")
+                Log.d(TAG, "  Source file: ${sourceFile.absolutePath}")
+                Log.d(TAG, "  Source exists: ${sourceFile.exists()}")
+                Log.d(TAG, "  Source can read: ${sourceFile.canRead()}")
+                Log.d(TAG, "  Destination file: ${destFile.absolutePath}")
+                Log.d(TAG, "  Destination exists: ${destFile.exists()}")
+                
                 if (!destFile.exists() && sourceFile.exists()) {
-                    // Move the file from status folder to favorites folder
-                    val moved = sourceFile.renameTo(destFile)
-                    Log.d(TAG, "File moved to favorites successfully: $moved")
-                    moved
+                    // Use copy and delete instead of rename for better reliability
+                    val copied = copyFile(sourceFile, destFile)
+                    if (copied) {
+                        val deleted = sourceFile.delete()
+                        Log.d(TAG, "File copied to favorites and original deleted: $deleted")
+                        if (deleted) {
+                            Log.d(TAG, "✅ File successfully moved to favorites")
+                            true
+                        } else {
+                            // If delete failed, remove the copied file to maintain consistency
+                            destFile.delete()
+                            Log.e(TAG, "❌ Failed to delete original file, rolled back copy")
+                            false
+                        }
+                    } else {
+                        Log.e(TAG, "❌ Failed to copy file to favorites")
+                        false
+                    }
                 } else {
                     Log.d(TAG, "File already exists in favorites or source doesn't exist")
+                    Log.d(TAG, "  Dest exists: ${destFile.exists()}")
+                    Log.d(TAG, "  Source exists: ${sourceFile.exists()}")
                     true
                 }
             }
@@ -132,9 +190,13 @@ object StatusSaver {
         }
     }
 
+    /**
+     * Unmark a status as favorite by moving it from favorites back to saved folder
+     */
     suspend fun unmarkAsFavorite(context: Context, filePath: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
-            Log.d(TAG, "Attempting to unmark as favorite: $filePath")
+            Log.d(TAG, "=== UNMARK AS FAVORITE OPERATION ===")
+            Log.d(TAG, "Input file path: $filePath")
             
             // SECURITY CHECK: Ensure we only operate on files from Status Saver directory
             if (!isFileInStatusSaverDirectory(filePath)) {
@@ -164,9 +226,25 @@ object StatusSaver {
                     
                     // Move the file from favorites folder back to status folder
                     val destFile = File(statusDir, favoriteFile.name)
-                    val moved = favoriteFile.renameTo(destFile)
-                    Log.d(TAG, "File moved back to status folder successfully: $moved")
-                    moved
+                    
+                    // Use copy and delete instead of rename for better reliability
+                    val copied = copyFile(favoriteFile, destFile)
+                    if (copied) {
+                        val deleted = favoriteFile.delete()
+                        Log.d(TAG, "File copied back to status folder and favorite deleted: $deleted")
+                        if (deleted) {
+                            Log.d(TAG, "✅ File successfully moved back to saved statuses")
+                            true
+                        } else {
+                            // If delete failed, remove the copied file to maintain consistency
+                            destFile.delete()
+                            Log.e(TAG, "❌ Failed to delete favorite file, rolled back copy")
+                            false
+                        }
+                    } else {
+                        Log.e(TAG, "❌ Failed to copy file back to saved statuses")
+                        false
+                    }
                 } else {
                     Log.d(TAG, "Favorite file not found or not in favorites directory")
                     true // Consider it successful if file doesn't exist
@@ -178,71 +256,47 @@ object StatusSaver {
         }
     }
 
-    suspend fun getSavedStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
-        val savedFiles = mutableListOf<StatusModel>()
-        
-        // Read saved statuses from the Status Saver directory (not from WhatsApp's .Statuses folder)
-        val savedDir = File(SAVED_DIRECTORY)
-        Log.d(TAG, "Reading saved statuses from: ${savedDir.absolutePath}")
-        
-        if (savedDir.exists() && savedDir.isDirectory) {
-            val files = savedDir.listFiles()
-            if (!files.isNullOrEmpty()) {
-                files.forEach { file ->
-                    // Skip the favourites folder and only include regular files
-                    if (file.isFile && file.canRead() && !file.name.equals("favourites", ignoreCase = true)) {
-                        val isVideo = file.name.lowercase().endsWith(".mp4")
-                        savedFiles.add(StatusModel(
-                            id = file.absolutePath.hashCode().toLong(),
-                            filePath = file.absolutePath,
-                            fileName = file.name,
-                            fileSize = file.length(),
-                            lastModified = file.lastModified(),
-                            isVideo = isVideo
-                        ))
-                        Log.d(TAG, "Found saved status: ${file.name}")
-                    }
-                }
-            } else {
-                Log.d(TAG, "No saved statuses found in directory")
-            }
-        } else {
-            Log.d(TAG, "Saved statuses directory does not exist: ${savedDir.absolutePath}")
+    /**
+     * Check if a file is currently in favorites
+     */
+    fun isFileInFavorites(filePath: String): Boolean {
+        return try {
+            val file = File(filePath)
+            val favoritesDir = File(FAVOURITES_DIRECTORY)
+            return file.absolutePath.startsWith(favoritesDir.absolutePath)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking if file is in favorites", e)
+            false
         }
-        
-        Log.d(TAG, "Total saved statuses found: ${savedFiles.size}")
-        return@withContext savedFiles
     }
 
-    suspend fun getFavoriteStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
-        val favoriteFiles = mutableListOf<StatusModel>()
-        val favoritesDir = File(FAVOURITES_DIRECTORY)
-        
-        if (favoritesDir.exists() && favoritesDir.isDirectory) {
-            val files = favoritesDir.listFiles()
-            if (!files.isNullOrEmpty()) {
-                files.forEach { file ->
-                    if (file.isFile && file.canRead()) {
-                        val isVideo = file.name.lowercase().endsWith(".mp4")
-                        favoriteFiles.add(StatusModel(
-                            id = file.absolutePath.hashCode().toLong(),
-                            filePath = file.absolutePath,
-                            fileName = file.name,
-                            fileSize = file.length(),
-                            lastModified = file.lastModified(),
-                            isVideo = isVideo
-                        ))
-                    }
-                }
+    /**
+     * Get the current location of a file (saved or favorites)
+     */
+    fun getFileLocation(filePath: String): String {
+        return try {
+            val file = File(filePath)
+            val favoritesDir = File(FAVOURITES_DIRECTORY)
+            val savedDir = File(SAVED_DIRECTORY)
+            
+            when {
+                file.absolutePath.startsWith(favoritesDir.absolutePath) -> "favorites"
+                file.absolutePath.startsWith(savedDir.absolutePath) -> "saved"
+                else -> "unknown"
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting file location", e)
+            "unknown"
         }
-        
-        return@withContext favoriteFiles
     }
 
+    /**
+     * Delete a saved status (removes from both saved and favorites if present)
+     */
     suspend fun deleteSavedStatus(context: Context, filePath: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
-            Log.d(TAG, "Attempting to delete: $filePath")
+            Log.d(TAG, "=== DELETE SAVED STATUS OPERATION ===")
+            Log.d(TAG, "Input file path: $filePath")
             
             // SECURITY CHECK: Ensure we only delete files from Status Saver directory
             if (!isFileInStatusSaverDirectory(filePath)) {
@@ -282,11 +336,24 @@ object StatusSaver {
                 if (file.exists()) {
                     val deleted = file.delete()
                     if (deleted) {
-                        // Also remove from favorites if it exists there (in case it was moved there)
+                        // Also remove from the other location if it exists there
+                        val fileName = file.name
                         val favoritesDir = File(FAVOURITES_DIRECTORY)
-                        val favoriteFile = File(favoritesDir, file.name)
-                        if (favoriteFile.exists()) {
-                            favoriteFile.delete()
+                        val savedDir = File(SAVED_DIRECTORY)
+                        
+                        // Check if it was in favorites, then also delete from saved
+                        if (file.absolutePath.startsWith(favoritesDir.absolutePath)) {
+                            val savedFile = File(savedDir, fileName)
+                            if (savedFile.exists()) {
+                                savedFile.delete()
+                            }
+                        }
+                        // Check if it was in saved, then also delete from favorites
+                        else if (file.absolutePath.startsWith(savedDir.absolutePath)) {
+                            val favoriteFile = File(favoritesDir, fileName)
+                            if (favoriteFile.exists()) {
+                                favoriteFile.delete()
+                            }
                         }
                     }
                     Log.d(TAG, "File path deletion result: $deleted")
@@ -302,6 +369,9 @@ object StatusSaver {
         }
     }
 
+    /**
+     * Save a status to the saved folder
+     */
     suspend fun saveStatusToFolder(context: Context, folderUri: Uri, filePath: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
             Log.d(TAG, "=== STARTING SAVE OPERATION ===")
@@ -427,12 +497,26 @@ object StatusSaver {
             } else {
                 // Handle regular file path
                 val sourceFile = File(filePath)
+                Log.d(TAG, "=== REGULAR FILE PATH SAVE ===")
+                Log.d(TAG, "Source file path: $filePath")
+                Log.d(TAG, "Source file exists: ${sourceFile.exists()}")
+                Log.d(TAG, "Source file can read: ${sourceFile.canRead()}")
+                Log.d(TAG, "Source file size: ${sourceFile.length()} bytes")
+                
                 if (!sourceFile.exists()) {
                     Log.e(TAG, "Source file does not exist: $filePath")
                     return@withContext false
                 }
 
-                Log.d(TAG, "Source file exists, size: ${sourceFile.length()} bytes")
+                if (!sourceFile.canRead()) {
+                    Log.e(TAG, "Source file cannot be read: $filePath")
+                    return@withContext false
+                }
+
+                if (sourceFile.length() == 0L) {
+                    Log.e(TAG, "Source file is empty: $filePath")
+                    return@withContext false
+                }
 
                 // Create the destination directory
                 val destinationDir = File(SAVED_DIRECTORY)
@@ -466,26 +550,26 @@ object StatusSaver {
                         }
                     }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Error copying file: ${e.message}", e)
+                    
                     /**
-                     * EDGE CASE HANDLING: Uninstall/Reinstall Scenario
+                     * ENHANCED ERROR HANDLING: Multiple failure scenarios
                      * 
-                     * Problem: When user uninstalls and reinstalls the app on Android 10+,
-                     * the app loses access to previously saved files due to scoped storage.
-                     * If user tries to save a file with the same name, it fails with EACCES.
+                     * 1. EACCES/Permission denied: File access issues
+                     * 2. File in use: WhatsApp might be using the file
+                     * 3. File corruption: Incomplete downloads
+                     * 4. File name conflicts: Duplicate names
                      * 
-                     * Solution: Detect this specific error and create a unique filename
-                     * to avoid the conflict, ensuring the user's file gets saved.
-                     * 
-                     * Example:
-                     * - User saves "image.jpg" → works fine
-                     * - User uninstalls app → file exists but app can't access it
-                     * - User reinstalls app → tries to save "image.jpg" again
-                     * - Gets EACCES error → creates "image_1703123456789.jpg" instead
+                     * Solution: Try multiple approaches to save the file
                      */
-                    if (e.message?.contains("EACCES") == true || e.message?.contains("Permission denied") == true) {
-                        Log.w(TAG, "Permission denied - likely uninstall/reinstall scenario, trying with unique filename")
+                    if (e.message?.contains("EACCES") == true || 
+                        e.message?.contains("Permission denied") == true ||
+                        e.message?.contains("File in use") == true ||
+                        e.message?.contains("Access denied") == true) {
                         
-                        // Create unique filename to avoid conflict with inaccessible existing file
+                        Log.w(TAG, "File access issue detected, trying with unique filename")
+                        
+                        // Create unique filename to avoid conflicts
                         val baseName = sourceFile.name.substringBeforeLast(".")
                         val extension = sourceFile.name.substringAfterLast(".", "")
                         val timestamp = System.currentTimeMillis()
@@ -494,24 +578,30 @@ object StatusSaver {
                         
                         Log.d(TAG, "Retrying with unique filename: $uniqueFileName")
                         
-                        // Rewrite the file with the unique name
-                        sourceFile.inputStream().use { inputStream ->
-                            uniqueDestinationFile.outputStream().use { outputStream ->
-                                val buffer = ByteArray(8192)
-                                var bytesRead: Int
-                                var totalBytes = 0L
+                        try {
+                            // Try to copy with unique name
+                            sourceFile.inputStream().use { inputStream ->
+                                uniqueDestinationFile.outputStream().use { outputStream ->
+                                    val buffer = ByteArray(8192)
+                                    var bytesRead: Int
+                                    var totalBytes = 0L
 
-                                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                    outputStream.write(buffer, 0, bytesRead)
-                                    totalBytes += bytesRead
+                                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                        outputStream.write(buffer, 0, bytesRead)
+                                        totalBytes += bytesRead
+                                    }
+
+                                    Log.d(TAG, "File copied successfully with unique name: $totalBytes bytes")
                                 }
-
-                                Log.d(TAG, "File copied successfully with unique name: $totalBytes bytes")
                             }
+                        } catch (retryException: Exception) {
+                            Log.e(TAG, "Failed to copy even with unique filename: ${retryException.message}")
+                            return@withContext false
                         }
                     } else {
-                        // Re-throw other exceptions (not related to uninstall/reinstall scenario)
-                        throw e
+                        // For other exceptions, log and return false
+                        Log.e(TAG, "Unhandled exception during file copy: ${e.message}")
+                        return@withContext false
                     }
                 }
 
@@ -520,6 +610,37 @@ object StatusSaver {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error saving status to folder", e)
+            false
+        }
+    }
+
+    /**
+     * Helper function to copy files with verification
+     */
+    private fun copyFile(source: File, destination: File): Boolean {
+        return try {
+            source.inputStream().use { inputStream ->
+                destination.outputStream().use { outputStream ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    var totalBytes = 0L
+
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                        totalBytes += bytesRead
+                    }
+                }
+            }
+            
+            // Verify the copy was successful
+            val sourceSize = source.length()
+            val destSize = destination.length()
+            val success = sourceSize == destSize && destSize > 0
+            
+            Log.d(TAG, "Copy verification - Source size: $sourceSize, Dest size: $destSize, Success: $success")
+            success
+        } catch (e: Exception) {
+            Log.e(TAG, "Error copying file from ${source.absolutePath} to ${destination.absolutePath}", e)
             false
         }
     }
@@ -570,8 +691,12 @@ object StatusSaver {
      */
     private fun isFileInStatusSaverDirectory(filePath: String): Boolean {
         return try {
+            Log.d(TAG, "=== SECURITY CHECK ===")
+            Log.d(TAG, "Checking file path: $filePath")
+            
             // Check if it's a SAF URI (these are safe as they're managed by the app)
             if (filePath.startsWith("content://")) {
+                Log.d(TAG, "Security check - SAF URI detected, allowing")
                 return true
             }
             
@@ -584,11 +709,12 @@ object StatusSaver {
             val isInStatusSaver = file.absolutePath.startsWith(statusSaverDir.absolutePath)
             val isInFavorites = file.absolutePath.startsWith(favoritesDir.absolutePath)
             
-            Log.d(TAG, "Security check - File: ${file.absolutePath}")
+            Log.d(TAG, "Security check - File absolute path: ${file.absolutePath}")
             Log.d(TAG, "Security check - Status Saver Dir: ${statusSaverDir.absolutePath}")
             Log.d(TAG, "Security check - Favorites Dir: ${favoritesDir.absolutePath}")
             Log.d(TAG, "Security check - Is in Status Saver: $isInStatusSaver")
             Log.d(TAG, "Security check - Is in Favorites: $isInFavorites")
+            Log.d(TAG, "Security check - Final result: ${isInStatusSaver || isInFavorites}")
             
             isInStatusSaver || isInFavorites
         } catch (e: Exception) {

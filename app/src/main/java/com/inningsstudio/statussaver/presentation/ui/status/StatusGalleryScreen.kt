@@ -38,6 +38,7 @@ import com.facebook.shimmer.ShimmerFrameLayout
 import com.inningsstudio.statussaver.core.utils.FileUtils
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.StatusPathDetector
+import com.inningsstudio.statussaver.core.utils.StatusSaver
 import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import com.inningsstudio.statussaver.data.model.StatusModel
 import kotlinx.coroutines.Dispatchers
@@ -275,26 +276,8 @@ fun StandaloneStatusGallery(context: Context) {
                 val success = FileUtils.markAsFavorite(context, status.filePath)
                 if (success) {
                     Log.d("StatusGalleryActivity", "✅ Status marked as favorite successfully")
-                    // Update lists directly instead of refreshing entire screen
-                    val updatedSavedList = savedStatusList.toMutableList()
-                    val updatedFavoriteList = favoriteList.toMutableList()
-                    
-                    // Find the status by file name (since path changes when moved)
-                    val index = updatedSavedList.indexOfFirst { it.fileName == status.fileName }
-                    if (index != -1) {
-                        val movedStatus = updatedSavedList.removeAt(index)
-                        // Update the file path to reflect the new location
-                        val newPath = movedStatus.filePath.replace("/statuses/", "/statuses/favourites/")
-                        val updatedStatus = movedStatus.copy(filePath = newPath)
-                        updatedFavoriteList.add(updatedStatus)
-                        
-                        // Update state directly
-                        savedStatusList = updatedSavedList
-                        favoriteList = updatedFavoriteList
-                        
-                        // Update hash to prevent unnecessary refreshes
-                        lastSavedStatusesHash = calculateSavedStatusesHash(updatedSavedList + updatedFavoriteList)
-                    }
+                    // Refresh the lists to get the updated file paths from disk
+                    loadSavedStatuses()
                 } else {
                     Log.e("StatusGalleryActivity", "❌ Failed to mark as favorite")
                 }
@@ -312,26 +295,8 @@ fun StandaloneStatusGallery(context: Context) {
                 val success = FileUtils.unmarkAsFavorite(context, status.filePath)
                 if (success) {
                     Log.d("StatusGalleryActivity", "✅ Status unmarked as favorite successfully")
-                    // Update lists directly instead of refreshing entire screen
-                    val updatedSavedList = savedStatusList.toMutableList()
-                    val updatedFavoriteList = favoriteList.toMutableList()
-                    
-                    // Find the status by file name (since path changes when moved)
-                    val index = updatedFavoriteList.indexOfFirst { it.fileName == status.fileName }
-                    if (index != -1) {
-                        val movedStatus = updatedFavoriteList.removeAt(index)
-                        // Update the file path to reflect the new location
-                        val newPath = movedStatus.filePath.replace("/statuses/favourites/", "/statuses/")
-                        val updatedStatus = movedStatus.copy(filePath = newPath)
-                        updatedSavedList.add(updatedStatus)
-                        
-                        // Update state directly
-                        savedStatusList = updatedSavedList
-                        favoriteList = updatedFavoriteList
-                        
-                        // Update hash to prevent unnecessary refreshes
-                        lastSavedStatusesHash = calculateSavedStatusesHash(updatedSavedList + updatedFavoriteList)
-                    }
+                    // Refresh the lists to get the updated file paths from disk
+                    loadSavedStatuses()
                 } else {
                     Log.e("StatusGalleryActivity", "❌ Failed to unmark as favorite")
                 }
@@ -1099,7 +1064,7 @@ fun StandaloneStatusGallery(context: Context) {
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                                 itemsIndexed(displaySavedList) { index, status ->
-                                                    val isFavorite = favoriteList.contains(status)
+                                                    val isFavorite = StatusSaver.isFileInFavorites(status.filePath)
                                                     com.inningsstudio.statussaver.presentation.ui.status.SavedStatusCardWithActions(
                                                     status = status,
                                                         isFavorite = isFavorite,
@@ -1164,14 +1129,8 @@ fun StandaloneStatusGallery(context: Context) {
                                 try {
                                     val success = FileUtils.deleteSavedStatus(context, status.filePath)
                                     if (success) {
-                                        // Remove from the correct list directly (saved or favorite)
-                                        val updatedSavedList = savedStatusList.toMutableList()
-                                        val updatedFavoriteList = favoriteList.toMutableList()
-                                        val removedFromSaved = updatedSavedList.removeAll { it.fileName == status.fileName }
-                                        val removedFromFav = updatedFavoriteList.removeAll { it.fileName == status.fileName }
-                                        savedStatusList = updatedSavedList
-                                        favoriteList = updatedFavoriteList
-                                        lastSavedStatusesHash = calculateSavedStatusesHash(updatedSavedList + updatedFavoriteList)
+                                        // Refresh the lists to get the updated state from disk
+                                        loadSavedStatuses()
                                     }
                                 } catch (e: Exception) {
                                     Log.e("StatusGalleryActivity", "Error deleting saved status", e)

@@ -29,7 +29,7 @@ object FileUtils {
     }
     
     suspend fun getSavedStatusesFromFolder(context: Context): List<StatusModel> {
-        return StatusSaver.getSavedStatusesFromFolder(context)
+        return StatusSaver.getSavedStatus(context)
     }
     
     suspend fun getFavoriteStatusesFromFolder(context: Context): List<StatusModel> {
