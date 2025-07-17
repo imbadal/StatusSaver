@@ -35,7 +35,7 @@ class OnBoardingActivity : AppCompatActivity() {
     private lateinit var onboardingTitle: TextView
     private lateinit var onboardingDescription: TextView
     private lateinit var onboardingActionButton: Button
-    private lateinit var onboardingContentLayout: LinearLayout
+
 
     private var currentStep = 0
     private var folderPermissionGranted = false
@@ -99,7 +99,6 @@ class OnBoardingActivity : AppCompatActivity() {
     private fun initializeViews() {
         stepCounter = findViewById(R.id.stepCounter)
         stepIndicatorContainer = findViewById(R.id.stepIndicatorContainer)
-        onboardingContentLayout = findViewById(R.id.onboardingContentLayout)
         onboardingTitle = findViewById(R.id.onboardingTitle)
         onboardingDescription = findViewById(R.id.onboardingDescription)
         onboardingActionButton = findViewById(R.id.onboardingActionButton)
@@ -111,19 +110,19 @@ class OnBoardingActivity : AppCompatActivity() {
         // Update step indicators
         updateStepIndicators()
         // Update content and button
-        when (currentStep) {
+                    when (currentStep) {
             0 -> {
-                onboardingTitle.text = "Pick .Statuses Folder"
-                onboardingDescription.text = "We need access to your WhatsApp .Statuses folder to save your statuses. Please pick the folder using the system folder picker."
-                onboardingActionButton.text = "Pick .Statuses Folder"
+                onboardingTitle.text = "Grant Folder Access"
+                onboardingDescription.text = "To save your WhatsApp statuses, we need access to your .Statuses folder. Please select the folder when prompted."
+                onboardingActionButton.text = "Select Folder"
                 onboardingActionButton.isEnabled = true
                 onboardingActionButton.setOnClickListener {
                     pickFolder()
                 }
             }
             1 -> {
-                onboardingTitle.text = "Welcome to StatusSaver!"
-                onboardingDescription.text = "You're all set! Now you can save and manage your WhatsApp statuses easily. Tap 'Get Started' to begin!"
+                onboardingTitle.text = "You're All Set!"
+                onboardingDescription.text = "Perfect! You can now save and manage your WhatsApp statuses easily. Let's get started."
                 onboardingActionButton.text = "Get Started"
                 onboardingActionButton.isEnabled = true
                 onboardingActionButton.setOnClickListener {
@@ -139,16 +138,29 @@ class OnBoardingActivity : AppCompatActivity() {
         stepIndicatorContainer.removeAllViews()
         for (i in 0 until totalSteps) {
             val indicator = ImageView(this)
-            val size = resources.getDimensionPixelSize(androidx.cardview.R.dimen.cardview_default_radius)
+            val size = 16 // Smaller, more elegant dots
             val params = LinearLayout.LayoutParams(size, size)
-            params.marginEnd = resources.getDimensionPixelSize(androidx.cardview.R.dimen.cardview_default_radius)
-            indicator.layoutParams = params
-            when {
-                i < currentStep -> indicator.setImageResource(R.drawable.step_indicator_completed)
-                i == currentStep -> indicator.setImageResource(R.drawable.step_indicator_current)
-                else -> indicator.setImageResource(R.drawable.step_indicator_pending)
+            if (i < totalSteps - 1) {
+                params.marginEnd = 12 // Closer spacing for elegance
             }
-            indicator.alpha = if (i == currentStep) 1.0f else 0.5f
+            indicator.layoutParams = params
+            
+            // Create simple circular indicators
+            val background = when {
+                i < currentStep -> {
+                    // Completed step - filled green circle
+                    ContextCompat.getDrawable(this, R.drawable.step_indicator_completed)
+                }
+                i == currentStep -> {
+                    // Current step - filled green circle
+                    ContextCompat.getDrawable(this, R.drawable.step_indicator_current)
+                }
+                else -> {
+                    // Pending step - outline circle
+                    ContextCompat.getDrawable(this, R.drawable.step_indicator_pending)
+                }
+            }
+            indicator.background = background
             stepIndicatorContainer.addView(indicator)
         }
     }

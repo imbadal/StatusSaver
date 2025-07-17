@@ -768,117 +768,117 @@ fun StandaloneStatusGallery(context: Context) {
                                         .fillMaxSize()
                                         .background(Color.White)
                                 ) {
-                                    when {
-                                        isLoading -> {
-                                            // Show shimmer grid
-                                            LazyVerticalGrid(
-                                                columns = GridCells.Fixed(3),
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-                                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                            ) {
-                                                items(36) { // Show 36 shimmer items to fill entire screen height
-                                                    ShimmerCard()
-                                                }
-                                            }
+                            when {
+                                isLoading -> {
+                                    // Show shimmer grid
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(3),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        items(36) { // Show 36 shimmer items to fill entire screen height
+                                            ShimmerCard()
                                         }
+                                    }
+                                }
 
-                                        errorMessage != null -> {
-                                            Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center
+                                errorMessage != null -> {
+                                    Log.d("StatusGalleryActivity", "Showing error state: $errorMessage")
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Refresh,
+                                                contentDescription = "Error",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                "Something went wrong",
+                                                color = Color.Black,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                errorMessage ?: "Unknown error",
+                                                color = Color.Gray,
+                                                fontSize = 14.sp,
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Spacer(modifier = Modifier.height(24.dp))
+                                            Button(
+                                                onClick = { forceRefreshStatuses() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                modifier = Modifier.height(48.dp)
                                             ) {
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    modifier = Modifier.padding(32.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Refresh,
-                                                        contentDescription = "Error",
-                                                        tint = Color.Gray,
-                                                        modifier = Modifier.size(64.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.height(16.dp))
-                                                    Text(
-                                                        "Something went wrong",
-                                                        color = Color.Black,
-                                                        fontSize = 18.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    Text(
-                                                        errorMessage ?: "Unknown error",
-                                                        color = Color.Gray,
-                                                        fontSize = 14.sp,
-                                                        textAlign = TextAlign.Center
-                                                    )
-                                                    Spacer(modifier = Modifier.height(24.dp))
-                                                    Button(
-                                                        onClick = { forceRefreshStatuses() },
-                                                        colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
-                                                        modifier = Modifier.height(48.dp)
-                                                    ) {
-                                                        Text("Try Again", color = Color.White, fontWeight = FontWeight.Medium)
-                                                    }
-                                                }
+                                                Text("Try Again", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
                                         }
+                                    }
+                                }
 
                                         displayStatusList.isEmpty() -> {
-                                            Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    modifier = Modifier.padding(32.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Home,
-                                                        contentDescription = "No Statuses",
-                                                        tint = Color.Gray,
-                                                        modifier = Modifier.size(64.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.height(16.dp))
-                                                    Text(
+                                    Log.d("StatusGalleryActivity", "Showing empty state - no statuses found")
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Home,
+                                                contentDescription = "No Statuses",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
                                                         "No Status Available",
-                                                        color = Color.Black,
-                                                        fontSize = 18.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    Text(
+                                                color = Color.Black,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
                                                         when (statusFilterTab) {
                                                             0 -> "Make sure you have granted folder permission and have WhatsApp statuses"
                                                             1 -> "No image statuses available"
                                                             2 -> "No video statuses available"
                                                             else -> "No statuses available"
                                                         },
-                                                        color = Color.Gray,
-                                                        fontSize = 14.sp,
-                                                        textAlign = TextAlign.Center
-                                                    )
-                                                    Spacer(modifier = Modifier.height(24.dp))
-                                                    Button(
-                                                        onClick = { forceRefreshStatuses() },
-                                                        colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
-                                                        modifier = Modifier.height(48.dp)
-                                                    ) {
-                                                        Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
-                                                    }
-                                                }
+                                                color = Color.Gray,
+                                                fontSize = 14.sp,
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Spacer(modifier = Modifier.height(24.dp))
+                                            Button(
+                                                onClick = { forceRefreshStatuses() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                modifier = Modifier.height(48.dp)
+                                            ) {
+                                                Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
                                         }
+                                    }
+                                }
 
-                                        else -> {
-                                            Log.d(
-                                                "StatusGalleryActivity",
+                                else -> {
+                                    Log.d(
+                                        "StatusGalleryActivity",
                                                 "Showing status grid with ${displayStatusList.size} statuses (filter: ${statusFilterTab})"
-                                            )
-                                                                                LazyVerticalGrid(
+                                    )
+                                    LazyVerticalGrid(
                                         columns = GridCells.Fixed(gridColumns),
                                         modifier = Modifier.fillMaxSize(),
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
@@ -887,15 +887,15 @@ fun StandaloneStatusGallery(context: Context) {
                                     ) {
                                                 itemsIndexed(displayStatusList) { index, status ->
                                                     com.inningsstudio.statussaver.presentation.ui.status.ModernStatusCard(
-                                                        status = status,
-                                                        context = context,
-                                                        thumbCache = thumbCache,
-                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                        onClick = {
-                                                            selectedStatusIndex = index
-                                                            showStatusView = true
-                                                        }
-                                                    )
+                                                status = status,
+                                                context = context,
+                                                thumbCache = thumbCache,
+                                                getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                onClick = {
+                                                    selectedStatusIndex = index
+                                                    showStatusView = true
+                                                }
+                                            )
                                                 }
                                             }
                                         }
@@ -987,9 +987,9 @@ fun StandaloneStatusGallery(context: Context) {
                                         else -> savedStatusList
                                     }
                                     
-                                    when {
-                                        isLoadingSaved -> {
-                                                                                // Show shimmer grid for saved statuses
+                            when {
+                                isLoadingSaved -> {
+                                    // Show shimmer grid for saved statuses
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(gridColumns),
                                         modifier = Modifier.fillMaxSize(),
@@ -1001,91 +1001,91 @@ fun StandaloneStatusGallery(context: Context) {
                                             ShimmerCard()
                                         }
                                     }
-                                        }
+                                }
 
                                         displaySavedList.isEmpty() -> {
-                                            Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    modifier = Modifier.padding(32.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Favorite,
-                                                        contentDescription = "No Saved Statuses",
-                                                        tint = Color.Gray,
-                                                        modifier = Modifier.size(64.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.height(16.dp))
-                                                    Text(
+                                    Log.d("StatusGalleryActivity", "Showing empty state - no saved statuses found")
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Favorite,
+                                                contentDescription = "No Saved Statuses",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
                                                         "No Status Available",
-                                                        color = Color.Black,
-                                                        fontSize = 18.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                    Spacer(modifier = Modifier.height(8.dp))
-                                                    Text(
+                                                color = Color.Black,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
                                                         when (savedFilterTab) {
                                                             0 -> "No saved statuses available"
                                                             1 -> "No favourite statuses available"
                                                             else -> "No saved statuses available"
                                                         },
-                                                        color = Color.Gray,
-                                                        fontSize = 14.sp,
-                                                        textAlign = TextAlign.Center
-                                                    )
-                                                    Spacer(modifier = Modifier.height(24.dp))
-                                                    Button(
-                                                        onClick = { forceRefreshSavedStatuses() },
-                                                        colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
-                                                        modifier = Modifier.height(48.dp)
-                                                    ) {
-                                                        Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
-                                                    }
-                                                }
+                                                color = Color.Gray,
+                                                fontSize = 14.sp,
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Spacer(modifier = Modifier.height(24.dp))
+                                            Button(
+                                                onClick = { forceRefreshSavedStatuses() },
+                                                colors = ButtonDefaults.buttonColors(containerColor = primaryGreen),
+                                                modifier = Modifier.height(48.dp)
+                                            ) {
+                                                Text("Refresh", color = Color.White, fontWeight = FontWeight.Medium)
                                             }
                                         }
+                                    }
+                                }
 
-                                        else -> {
-                                            Log.d(
-                                                "StatusGalleryActivity",
-                                                "Showing saved status grid with ${savedStatusList.size} saved and ${favoriteList.size} favorites"
-                                            )
-                                            
-                                            LazyVerticalGrid(
+                                else -> {
+                                    Log.d(
+                                        "StatusGalleryActivity",
+                                        "Showing saved status grid with ${savedStatusList.size} saved and ${favoriteList.size} favorites"
+                                    )
+                                    
+                                    LazyVerticalGrid(
                                                 columns = GridCells.Fixed(gridColumns),
-                                                modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier.fillMaxSize(),
                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
+                                    ) {
                                                 itemsIndexed(displaySavedList) { index, status ->
                                                     val isFavorite = favoriteList.contains(status)
                                                     com.inningsstudio.statussaver.presentation.ui.status.SavedStatusCardWithActions(
-                                                        status = status,
+                                                    status = status,
                                                         isFavorite = isFavorite,
-                                                        context = context,
-                                                        thumbCache = thumbCache,
-                                                        getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
-                                                        onDelete = {
-                                                            statusToDelete = status
-                                                            showDeleteConfirmation = true
-                                                        },
-                                                        onFavoriteToggle = {
+                                                    context = context,
+                                                    thumbCache = thumbCache,
+                                                    getVideoThumbnailIO = { ctx, path -> getVideoThumbnailIO(ctx, path) },
+                                                    onDelete = {
+                                                        statusToDelete = status
+                                                        showDeleteConfirmation = true
+                                                    },
+                                                    onFavoriteToggle = {
                                                             if (isFavorite) {
-                                                                unmarkAsFavorite(status)
+                                                        unmarkAsFavorite(status)
                                                             } else {
                                                                 markAsFavorite(status)
                                                             }
-                                                        },
-                                                        onClick = {
+                                                    },
+                                                    onClick = {
                                                             selectedStatusIndex = index
                                                             showStatusView = true
-                                                        }
-                                                    )
+                                                    }
+                                                )
                                                 }
                                             }
                                         }
@@ -1171,14 +1171,14 @@ fun StandaloneStatusGallery(context: Context) {
             sheetState = bottomSheetState,
             containerColor = Color.White,
             dragHandle = {
-                Box(
+                    Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
+                        contentAlignment = Alignment.Center
+                    ) {
+                Box(
+                    modifier = Modifier
                             .width(40.dp)
                             .height(4.dp)
                             .background(Color.Gray, RoundedCornerShape(2.dp))
@@ -1187,7 +1187,7 @@ fun StandaloneStatusGallery(context: Context) {
             }
         ) {
             Column(
-                modifier = Modifier
+                        modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
@@ -1198,7 +1198,7 @@ fun StandaloneStatusGallery(context: Context) {
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
                     modifier = Modifier.padding(bottom = 24.dp)
-                )
+                        )
                 
                 // Grid Layout Section
                 Text(
@@ -1214,8 +1214,8 @@ fun StandaloneStatusGallery(context: Context) {
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // 2 Columns option
-                    Box(
-                        modifier = Modifier
+            Box(
+                modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .clickable { gridColumns = 2 }
@@ -1234,20 +1234,20 @@ fun StandaloneStatusGallery(context: Context) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Row(
+            ) {
+                Row(
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
+                ) {
                                 Box(
-                                    modifier = Modifier
+                        modifier = Modifier
                                         .size(8.dp)
                                         .background(
                                             if (gridColumns == 2) Color.White else Color.Gray,
                                             RoundedCornerShape(1.dp)
-                                        )
+                        )
                                 )
                                 Box(
-                                    modifier = Modifier
+                        modifier = Modifier
                                         .size(8.dp)
                                         .background(
                                             if (gridColumns == 2) Color.White else Color.Gray,
@@ -1280,7 +1280,7 @@ fun StandaloneStatusGallery(context: Context) {
                     
                     // 3 Columns option
                     Box(
-                        modifier = Modifier
+        modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .clickable { gridColumns = 3 }
@@ -1303,7 +1303,7 @@ fun StandaloneStatusGallery(context: Context) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                Box(
+                    Box(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .background(
@@ -1319,8 +1319,8 @@ fun StandaloneStatusGallery(context: Context) {
                                             RoundedCornerShape(1.dp)
                                         )
                                 )
-                                Box(
-                                    modifier = Modifier
+                Box(
+                    modifier = Modifier
                                         .size(6.dp)
                                         .background(
                                             if (gridColumns == 3) Color.White else Color.Gray,
@@ -1330,9 +1330,17 @@ fun StandaloneStatusGallery(context: Context) {
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
+                ) {
+                    Box(
+                        modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            if (gridColumns == 3) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                                        )
+                                )
+            Box(
+                modifier = Modifier
                                         .size(6.dp)
                                         .background(
                                             if (gridColumns == 3) Color.White else Color.Gray,
@@ -1340,28 +1348,20 @@ fun StandaloneStatusGallery(context: Context) {
                                         )
                                 )
                                 Box(
-                                    modifier = Modifier
+                    modifier = Modifier
                                         .size(6.dp)
                                         .background(
                                             if (gridColumns == 3) Color.White else Color.Gray,
                                             RoundedCornerShape(1.dp)
-                                        )
+                    )
                                 )
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(
-                                            if (gridColumns == 3) Color.White else Color.Gray,
-                                            RoundedCornerShape(1.dp)
-                                        )
-                                )
-                            }
-                        }
-                    }
+            }
+        }
+    }
                     
                     // 4 Columns option
                     Box(
-                        modifier = Modifier
+        modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .clickable { gridColumns = 4 }
@@ -1384,7 +1384,7 @@ fun StandaloneStatusGallery(context: Context) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(1.dp)
                             ) {
-                                Box(
+                    Box(
                                     modifier = Modifier
                                         .size(5.dp)
                                         .background(
@@ -1400,28 +1400,36 @@ fun StandaloneStatusGallery(context: Context) {
                                             RoundedCornerShape(1.dp)
                                         )
                                 )
-                                Box(
-                                    modifier = Modifier
+                Box(
+                    modifier = Modifier
                                         .size(5.dp)
                                         .background(
                                             if (gridColumns == 4) Color.White else Color.Gray,
                                             RoundedCornerShape(1.dp)
                                         )
                                 )
-                                Box(
-                                    modifier = Modifier
+                    Box(
+                        modifier = Modifier
                                         .size(5.dp)
                                         .background(
                                             if (gridColumns == 4) Color.White else Color.Gray,
                                             RoundedCornerShape(1.dp)
-                                        )
+                        )
                                 )
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(1.dp)
                             ) {
+    Box(
+        modifier = Modifier
+                                        .size(5.dp)
+            .background(
+                                            if (gridColumns == 4) Color.White else Color.Gray,
+                                            RoundedCornerShape(1.dp)
+                )
+            )
                                 Box(
-                                    modifier = Modifier
+            modifier = Modifier
                                         .size(5.dp)
                                         .background(
                                             if (gridColumns == 4) Color.White else Color.Gray,
@@ -1442,15 +1450,7 @@ fun StandaloneStatusGallery(context: Context) {
                                         .background(
                                             if (gridColumns == 4) Color.White else Color.Gray,
                                             RoundedCornerShape(1.dp)
-                                        )
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(5.dp)
-                                        .background(
-                                            if (gridColumns == 4) Color.White else Color.Gray,
-                                            RoundedCornerShape(1.dp)
-                                        )
+                    )
                                 )
                             }
                         }
