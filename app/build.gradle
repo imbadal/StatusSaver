@@ -25,10 +25,10 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("keystore/release.keystore")
-            storePassword "your_keystore_password"
-            keyAlias "your_key_alias"
-            keyPassword "your_key_password"
+            storeFile file("/Users/badalkumar.s/AndroidStudioProjects/StatusSaver/signKey")
+            storePassword "StatusSaver@2025"
+            keyAlias "statussaver"
+            keyPassword "StatusSaver@Alias"
         }
     }
     
