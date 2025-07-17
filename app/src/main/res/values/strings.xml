@@ -8,4 +8,5 @@
     <string name="privacy_policy_description">Before using our app, please read our Privacy Policy to understand how we handle your data.</string>
     <string name="agree_privacy_policy">I have read and agree to the Privacy Policy</string>
     <string name="agree_and_proceed">Agree &amp; Proceed</string>
+    <string name="privacy_policy_title">Privacy Policy</string>
 </resources>

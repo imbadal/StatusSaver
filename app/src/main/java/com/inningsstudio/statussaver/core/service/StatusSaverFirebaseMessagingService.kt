@@ -10,9 +10,9 @@ import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.inningsstudio.statussaver.R
-import com.inningsstudio.statussaver.core.utils.NavigationManager
+import com.inningsstudio.statussaver.core.utils.NotificationIntentHandler
 
-class FirebaseMessagingService : FirebaseMessagingService() {
+class StatusSaverFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val CHANNEL_ID = "status_saver_channel"
@@ -54,15 +54,8 @@ class FirebaseMessagingService : FirebaseMessagingService() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Use NavigationManager to determine which activity to launch
-        val nextActivity = NavigationManager.getNextActivity(this)
-        val intent = Intent(this, nextActivity).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            // Add any data you want to pass
-            data.forEach { (key, value) ->
-                putExtra(key, value)
-            }
-        }
+        // Create intent for notification tap action using NotificationIntentHandler
+        val intent = NotificationIntentHandler.createNotificationIntent(this, data)
 
         val pendingIntent = PendingIntent.getActivity(
             this,
