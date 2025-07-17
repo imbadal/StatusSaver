@@ -1,6 +1,7 @@
 package com.inningsstudio.statussaver.presentation.ui.privacy
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.CheckBox
@@ -9,20 +10,29 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.inningsstudio.statussaver.R
+import com.inningsstudio.statussaver.core.utils.NavigationManager
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
-import com.inningsstudio.statussaver.presentation.ui.onboarding.OnBoardingActivity
 
 class PrivacyPolicyActivity : AppCompatActivity() {
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var privacyCheckBox: CheckBox
     private lateinit var proceedButton: Button
-    private lateinit var privacyText: TextView
+    private lateinit var readPrivacyPolicyButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Check if privacy policy is already accepted
+        preferenceUtils = PreferenceUtils(application)
+        if (preferenceUtils.isPrivacyPolicyAccepted()) {
+            // Privacy policy already accepted, navigate to appropriate activity
+            NavigationManager.navigateToNextActivity(this)
+            finish()
+            return
+        }
+        
         window.statusBarColor = ContextCompat.getColor(this, R.color.whatsapp_green)
         WindowCompat.setDecorFitsSystemWindows(window, true)
-        preferenceUtils = PreferenceUtils(application)
         
         setContentView(R.layout.activity_privacy_policy)
         initializeViews()
@@ -32,7 +42,7 @@ class PrivacyPolicyActivity : AppCompatActivity() {
     private fun initializeViews() {
         privacyCheckBox = findViewById(R.id.privacyCheckBox)
         proceedButton = findViewById(R.id.proceedButton)
-        privacyText = findViewById(R.id.privacyText)
+        readPrivacyPolicyButton = findViewById(R.id.readPrivacyPolicyButton)
     }
 
     private fun setupListeners() {
@@ -41,24 +51,18 @@ class PrivacyPolicyActivity : AppCompatActivity() {
             proceedButton.alpha = if (isChecked) 1.0f else 0.5f
         }
 
+        readPrivacyPolicyButton.setOnClickListener {
+            // Open privacy policy URL in browser
+            val privacyPolicyUrl = getString(R.string.privacy_policy_url)
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(privacyPolicyUrl))
+            startActivity(intent)
+        }
+
         proceedButton.setOnClickListener {
             if (privacyCheckBox.isChecked) {
                 // Mark privacy policy as accepted
                 preferenceUtils.setPrivacyPolicyAccepted(true)
-                
-                // Check if onboarding is completed
-                val onboardingCompleted = preferenceUtils.isOnboardingCompleted()
-                val safUri = preferenceUtils.getUriFromPreference()
-                
-                if (onboardingCompleted && !safUri.isNullOrBlank()) {
-                    // Onboarding completed, go to status gallery activity
-                    val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.status.StatusGalleryActivity::class.java)
-                    startActivity(intent)
-                } else {
-                    // Onboarding not completed, go to onboarding
-                    val intent = Intent(this, OnBoardingActivity::class.java)
-                    startActivity(intent)
-                }
+                NavigationManager.navigateToNextActivity(this)
                 finish()
             }
         }

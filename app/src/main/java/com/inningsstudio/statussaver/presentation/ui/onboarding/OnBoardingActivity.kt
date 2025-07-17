@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.appcompat.app.AppCompatActivity
 import com.inningsstudio.statussaver.R
+import com.inningsstudio.statussaver.core.utils.NavigationManager
 import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 import com.inningsstudio.statussaver.core.utils.StorageAccessHelper
 import androidx.documentfile.provider.DocumentFile
@@ -73,14 +74,9 @@ class OnBoardingActivity : AppCompatActivity() {
         preferenceUtils = PreferenceUtils(application)
         
         // Check if we already have everything we need
-        val safUri = preferenceUtils.getUriFromPreference()
-        val onboardingCompleted = preferenceUtils.isOnboardingCompleted()
-        val hasRequiredPermissions = StorageAccessHelper.hasRequiredPermissions(this)
-        
-        if (!safUri.isNullOrBlank() && onboardingCompleted && hasRequiredPermissions) {
+        if (!NavigationManager.shouldShowPrivacyPolicy(this) && !NavigationManager.shouldShowOnboarding(this)) {
             // Everything is already set up, go to status gallery activity
-            val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.status.StatusGalleryActivity::class.java)
-            startActivity(intent)
+            NavigationManager.navigateToNextActivity(this)
             finish()
             return
         }
@@ -89,6 +85,7 @@ class OnBoardingActivity : AppCompatActivity() {
         initializeViews()
         
         // Check current permission status
+        val safUri = preferenceUtils.getUriFromPreference()
         folderPermissionGranted = !safUri.isNullOrBlank()
         
         updateStepUI()
@@ -138,16 +135,11 @@ class OnBoardingActivity : AppCompatActivity() {
     private fun completeOnboarding() {
         if (folderPermissionGranted) {
             preferenceUtils.setOnboardingCompleted(true)
-            navigateToMainActivity()
+            NavigationManager.navigateToNextActivity(this)
+            finish()
         } else {
             Toast.makeText(this, "Please complete all steps first", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun navigateToMainActivity() {
-        val intent = Intent(this, com.inningsstudio.statussaver.presentation.ui.status.StatusGalleryActivity::class.java)
-        startActivity(intent)
-        finish()
     }
 
     private fun pickFolder() {
