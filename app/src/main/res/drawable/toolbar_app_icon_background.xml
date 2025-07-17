@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- White stroke/border -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/white" />
+            <size
+                android:width="44dp"
+                android:height="44dp" />
+        </shape>
+    </item>
+    <!-- Green circular background (slightly smaller to create stroke effect) -->
+    <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp">
+        <shape android:shape="oval">
+            <gradient
+                android:angle="45"
+                android:startColor="@color/whatsapp_green"
+                android:endColor="@color/whatsapp_dark_green"
+                android:type="linear" />
+        </shape>
+    </item>
+</layer-list> 
