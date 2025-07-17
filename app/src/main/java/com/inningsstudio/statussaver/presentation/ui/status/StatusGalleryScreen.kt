@@ -275,8 +275,26 @@ fun StandaloneStatusGallery(context: Context) {
                 val success = FileUtils.markAsFavorite(context, status.filePath)
                 if (success) {
                     Log.d("StatusGalleryActivity", "✅ Status marked as favorite successfully")
-                    // Refresh saved statuses to update the UI
-                    loadSavedStatuses()
+                    // Update lists directly instead of refreshing entire screen
+                    val updatedSavedList = savedStatusList.toMutableList()
+                    val updatedFavoriteList = favoriteList.toMutableList()
+                    
+                    // Find the status by file name (since path changes when moved)
+                    val index = updatedSavedList.indexOfFirst { it.fileName == status.fileName }
+                    if (index != -1) {
+                        val movedStatus = updatedSavedList.removeAt(index)
+                        // Update the file path to reflect the new location
+                        val newPath = movedStatus.filePath.replace("/statuses/", "/statuses/favourites/")
+                        val updatedStatus = movedStatus.copy(filePath = newPath)
+                        updatedFavoriteList.add(updatedStatus)
+                        
+                        // Update state directly
+                        savedStatusList = updatedSavedList
+                        favoriteList = updatedFavoriteList
+                        
+                        // Update hash to prevent unnecessary refreshes
+                        lastSavedStatusesHash = calculateSavedStatusesHash(updatedSavedList + updatedFavoriteList)
+                    }
                 } else {
                     Log.e("StatusGalleryActivity", "❌ Failed to mark as favorite")
                 }
@@ -294,8 +312,26 @@ fun StandaloneStatusGallery(context: Context) {
                 val success = FileUtils.unmarkAsFavorite(context, status.filePath)
                 if (success) {
                     Log.d("StatusGalleryActivity", "✅ Status unmarked as favorite successfully")
-                    // Refresh saved statuses to update the UI
-                    loadSavedStatuses()
+                    // Update lists directly instead of refreshing entire screen
+                    val updatedSavedList = savedStatusList.toMutableList()
+                    val updatedFavoriteList = favoriteList.toMutableList()
+                    
+                    // Find the status by file name (since path changes when moved)
+                    val index = updatedFavoriteList.indexOfFirst { it.fileName == status.fileName }
+                    if (index != -1) {
+                        val movedStatus = updatedFavoriteList.removeAt(index)
+                        // Update the file path to reflect the new location
+                        val newPath = movedStatus.filePath.replace("/statuses/favourites/", "/statuses/")
+                        val updatedStatus = movedStatus.copy(filePath = newPath)
+                        updatedSavedList.add(updatedStatus)
+                        
+                        // Update state directly
+                        savedStatusList = updatedSavedList
+                        favoriteList = updatedFavoriteList
+                        
+                        // Update hash to prevent unnecessary refreshes
+                        lastSavedStatusesHash = calculateSavedStatusesHash(updatedSavedList + updatedFavoriteList)
+                    }
                 } else {
                     Log.e("StatusGalleryActivity", "❌ Failed to unmark as favorite")
                 }
