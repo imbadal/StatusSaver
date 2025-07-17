@@ -3,8 +3,8 @@ package com.inningsstudio.statussaver.presentation.ui.privacy
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
 import android.widget.CheckBox
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -16,7 +16,7 @@ import com.inningsstudio.statussaver.core.utils.PreferenceUtils
 class PrivacyPolicyActivity : AppCompatActivity() {
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var privacyCheckBox: CheckBox
-    private lateinit var proceedButton: Button
+    private lateinit var proceedButton: LinearLayout
     private lateinit var readPrivacyPolicyButton: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
