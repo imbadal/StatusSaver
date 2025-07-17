@@ -51,7 +51,8 @@ object StatusSaver {
                 val files = savedDir.listFiles()
                 if (!files.isNullOrEmpty()) {
                     files.forEach { file ->
-                        if (file.isFile && file.canRead()) {
+                        // Skip the favourites folder and only include regular files
+                        if (file.isFile && file.canRead() && !file.name.equals("favourites", ignoreCase = true)) {
                             val isVideo = file.name.lowercase().endsWith(".mp4")
                             savedFiles.add(StatusModel(
                                 id = file.absolutePath.hashCode().toLong(),
@@ -85,7 +86,7 @@ object StatusSaver {
             val isContentUri = filePath.startsWith("content://")
             
             if (isContentUri) {
-                // Handle SAF URI - move from status folder to favorites folder
+                // Handle SAF URI - copy from status folder to favorites folder
                 val uri = Uri.parse(filePath)
                 val documentFile = DocumentFile.fromSingleUri(context, uri)
                 if (documentFile != null && documentFile.exists()) {
@@ -104,9 +105,7 @@ object StatusSaver {
                             }
                         }
                         
-                        // Delete the original file from status folder
-                        val deleted = documentFile.delete()
-                        Log.d(TAG, "SAF URI moved to favorites successfully, original deleted: $deleted")
+                        Log.d(TAG, "SAF URI copied to favorites successfully")
                         true
                     } else {
                         Log.d(TAG, "File already exists in favorites")
