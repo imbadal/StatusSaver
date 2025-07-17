@@ -156,7 +156,7 @@ class OnBoardingActivity : AppCompatActivity() {
         when (currentStep) {
             0 -> {
                 onboardingTitle.text = "Grant Folder Access"
-                onboardingDescription.text = "To save your WhatsApp statuses, we need access to your .Statuses folder. Please select the folder when prompted."
+                onboardingDescription.text = "We need access to your .Statuses folder to work properly. Please select the folder when prompted."
                 onboardingActionButton.text = "Select Folder"
                 onboardingActionButton.isEnabled = true
                 
