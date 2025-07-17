@@ -518,7 +518,7 @@ fun StandaloneStatusGallery(context: Context) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "StatusWp",
+                                    text = "Status Saver",
                                     color = Color.White,
                                     style = TextStyle(fontSize = 18.sp),
                                     fontWeight = FontWeight.Bold

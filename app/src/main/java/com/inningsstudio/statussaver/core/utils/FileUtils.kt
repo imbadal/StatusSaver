@@ -36,7 +36,7 @@ object FileUtils {
 
     private val SAVED_DIRECTORY =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-            .toString() + File.separator + "StatusWp" + File.separator + "statuses"
+            .toString() + File.separator + "Status Saver" + File.separator + "statuses"
 
     private val FAVOURITES_DIRECTORY =
         SAVED_DIRECTORY + File.separator + "favourites"
@@ -204,48 +204,48 @@ object FileUtils {
                 val safUri = Uri.parse(safUriString)
                 val folderDoc = DocumentFile.fromTreeUri(context, safUri)
                 if (folderDoc != null) {
-                                    val statusWpFolder = folderDoc.findFile("StatusWp")
-                if (statusWpFolder != null && statusWpFolder.isDirectory) {
-                    val statusesFolder = statusWpFolder.findFile("statuses")
-                    if (statusesFolder != null && statusesFolder.isDirectory) {
-                        Log.d(TAG, "Reading saved statuses from SAF/StatusWp/statuses: ${statusesFolder.uri}")
-                        for (file in statusesFolder.listFiles()) {
-                            if (file.isFile && isValidFile(file.name ?: "")) {
-                                val fileName = file.name ?: ""
-                                val fileSize = file.length()
-                                val lastModified = file.lastModified()
-                                val filePath = file.uri.toString()
-                                val isVideo = fileName.lowercase().endsWith(".mp4") || fileName.lowercase().endsWith(".3gp") || fileName.lowercase().endsWith(".mkv")
-                                if (isVideo) {
-                                    // No thumbnail for SAF videos (optional: implement if needed)
-                                    savedFiles.add(StatusModel(
-                                        id = filePath.hashCode().toLong(),
-                                        filePath = filePath,
-                                        fileName = fileName,
-                                        fileSize = fileSize,
-                                        lastModified = lastModified,
-                                        isVideo = true
-                                    ))
-                                } else {
-                                    val imageRequest = ImageRequest.Builder(context).data(file.uri).build()
-                                    savedFiles.add(StatusModel(
-                                        id = filePath.hashCode().toLong(),
-                                        filePath = filePath,
-                                        fileName = fileName,
-                                        fileSize = fileSize,
-                                        lastModified = lastModified,
-                                        imageRequest = imageRequest
-                                    ))
+                    val statusSaverFolder = folderDoc.findFile("Status Saver")
+                    if (statusSaverFolder != null && statusSaverFolder.isDirectory) {
+                        val statusesFolder = statusSaverFolder.findFile("statuses")
+                        if (statusesFolder != null && statusesFolder.isDirectory) {
+                            Log.d(TAG, "Reading saved statuses from SAF/Status Saver/statuses: "+ statusesFolder.uri)
+                            for (file in statusesFolder.listFiles()) {
+                                if (file.isFile && isValidFile(file.name ?: "")) {
+                                    val fileName = file.name ?: ""
+                                    val fileSize = file.length()
+                                    val lastModified = file.lastModified()
+                                    val filePath = file.uri.toString()
+                                    val isVideo = fileName.lowercase().endsWith(".mp4") || fileName.lowercase().endsWith(".3gp") || fileName.lowercase().endsWith(".mkv")
+                                    if (isVideo) {
+                                        // No thumbnail for SAF videos (optional: implement if needed)
+                                        savedFiles.add(StatusModel(
+                                            id = filePath.hashCode().toLong(),
+                                            filePath = filePath,
+                                            fileName = fileName,
+                                            fileSize = fileSize,
+                                            lastModified = lastModified,
+                                            isVideo = true
+                                        ))
+                                    } else {
+                                        val imageRequest = ImageRequest.Builder(context).data(file.uri).build()
+                                        savedFiles.add(StatusModel(
+                                            id = filePath.hashCode().toLong(),
+                                            filePath = filePath,
+                                            fileName = fileName,
+                                            fileSize = fileSize,
+                                            lastModified = lastModified,
+                                            imageRequest = imageRequest
+                                        ))
+                                    }
                                 }
                             }
+                            usedSAF = true
+                        } else {
+                            Log.w(TAG, "statuses folder not found in SAF location: $safUriString")
                         }
-                        usedSAF = true
                     } else {
-                        Log.w(TAG, "statuses folder not found in SAF location: $safUriString")
+                        Log.w(TAG, "Status Saver folder not found in SAF location: $safUriString")
                     }
-                } else {
-                    Log.w(TAG, "StatusWp folder not found in SAF location: $safUriString")
-                }
                 } else {
                     Log.w(TAG, "Could not get DocumentFile from SAF URI: $safUriString")
                 }
