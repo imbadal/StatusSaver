@@ -18,11 +18,11 @@ object StatusSaver {
     private const val TAG = "StatusSaver"
     val savedStatusList = mutableListOf<StatusModel>()
 
-    private val SAVED_DIRECTORY =
+    val SAVED_DIRECTORY =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
             .toString() + File.separator + "Status Saver" + File.separator + "statuses"
 
-    private val FAVOURITES_DIRECTORY =
+    val FAVOURITES_DIRECTORY =
         SAVED_DIRECTORY + File.separator + "favourites"
 
     suspend fun getSavedStatus(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
