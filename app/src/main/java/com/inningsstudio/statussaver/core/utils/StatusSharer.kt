@@ -28,6 +28,12 @@ object StatusSharer {
     }
 
     private fun shareVideo(title: String? = "", path: String, context: Context) {
+        // SECURITY CHECK: Ensure we only share files from Status Saver directory
+        if (!isFileInStatusSaverDirectory(path)) {
+            Log.e(TAG, "SECURITY VIOLATION: Attempted to share file outside Status Saver directory: $path")
+            return
+        }
+        
         val isContentUri = path.startsWith("content://")
         val shareIntent = Intent(Intent.ACTION_SEND)
         shareIntent.type = "video/*"
@@ -51,23 +57,64 @@ object StatusSharer {
     private fun shareImage(currentPath: String, context: Context) {
         val share = Intent(Intent.ACTION_SEND)
         share.type = "image/jpeg"
-        val bytes = ByteArrayOutputStream()
-        val f = File(
-            android.os.Environment.getExternalStorageDirectory()
-                .toString() + File.separator + "status_${System.currentTimeMillis()}.jpg"
-        )
-        try {
-            f.createNewFile()
-            val fo = FileOutputStream(f)
-            fo.write(bytes.toByteArray())
-        } catch (e: IOException) {
-            e.printStackTrace()
+        
+        // SECURITY CHECK: Ensure we only share files from Status Saver directory
+        if (!isFileInStatusSaverDirectory(currentPath)) {
+            Log.e(TAG, "SECURITY VIOLATION: Attempted to share file outside Status Saver directory: $currentPath")
+            return
         }
-        share.putExtra(Intent.EXTRA_STREAM, Uri.parse(currentPath))
+        
+        // Use FileProvider for secure sharing
+        val uri: Uri = if (currentPath.startsWith("content://")) {
+            Uri.parse(currentPath)
+        } else {
+            // Use FileProvider for file paths
+            FileProvider.getUriForFile(
+                context,
+                context.applicationContext.packageName + ".provider",
+                File(currentPath)
+            )
+        }
+        
+        share.putExtra(Intent.EXTRA_STREAM, uri)
+        share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(share, "Share with"))
     }
 
     private fun isVideo(path: String): Boolean {
         return (path.substring(path.length - 3) == "mp4")
+    }
+    
+    /**
+     * SECURITY CHECK: Validates that a file path is within the Status Saver directory
+     * This prevents accidental sharing of files from WhatsApp's original .Statuses folder
+     */
+    private fun isFileInStatusSaverDirectory(filePath: String): Boolean {
+        return try {
+            // Check if it's a SAF URI (these are safe as they're managed by the app)
+            if (filePath.startsWith("content://")) {
+                return true
+            }
+            
+            // For regular file paths, check if they're within Status Saver directory
+            val file = File(filePath)
+            val statusSaverDir = File(StatusSaver.SAVED_DIRECTORY)
+            val favoritesDir = File(StatusSaver.FAVOURITES_DIRECTORY)
+            
+            // Check if file is within Status Saver directory or its subdirectories
+            val isInStatusSaver = file.absolutePath.startsWith(statusSaverDir.absolutePath)
+            val isInFavorites = file.absolutePath.startsWith(favoritesDir.absolutePath)
+            
+            Log.d(TAG, "Security check - File: ${file.absolutePath}")
+            Log.d(TAG, "Security check - Status Saver Dir: ${statusSaverDir.absolutePath}")
+            Log.d(TAG, "Security check - Favorites Dir: ${favoritesDir.absolutePath}")
+            Log.d(TAG, "Security check - Is in Status Saver: $isInStatusSaver")
+            Log.d(TAG, "Security check - Is in Favorites: $isInFavorites")
+            
+            isInStatusSaver || isInFavorites
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in security check", e)
+            false // Fail safe - don't allow sharing if we can't verify
+        }
     }
 } 

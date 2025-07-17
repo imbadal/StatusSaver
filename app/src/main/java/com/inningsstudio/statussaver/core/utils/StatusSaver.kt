@@ -77,6 +77,12 @@ object StatusSaver {
         return@withContext try {
             Log.d(TAG, "Attempting to mark as favorite: $filePath")
             
+            // SECURITY CHECK: Ensure we only operate on files from Status Saver directory
+            if (!isFileInStatusSaverDirectory(filePath)) {
+                Log.e(TAG, "SECURITY VIOLATION: Attempted to mark file outside Status Saver directory as favorite: $filePath")
+                return@withContext false
+            }
+            
             val favoritesDir = File(FAVOURITES_DIRECTORY)
             if (!favoritesDir.exists()) {
                 favoritesDir.mkdirs()
@@ -139,6 +145,12 @@ object StatusSaver {
     suspend fun unmarkAsFavorite(context: Context, filePath: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
             Log.d(TAG, "Attempting to unmark as favorite: $filePath")
+            
+            // SECURITY CHECK: Ensure we only operate on files from Status Saver directory
+            if (!isFileInStatusSaverDirectory(filePath)) {
+                Log.e(TAG, "SECURITY VIOLATION: Attempted to unmark file outside Status Saver directory as favorite: $filePath")
+                return@withContext false
+            }
             
             val favoritesDir = File(FAVOURITES_DIRECTORY)
             val statusDir = File(SAVED_DIRECTORY)
@@ -238,6 +250,12 @@ object StatusSaver {
     suspend fun deleteSavedStatus(context: Context, filePath: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
             Log.d(TAG, "Attempting to delete: $filePath")
+            
+            // SECURITY CHECK: Ensure we only delete files from Status Saver directory
+            if (!isFileInStatusSaverDirectory(filePath)) {
+                Log.e(TAG, "SECURITY VIOLATION: Attempted to delete file outside Status Saver directory: $filePath")
+                return@withContext false
+            }
             
             // Check if it's a SAF URI or file path
             val isContentUri = filePath.startsWith("content://")
@@ -550,6 +568,39 @@ object StatusSaver {
         } catch (e: Exception) {
             Log.e(TAG, "Error getting file size from URI", e)
             0L
+        }
+    }
+    
+    /**
+     * SECURITY CHECK: Validates that a file path is within the Status Saver directory
+     * This prevents accidental deletion of files from WhatsApp's original .Statuses folder
+     */
+    private fun isFileInStatusSaverDirectory(filePath: String): Boolean {
+        return try {
+            // Check if it's a SAF URI (these are safe as they're managed by the app)
+            if (filePath.startsWith("content://")) {
+                return true
+            }
+            
+            // For regular file paths, check if they're within Status Saver directory
+            val file = File(filePath)
+            val statusSaverDir = File(SAVED_DIRECTORY)
+            val favoritesDir = File(FAVOURITES_DIRECTORY)
+            
+            // Check if file is within Status Saver directory or its subdirectories
+            val isInStatusSaver = file.absolutePath.startsWith(statusSaverDir.absolutePath)
+            val isInFavorites = file.absolutePath.startsWith(favoritesDir.absolutePath)
+            
+            Log.d(TAG, "Security check - File: ${file.absolutePath}")
+            Log.d(TAG, "Security check - Status Saver Dir: ${statusSaverDir.absolutePath}")
+            Log.d(TAG, "Security check - Favorites Dir: ${favoritesDir.absolutePath}")
+            Log.d(TAG, "Security check - Is in Status Saver: $isInStatusSaver")
+            Log.d(TAG, "Security check - Is in Favorites: $isInFavorites")
+            
+            isInStatusSaver || isInFavorites
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in security check", e)
+            false // Fail safe - don't allow deletion if we can't verify
         }
     }
 } 
