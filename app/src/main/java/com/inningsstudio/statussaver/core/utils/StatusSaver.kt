@@ -340,22 +340,75 @@ object StatusSaver {
                 Log.d(TAG, "Destination file: ${destinationFile.absolutePath}")
 
                 // Copy the file content
-                context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
-                    destinationFile.outputStream().use { outputStream ->
-                        val buffer = ByteArray(8192)
-                        var bytesRead: Int
-                        var totalBytes = 0L
+                try {
+                    context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
+                        destinationFile.outputStream().use { outputStream ->
+                            val buffer = ByteArray(8192)
+                            var bytesRead: Int
+                            var totalBytes = 0L
 
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                            totalBytes += bytesRead
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                outputStream.write(buffer, 0, bytesRead)
+                                totalBytes += bytesRead
+                            }
+
+                            Log.d(TAG, "File copied successfully: $totalBytes bytes")
                         }
-
-                        Log.d(TAG, "File copied successfully: $totalBytes bytes")
+                    } ?: run {
+                        Log.e(TAG, "Failed to open input stream for source URI")
+                        return@withContext false
                     }
-                } ?: run {
-                    Log.e(TAG, "Failed to open input stream for source URI")
-                    return@withContext false
+                } catch (e: Exception) {
+                    /**
+                     * EDGE CASE HANDLING: Uninstall/Reinstall Scenario
+                     * 
+                     * Problem: When user uninstalls and reinstalls the app on Android 10+,
+                     * the app loses access to previously saved files due to scoped storage.
+                     * If user tries to save a file with the same name, it fails with EACCES.
+                     * 
+                     * Solution: Detect this specific error and create a unique filename
+                     * to avoid the conflict, ensuring the user's file gets saved.
+                     * 
+                     * Example:
+                     * - User saves "image.jpg" → works fine
+                     * - User uninstalls app → file exists but app can't access it
+                     * - User reinstalls app → tries to save "image.jpg" again
+                     * - Gets EACCES error → creates "image_1703123456789.jpg" instead
+                     */
+                    if (e.message?.contains("EACCES") == true || e.message?.contains("Permission denied") == true) {
+                        Log.w(TAG, "Permission denied - likely uninstall/reinstall scenario, trying with unique filename")
+                        
+                        // Create unique filename to avoid conflict with inaccessible existing file
+                        val baseName = fileName.substringBeforeLast(".")
+                        val extension = fileName.substringAfterLast(".", "")
+                        val timestamp = System.currentTimeMillis()
+                        val uniqueFileName = "${baseName}_${timestamp}.$extension"
+                        val uniqueDestinationFile = File(destinationDir, uniqueFileName)
+                        
+                        Log.d(TAG, "Retrying with unique filename: $uniqueFileName")
+                        
+                        // Rewrite the file with the unique name
+                        context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
+                            uniqueDestinationFile.outputStream().use { outputStream ->
+                                val buffer = ByteArray(8192)
+                                var bytesRead: Int
+                                var totalBytes = 0L
+
+                                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                    outputStream.write(buffer, 0, bytesRead)
+                                    totalBytes += bytesRead
+                                }
+
+                                Log.d(TAG, "File copied successfully with unique name: $totalBytes bytes")
+                            }
+                        } ?: run {
+                            Log.e(TAG, "Failed to open input stream for source URI")
+                            return@withContext false
+                        }
+                    } else {
+                        // Re-throw other exceptions (not related to uninstall/reinstall scenario)
+                        throw e
+                    }
                 }
 
                 Log.d(TAG, "=== SAVE OPERATION COMPLETED SUCCESSFULLY ===")
@@ -387,18 +440,68 @@ object StatusSaver {
                 Log.d(TAG, "Destination file: ${destinationFile.absolutePath}")
 
                 // Copy the file content
-                sourceFile.inputStream().use { inputStream ->
-                    destinationFile.outputStream().use { outputStream ->
-                        val buffer = ByteArray(8192)
-                        var bytesRead: Int
-                        var totalBytes = 0L
+                try {
+                    sourceFile.inputStream().use { inputStream ->
+                        destinationFile.outputStream().use { outputStream ->
+                            val buffer = ByteArray(8192)
+                            var bytesRead: Int
+                            var totalBytes = 0L
 
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                            totalBytes += bytesRead
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                outputStream.write(buffer, 0, bytesRead)
+                                totalBytes += bytesRead
+                            }
+
+                            Log.d(TAG, "File copied successfully: $totalBytes bytes")
                         }
+                    }
+                } catch (e: Exception) {
+                    /**
+                     * EDGE CASE HANDLING: Uninstall/Reinstall Scenario
+                     * 
+                     * Problem: When user uninstalls and reinstalls the app on Android 10+,
+                     * the app loses access to previously saved files due to scoped storage.
+                     * If user tries to save a file with the same name, it fails with EACCES.
+                     * 
+                     * Solution: Detect this specific error and create a unique filename
+                     * to avoid the conflict, ensuring the user's file gets saved.
+                     * 
+                     * Example:
+                     * - User saves "image.jpg" → works fine
+                     * - User uninstalls app → file exists but app can't access it
+                     * - User reinstalls app → tries to save "image.jpg" again
+                     * - Gets EACCES error → creates "image_1703123456789.jpg" instead
+                     */
+                    if (e.message?.contains("EACCES") == true || e.message?.contains("Permission denied") == true) {
+                        Log.w(TAG, "Permission denied - likely uninstall/reinstall scenario, trying with unique filename")
+                        
+                        // Create unique filename to avoid conflict with inaccessible existing file
+                        val baseName = sourceFile.name.substringBeforeLast(".")
+                        val extension = sourceFile.name.substringAfterLast(".", "")
+                        val timestamp = System.currentTimeMillis()
+                        val uniqueFileName = "${baseName}_${timestamp}.$extension"
+                        val uniqueDestinationFile = File(destinationDir, uniqueFileName)
+                        
+                        Log.d(TAG, "Retrying with unique filename: $uniqueFileName")
+                        
+                        // Rewrite the file with the unique name
+                        sourceFile.inputStream().use { inputStream ->
+                            uniqueDestinationFile.outputStream().use { outputStream ->
+                                val buffer = ByteArray(8192)
+                                var bytesRead: Int
+                                var totalBytes = 0L
 
-                        Log.d(TAG, "File copied successfully: $totalBytes bytes")
+                                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                    outputStream.write(buffer, 0, bytesRead)
+                                    totalBytes += bytesRead
+                                }
+
+                                Log.d(TAG, "File copied successfully with unique name: $totalBytes bytes")
+                            }
+                        }
+                    } else {
+                        // Re-throw other exceptions (not related to uninstall/reinstall scenario)
+                        throw e
                     }
                 }
 
