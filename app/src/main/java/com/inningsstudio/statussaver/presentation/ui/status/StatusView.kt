@@ -58,6 +58,10 @@ import androidx.compose.ui.draw.drawBehind
 
 import androidx.compose.ui.graphics.drawscope.Stroke
 import kotlinx.coroutines.delay
+import android.content.SharedPreferences
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.ui.text.style.TextAlign
 
 // Helper composable for circular icon with green stroke
 @Composable
@@ -100,6 +104,22 @@ fun StatusView(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = initialIndex)
+    
+    // State for swipe instruction overlay
+    var showSwipeOverlay by remember { mutableStateOf(false) }
+    
+    // Check if user has seen the swipe instruction before
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("status_view_prefs", Context.MODE_PRIVATE)
+        val hasSeenSwipeInstruction = prefs.getBoolean("has_seen_swipe_instruction", false)
+        if (!hasSeenSwipeInstruction) {
+            showSwipeOverlay = true
+            // Mark as seen after 3 seconds
+            delay(3000)
+            showSwipeOverlay = false
+            prefs.edit().putBoolean("has_seen_swipe_instruction", true).apply()
+        }
+    }
 
     // Track ExoPlayer instances to terminate them on back press
     val players = remember { mutableListOf<ExoPlayer>() }
@@ -536,5 +556,50 @@ fun StatusView(
             titleContentColor = Color.Black,
             textContentColor = Color.Gray
         )
+    }
+
+    // Swipe instruction overlay
+    if (showSwipeOverlay) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.7f))
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowUp,
+                    contentDescription = "Swipe up",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+                
+                Text(
+                    text = "Swipe up or down",
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Text(
+                    text = "to navigate between statuses",
+                    color = Color.White.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center
+                )
+                
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "Swipe down",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
     }
 } 
