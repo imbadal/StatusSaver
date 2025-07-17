@@ -27,49 +27,39 @@ object StatusSaver {
 
     suspend fun getSavedStatus(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         val savedFiles = mutableListOf<StatusModel>()
-        val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-        val safUriString = pref.getUriFromPreference()
-        var usedSAF = false
-        if (!safUriString.isNullOrBlank()) {
-            try {
-                val safUri = Uri.parse(safUriString)
-                val documentFile = DocumentFile.fromTreeUri(context, safUri)
-                if (documentFile != null && documentFile.exists()) {
-                    val savedStatuses = getSavedStatusesFromFolder(context)
-                    savedFiles.addAll(savedStatuses)
-                    usedSAF = true
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error accessing SAF URI", e)
-            }
-        }
         
-        if (!usedSAF) {
-            // Fallback to direct file access
-            val savedDir = File(SAVED_DIRECTORY)
-            if (savedDir.exists() && savedDir.isDirectory) {
-                val files = savedDir.listFiles()
-                if (!files.isNullOrEmpty()) {
-                    files.forEach { file ->
-                        // Skip the favourites folder and only include regular files
-                        if (file.isFile && file.canRead() && !file.name.equals("favourites", ignoreCase = true)) {
-                            val isVideo = file.name.lowercase().endsWith(".mp4")
-                            savedFiles.add(StatusModel(
-                                id = file.absolutePath.hashCode().toLong(),
-                                filePath = file.absolutePath,
-                                fileName = file.name,
-                                fileSize = file.length(),
-                                lastModified = file.lastModified(),
-                                isVideo = isVideo
-                            ))
-                        }
+        // Read saved statuses from the Status Saver directory (not from WhatsApp's .Statuses folder)
+        val savedDir = File(SAVED_DIRECTORY)
+        Log.d(TAG, "Reading saved statuses from: ${savedDir.absolutePath}")
+        
+        if (savedDir.exists() && savedDir.isDirectory) {
+            val files = savedDir.listFiles()
+            if (!files.isNullOrEmpty()) {
+                files.forEach { file ->
+                    // Skip the favourites folder and only include regular files
+                    if (file.isFile && file.canRead() && !file.name.equals("favourites", ignoreCase = true)) {
+                        val isVideo = file.name.lowercase().endsWith(".mp4")
+                        savedFiles.add(StatusModel(
+                            id = file.absolutePath.hashCode().toLong(),
+                            filePath = file.absolutePath,
+                            fileName = file.name,
+                            fileSize = file.length(),
+                            lastModified = file.lastModified(),
+                            isVideo = isVideo
+                        ))
+                        Log.d(TAG, "Found saved status: ${file.name}")
                     }
                 }
+            } else {
+                Log.d(TAG, "No saved statuses found in directory")
             }
+        } else {
+            Log.d(TAG, "Saved statuses directory does not exist: ${savedDir.absolutePath}")
         }
         
         savedStatusList.clear()
         savedStatusList.addAll(savedFiles)
+        Log.d(TAG, "Total saved statuses loaded: ${savedFiles.size}")
         return@withContext savedFiles
     }
 
@@ -190,34 +180,37 @@ object StatusSaver {
 
     suspend fun getSavedStatusesFromFolder(context: Context): List<StatusModel> = withContext(Dispatchers.IO) {
         val savedFiles = mutableListOf<StatusModel>()
-        val pref = PreferenceUtils(context.applicationContext as android.app.Application)
-        val safUriString = pref.getUriFromPreference()
         
-        if (!safUriString.isNullOrBlank()) {
-            try {
-                val safUri = Uri.parse(safUriString)
-                val documentFile = DocumentFile.fromTreeUri(context, safUri)
-                
-                if (documentFile != null && documentFile.exists()) {
-                    documentFile.listFiles().forEach { file ->
-                        if (file.isFile && file.canRead()) {
-                            val isVideo = file.name?.lowercase()?.endsWith(".mp4") ?: false
-                            savedFiles.add(StatusModel(
-                                id = file.uri.toString().hashCode().toLong(),
-                                filePath = file.uri.toString(),
-                                fileName = file.name ?: "",
-                                fileSize = file.length(),
-                                lastModified = file.lastModified(),
-                                isVideo = isVideo
-                            ))
-                        }
+        // Read saved statuses from the Status Saver directory (not from WhatsApp's .Statuses folder)
+        val savedDir = File(SAVED_DIRECTORY)
+        Log.d(TAG, "Reading saved statuses from: ${savedDir.absolutePath}")
+        
+        if (savedDir.exists() && savedDir.isDirectory) {
+            val files = savedDir.listFiles()
+            if (!files.isNullOrEmpty()) {
+                files.forEach { file ->
+                    // Skip the favourites folder and only include regular files
+                    if (file.isFile && file.canRead() && !file.name.equals("favourites", ignoreCase = true)) {
+                        val isVideo = file.name.lowercase().endsWith(".mp4")
+                        savedFiles.add(StatusModel(
+                            id = file.absolutePath.hashCode().toLong(),
+                            filePath = file.absolutePath,
+                            fileName = file.name,
+                            fileSize = file.length(),
+                            lastModified = file.lastModified(),
+                            isVideo = isVideo
+                        ))
+                        Log.d(TAG, "Found saved status: ${file.name}")
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error reading saved statuses from SAF", e)
+            } else {
+                Log.d(TAG, "No saved statuses found in directory")
             }
+        } else {
+            Log.d(TAG, "Saved statuses directory does not exist: ${savedDir.absolutePath}")
         }
         
+        Log.d(TAG, "Total saved statuses found: ${savedFiles.size}")
         return@withContext savedFiles
     }
 

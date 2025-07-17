@@ -9,7 +9,7 @@ import com.inningsstudio.statussaver.data.model.StatusModel
  * This maintains backward compatibility while delegating to focused classes
  */
 object FileUtils {
-    
+
     // Delegate to StatusReader
     suspend fun getStatus(context: Context, statusUri: String): List<StatusModel> {
         return StatusReader.getStatus(context, statusUri)
