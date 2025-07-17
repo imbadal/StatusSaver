@@ -175,7 +175,7 @@ class OnBoardingActivity : AppCompatActivity() {
             }
             1 -> {
                 onboardingTitle.text = "You're All Set!"
-                onboardingDescription.text = "Perfect! You can now save and manage your WhatsApp statuses easily. Let's get started."
+                onboardingDescription.text = "Note: This app does not store or upload any image or video data to a remote server. All saved statuses remain stored locally on your device. Please respect others’ privacy and seek permission before downloading or sharing any status content."
                 onboardingActionButton.text = "Get Started"
                 onboardingActionButton.isEnabled = true
                 
