@@ -723,35 +723,7 @@ object FileUtils {
         return@withContext null
     }
 
-    /**
-     * Copy a file from source to destination
-     */
-    fun copyFile(sourceFile: File, destinationFile: File): Boolean {
-        return try {
-            if (!destinationFile.parentFile?.exists()!!) {
-                destinationFile.parentFile?.mkdirs()
-            }
-            
-            val inputStream = sourceFile.inputStream()
-            val outputStream = destinationFile.outputStream()
-            
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
-            
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                outputStream.write(buffer, 0, bytesRead)
-            }
-            
-            inputStream.close()
-            outputStream.close()
-            
-            Log.d(TAG, "File copied successfully: ${sourceFile.name} -> ${destinationFile.absolutePath}")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error copying file: ${sourceFile.name}", e)
-            false
-        }
-    }
+
 
     private fun shareVideo(title: String? = "", path: String, context: Context) {
         val isContentUri = path.startsWith("content://")
