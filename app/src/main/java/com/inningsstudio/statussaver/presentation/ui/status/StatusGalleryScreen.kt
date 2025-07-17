@@ -1164,8 +1164,14 @@ fun StandaloneStatusGallery(context: Context) {
                                 try {
                                     val success = FileUtils.deleteSavedStatus(context, status.filePath)
                                     if (success) {
-                                        // Refresh the saved statuses list
-                                        forceRefreshSavedStatuses()
+                                        // Remove from the correct list directly (saved or favorite)
+                                        val updatedSavedList = savedStatusList.toMutableList()
+                                        val updatedFavoriteList = favoriteList.toMutableList()
+                                        val removedFromSaved = updatedSavedList.removeAll { it.fileName == status.fileName }
+                                        val removedFromFav = updatedFavoriteList.removeAll { it.fileName == status.fileName }
+                                        savedStatusList = updatedSavedList
+                                        favoriteList = updatedFavoriteList
+                                        lastSavedStatusesHash = calculateSavedStatusesHash(updatedSavedList + updatedFavoriteList)
                                     }
                                 } catch (e: Exception) {
                                     Log.e("StatusGalleryActivity", "Error deleting saved status", e)
