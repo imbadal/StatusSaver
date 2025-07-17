@@ -30,11 +30,9 @@ import kotlinx.coroutines.runBlocking
 
 class OnBoardingActivity : AppCompatActivity() {
     private lateinit var preferenceUtils: PreferenceUtils
-    private lateinit var stepCounter: TextView
-    private lateinit var stepIndicatorContainer: LinearLayout
     private lateinit var onboardingTitle: TextView
     private lateinit var onboardingDescription: TextView
-    private lateinit var onboardingActionButton: Button
+    private lateinit var onboardingActionButton: TextView
 
 
     private var currentStep = 0
@@ -70,7 +68,7 @@ class OnBoardingActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = ContextCompat.getColor(this, R.color.whatsapp_dark_green)
+        window.statusBarColor = ContextCompat.getColor(this, R.color.whatsapp_green)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         preferenceUtils = PreferenceUtils(application)
         
@@ -97,20 +95,14 @@ class OnBoardingActivity : AppCompatActivity() {
     }
 
     private fun initializeViews() {
-        stepCounter = findViewById(R.id.stepCounter)
-        stepIndicatorContainer = findViewById(R.id.stepIndicatorContainer)
         onboardingTitle = findViewById(R.id.onboardingTitle)
         onboardingDescription = findViewById(R.id.onboardingDescription)
         onboardingActionButton = findViewById(R.id.onboardingActionButton)
     }
 
     private fun updateStepUI() {
-        // Update step counter
-        stepCounter.text = "Step ${currentStep + 1} of $totalSteps"
-        // Update step indicators
-        updateStepIndicators()
         // Update content and button
-                    when (currentStep) {
+        when (currentStep) {
             0 -> {
                 onboardingTitle.text = "Grant Folder Access"
                 onboardingDescription.text = "To save your WhatsApp statuses, we need access to your .Statuses folder. Please select the folder when prompted."
@@ -134,36 +126,7 @@ class OnBoardingActivity : AppCompatActivity() {
 
 
 
-    private fun updateStepIndicators() {
-        stepIndicatorContainer.removeAllViews()
-        for (i in 0 until totalSteps) {
-            val indicator = ImageView(this)
-            val size = 16 // Smaller, more elegant dots
-            val params = LinearLayout.LayoutParams(size, size)
-            if (i < totalSteps - 1) {
-                params.marginEnd = 12 // Closer spacing for elegance
-            }
-            indicator.layoutParams = params
-            
-            // Create simple circular indicators
-            val background = when {
-                i < currentStep -> {
-                    // Completed step - filled green circle
-                    ContextCompat.getDrawable(this, R.drawable.step_indicator_completed)
-                }
-                i == currentStep -> {
-                    // Current step - filled green circle
-                    ContextCompat.getDrawable(this, R.drawable.step_indicator_current)
-                }
-                else -> {
-                    // Pending step - outline circle
-                    ContextCompat.getDrawable(this, R.drawable.step_indicator_pending)
-                }
-            }
-            indicator.background = background
-            stepIndicatorContainer.addView(indicator)
-        }
-    }
+
 
     private fun moveToNextStep() {
         if (currentStep < totalSteps - 1) {

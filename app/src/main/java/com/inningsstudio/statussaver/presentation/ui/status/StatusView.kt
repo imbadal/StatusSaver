@@ -192,84 +192,84 @@ fun StatusView(
         // VerticalPager for Reels-like experience
         VerticalPager(
             state = pagerState,
-            pageCount = statusList.size,
-            modifier = Modifier.fillMaxSize()
+                pageCount = statusList.size,
+                modifier = Modifier.fillMaxSize()
         ) { page ->
             val status = statusList[page]
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
                     .clickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
                     ) {
                         showToolbar = !showToolbar
                     }
-            ) {
-                if (status.isVideo) {
-                    // Video player with tap-to-show-controls and play/pause
-                    var player by remember { mutableStateOf<ExoPlayer?>(null) }
+                ) {
+                    if (status.isVideo) {
+                        // Video player with tap-to-show-controls and play/pause
+                        var player by remember { mutableStateOf<ExoPlayer?>(null) }
                     var showControls by remember { mutableStateOf(false) }
 
                     DisposableEffect(key1 = page) {
-                        val newPlayer = ExoPlayer.Builder(context).build().apply {
-                            val mediaItem = MediaItem.fromUri(status.filePath)
-                            setMediaItem(mediaItem)
-                            prepare()
+                            val newPlayer = ExoPlayer.Builder(context).build().apply {
+                                val mediaItem = MediaItem.fromUri(status.filePath)
+                                setMediaItem(mediaItem)
+                                prepare()
                             play() // Auto-play video when loaded
-                        }
-                        player = newPlayer
-                        players.add(newPlayer)
+                            }
+                            player = newPlayer
+                            players.add(newPlayer)
 
-                        onDispose {
-                            try {
+                            onDispose {
+                                try {
                                 newPlayer.pause()
-                                newPlayer.release()
-                                players.remove(newPlayer)
-                            } catch (e: Exception) {
-                                // Ignore errors during release
+                                    newPlayer.release()
+                                    players.remove(newPlayer)
+                                } catch (e: Exception) {
+                                    // Ignore errors during release
+                                }
                             }
                         }
-                    }
 
                     // Handle video playback on page changes
-                    LaunchedEffect(pagerState.currentPage) {
+                        LaunchedEffect(pagerState.currentPage) {
                         if (pagerState.currentPage == page) {
                             // Auto-play video when this page becomes current
-                            player?.play()
-                        } else {
+                                player?.play()
+                            } else {
                             // Pause video when swiping away from this page
-                            player?.pause()
+                                player?.pause()
+                            }
                         }
-                    }
 
                     // Synchronize video controls with toolbar visibility
                     LaunchedEffect(showToolbar) {
                         showControls = showToolbar
-                    }
+                                }
                     
-                    AndroidView(
-                        factory = { context ->
-                            StyledPlayerView(context).apply {
-                                useController = showControls
-                            }
-                        },
-                        update = { playerView ->
-                            playerView.player = player
-                            playerView.useController = showControls
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    // Image viewer
-                    AsyncImage(
-                        model = status.filePath,
-                        contentDescription = "Status image",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
+                            AndroidView(
+                                factory = { context ->
+                                    StyledPlayerView(context).apply {
+                                        useController = showControls
+                                    }
+                                },
+                                update = { playerView ->
+                                    playerView.player = player
+                                    playerView.useController = showControls
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                    } else {
+                        // Image viewer
+                        AsyncImage(
+                            model = status.filePath,
+                            contentDescription = "Status image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
-            }
 
             // Partially transparent toolbar overlay - appears above media when visible
             if (showToolbar) {
@@ -476,4 +476,4 @@ fun StatusView(
             textContentColor = Color.Gray
         )
     }
-}
+} 
