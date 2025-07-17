@@ -17,7 +17,7 @@ class PrivacyPolicyActivity : AppCompatActivity() {
     private lateinit var preferenceUtils: PreferenceUtils
     private lateinit var privacyCheckBox: CheckBox
     private lateinit var proceedButton: Button
-    private lateinit var readPrivacyPolicyButton: Button
+    private lateinit var readPrivacyPolicyButton: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,7 +48,8 @@ class PrivacyPolicyActivity : AppCompatActivity() {
     private fun setupListeners() {
         privacyCheckBox.setOnCheckedChangeListener { _, isChecked ->
             proceedButton.isEnabled = isChecked
-            proceedButton.alpha = if (isChecked) 1.0f else 0.5f
+            // Remove the alpha change that makes it invisible
+            // proceedButton.alpha = if (isChecked) 1.0f else 0.5f
         }
 
         readPrivacyPolicyButton.setOnClickListener {

@@ -21,16 +21,16 @@
         <FrameLayout
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@drawable/icon_background"
+            android:background="@drawable/circle_background"
             android:layout_marginEnd="12dp">
 
             <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:src="@drawable/baseline_download_24"
-                android:padding="8dp"
+                android:padding="10dp"
                 android:contentDescription="App Icon"
-                app:tint="@color/whatsapp_green" />
+                app:tint="@color/white" />
 
         </FrameLayout>
 
@@ -94,19 +94,23 @@
             android:lineSpacingExtra="4dp"
             android:layout_marginBottom="32dp" />
 
-        <!-- Read Privacy Policy Button -->
-        <Button
+        <!-- Read Privacy Policy Button - Outlined Style -->
+        <TextView
             android:id="@+id/readPrivacyPolicyButton"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
             android:text="@string/read_privacy_policy"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="@color/white"
-            android:background="@drawable/button_secondary"
+            android:textColor="@color/whatsapp_green"
+            android:background="@drawable/button_outlined_selector"
             android:paddingStart="32dp"
             android:paddingEnd="32dp"
-            android:layout_gravity="center" />
+            android:gravity="center"
+            android:layout_gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground" />
 
     </LinearLayout>
 
@@ -141,7 +145,7 @@
             android:paddingStart="8dp"
             android:paddingEnd="8dp" />
 
-        <!-- Proceed Button -->
+        <!-- Proceed Button - Solid Style -->
         <Button
             android:id="@+id/proceedButton"
             android:layout_width="match_parent"
@@ -152,7 +156,6 @@
             android:textColor="@color/white"
             android:background="@drawable/primary_button"
             android:enabled="false"
-            android:alpha="0.5"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp" />
 
