@@ -46,10 +46,12 @@ class PrivacyPolicyActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        // Ensure button is visible but disabled initially
+        proceedButton.isEnabled = false
+        proceedButton.visibility = android.view.View.VISIBLE
+        
         privacyCheckBox.setOnCheckedChangeListener { _, isChecked ->
             proceedButton.isEnabled = isChecked
-            // Remove the alpha change that makes it invisible
-            // proceedButton.alpha = if (isChecked) 1.0f else 0.5f
         }
 
         readPrivacyPolicyButton.setOnClickListener {
