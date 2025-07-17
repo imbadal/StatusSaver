@@ -169,13 +169,9 @@ class WhatsAppStatusReader {
     }
     
     fun hasRequiredPermissions(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+
-            true // We'll check permissions at runtime
-        } else {
-            // Android 12 and below
-            true // We'll check permissions at runtime
-        }
+        // Since minSdk is 30 (Android 11), we have good permission support
+        // The actual permission check is handled at runtime
+        return true
     }
     
     fun getStatusFolderPath(): String? {
