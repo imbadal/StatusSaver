@@ -1013,11 +1013,11 @@ fun StandaloneStatusGallery(context: Context) {
                                         .fillMaxSize()
                                         .background(Color.White)
                                 ) {
-                                    // Calculate display list for saved statuses
+                                    // Calculate display list for saved statuses with sorting by latest first
                                     val displaySavedList = when (savedFilterTab) {
-                                        0 -> savedStatusList // Saved only
-                                        1 -> favoriteList // Favourites only
-                                        else -> savedStatusList
+                                        0 -> savedStatusList.sortedByDescending { it.lastModified } // Saved only, latest first
+                                        1 -> favoriteList.sortedByDescending { it.lastModified } // Favourites only, latest first
+                                        else -> savedStatusList.sortedByDescending { it.lastModified }
                                     }
                                     
                             when {
