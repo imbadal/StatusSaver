@@ -512,7 +512,14 @@ fun StandaloneStatusGallery(context: Context) {
 
     if (showStatusView) {
         StatusView(
-            statusList = if (currentTab == 0) displayStatusList else savedStatusList,
+            statusList = if (currentTab == 0) displayStatusList else {
+                // For saved tab, use the filtered list based on current filter
+                when (savedFilterTab) {
+                    0 -> savedStatusList.sortedByDescending { it.lastModified }
+                    1 -> favoriteList.sortedByDescending { it.lastModified }
+                    else -> savedStatusList.sortedByDescending { it.lastModified }
+                }
+            },
             initialIndex = selectedStatusIndex,
             isFromSavedStatuses = currentTab == 1,
             onBackPressed = { showStatusView = false },
