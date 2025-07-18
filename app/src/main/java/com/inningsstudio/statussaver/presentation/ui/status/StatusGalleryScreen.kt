@@ -273,16 +273,32 @@ fun StandaloneStatusGallery(context: Context) {
         coroutineScope.launch {
             try {
                 Log.d("StatusGalleryActivity", "Marking as favorite: ${status.filePath}")
+                
+                // Optimistic UI update - immediately move the item from saved to favorites
+                val updatedStatus = status.copy(
+                    filePath = status.filePath.replace(StatusSaver.SAVED_DIRECTORY, StatusSaver.FAVOURITES_DIRECTORY)
+                )
+                
+                // Update the lists optimistically
+                savedStatusList = savedStatusList.filter { it.filePath != status.filePath }
+                favoriteList = favoriteList + updatedStatus
+                
+                // Perform the actual file operation
                 val success = FileUtils.markAsFavorite(context, status.filePath)
                 if (success) {
                     Log.d("StatusGalleryActivity", "✅ Status marked as favorite successfully")
-                    // Refresh the lists to get the updated file paths from disk
-                    loadSavedStatuses()
+                    // No need to refresh - optimistic update already handled it
                 } else {
                     Log.e("StatusGalleryActivity", "❌ Failed to mark as favorite")
+                    // Revert optimistic update on failure
+                    savedStatusList = savedStatusList + status
+                    favoriteList = favoriteList.filter { it.filePath != updatedStatus.filePath }
                 }
             } catch (e: Exception) {
                 Log.e("StatusGalleryActivity", "❌ Error marking as favorite", e)
+                // Revert optimistic update on error
+                savedStatusList = savedStatusList + status
+                favoriteList = favoriteList.filter { it.filePath != status.filePath.replace(StatusSaver.SAVED_DIRECTORY, StatusSaver.FAVOURITES_DIRECTORY) }
             }
         }
     }
@@ -292,16 +308,32 @@ fun StandaloneStatusGallery(context: Context) {
         coroutineScope.launch {
             try {
                 Log.d("StatusGalleryActivity", "Unmarking as favorite: ${status.filePath}")
+                
+                // Optimistic UI update - immediately move the item from favorites to saved
+                val updatedStatus = status.copy(
+                    filePath = status.filePath.replace(StatusSaver.FAVOURITES_DIRECTORY, StatusSaver.SAVED_DIRECTORY)
+                )
+                
+                // Update the lists optimistically
+                favoriteList = favoriteList.filter { it.filePath != status.filePath }
+                savedStatusList = savedStatusList + updatedStatus
+                
+                // Perform the actual file operation
                 val success = FileUtils.unmarkAsFavorite(context, status.filePath)
                 if (success) {
                     Log.d("StatusGalleryActivity", "✅ Status unmarked as favorite successfully")
-                    // Refresh the lists to get the updated file paths from disk
-                    loadSavedStatuses()
+                    // No need to refresh - optimistic update already handled it
                 } else {
                     Log.e("StatusGalleryActivity", "❌ Failed to unmark as favorite")
+                    // Revert optimistic update on failure
+                    favoriteList = favoriteList + status
+                    savedStatusList = savedStatusList.filter { it.filePath != updatedStatus.filePath }
                 }
             } catch (e: Exception) {
                 Log.e("StatusGalleryActivity", "❌ Error unmarking as favorite", e)
+                // Revert optimistic update on error
+                favoriteList = favoriteList + status
+                savedStatusList = savedStatusList.filter { it.filePath != status.filePath.replace(StatusSaver.FAVOURITES_DIRECTORY, StatusSaver.SAVED_DIRECTORY) }
             }
         }
     }
@@ -1127,12 +1159,33 @@ fun StandaloneStatusGallery(context: Context) {
                         statusToDelete?.let { status ->
                             coroutineScope.launch {
                                 try {
+                                    // Optimistic UI update - immediately remove the item from both lists
+                                    val isFavorite = StatusSaver.isFileInFavorites(status.filePath)
+                                    if (isFavorite) {
+                                        favoriteList = favoriteList.filter { it.filePath != status.filePath }
+                                    } else {
+                                        savedStatusList = savedStatusList.filter { it.filePath != status.filePath }
+                                    }
+                                    
+                                    // Perform the actual file operation
                                     val success = FileUtils.deleteSavedStatus(context, status.filePath)
-                                    if (success) {
-                                        // Refresh the lists to get the updated state from disk
-                                        loadSavedStatuses()
+                                    if (!success) {
+                                        // Revert optimistic update on failure
+                                        if (isFavorite) {
+                                            favoriteList = favoriteList + status
+                                        } else {
+                                            savedStatusList = savedStatusList + status
+                                        }
+                                        Log.e("StatusGalleryActivity", "Failed to delete saved status")
                                     }
                                 } catch (e: Exception) {
+                                    // Revert optimistic update on error
+                                    val isFavorite = StatusSaver.isFileInFavorites(status.filePath)
+                                    if (isFavorite) {
+                                        favoriteList = favoriteList + status
+                                    } else {
+                                        savedStatusList = savedStatusList + status
+                                    }
                                     Log.e("StatusGalleryActivity", "Error deleting saved status", e)
                                 }
                             }
