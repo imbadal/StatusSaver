@@ -5,110 +5,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-@Composable
-fun CustomToolbar(
-    isStatusView: Boolean,
-    title: String,
-    currentIndex: Int,
-    totalCount: Int,
-    isLoading: Boolean,
-    onBackPressed: () -> Unit,
-    onRefresh: () -> Unit
-) {
-    val primaryGreen = Color(0xFF25D366)
-    val darkGreen = Color(0xFF128C7E)
-    
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(primaryGreen, darkGreen)
-                )
-            )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (isStatusView) {
-                // Status View Toolbar: Back + Counter
-                IconButton(
-                    onClick = onBackPressed,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
-                Text(
-                    text = "${currentIndex + 1} / $totalCount",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            } else {
-                // Gallery Toolbar: Title + Refresh
-                Text(
-                    text = title,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier.size(48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                } else {
-                    IconButton(
-                        onClick = onRefresh,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Refresh,
-                            contentDescription = "Refresh",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
+import com.inningsstudio.statussaver.R
 
 @Composable
 fun StatusFilterTabs(
@@ -123,18 +29,19 @@ fun StatusFilterTabs(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-            .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Filter tabs
         Row(
+            modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.Start
         ) {
             // All tab
             Box(
                 modifier = Modifier
                     .height(36.dp)
+                    .clickable { onFilterChanged(0) }
                     .background(
                         if (currentFilter == 0) Color(0xFFE8F5E8) else Color.Transparent,
                         RoundedCornerShape(6.dp)
@@ -161,6 +68,7 @@ fun StatusFilterTabs(
             Box(
                 modifier = Modifier
                     .height(36.dp)
+                    .clickable { onFilterChanged(1) }
                     .background(
                         if (currentFilter == 1) Color(0xFFE8F5E8) else Color.Transparent,
                         RoundedCornerShape(6.dp)
@@ -187,6 +95,7 @@ fun StatusFilterTabs(
             Box(
                 modifier = Modifier
                     .height(36.dp)
+                    .clickable { onFilterChanged(2) }
                     .background(
                         if (currentFilter == 2) Color(0xFFE8F5E8) else Color.Transparent,
                         RoundedCornerShape(6.dp)
@@ -208,14 +117,16 @@ fun StatusFilterTabs(
             }
         }
         
-        // Settings button (optional)
+        // Control icon (settings) - only show if requested
         if (showSettingsButton && onSettingsClick != null) {
-            IconButton(
-                onClick = onSettingsClick,
-                modifier = Modifier.size(36.dp)
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable { onSettingsClick() },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = androidx.compose.ui.res.painterResource(id = com.inningsstudio.statussaver.R.drawable.outline_dataset_24),
+                    painter = painterResource(id = R.drawable.outline_dataset_24),
                     contentDescription = "Display Controls",
                     tint = Color(0xFF9E9E9E),
                     modifier = Modifier.size(30.dp)
@@ -244,10 +155,11 @@ fun SavedStatusFilterTabs(
         Row(
             horizontalArrangement = Arrangement.Start
         ) {
-            // Favourites tab
+            // Saved tab
             Box(
                 modifier = Modifier
                     .height(36.dp)
+                    .clickable { onFilterChanged(0) }
                     .background(
                         if (currentFilter == 0) Color(0xFFE8F5E8) else Color.Transparent,
                         RoundedCornerShape(6.dp)
@@ -261,7 +173,7 @@ fun SavedStatusFilterTabs(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Favourites",
+                    text = "Saved",
                     color = if (currentFilter == 0) primaryGreen else Color(0xFF757575),
                     fontSize = 13.sp,
                     fontWeight = if (currentFilter == 0) FontWeight.Bold else FontWeight.Medium
@@ -270,10 +182,11 @@ fun SavedStatusFilterTabs(
             
             Spacer(modifier = Modifier.width(12.dp))
             
-            // Others tab
+            // Favourites tab
             Box(
                 modifier = Modifier
                     .height(36.dp)
+                    .clickable { onFilterChanged(1) }
                     .background(
                         if (currentFilter == 1) Color(0xFFE8F5E8) else Color.Transparent,
                         RoundedCornerShape(6.dp)
@@ -287,7 +200,7 @@ fun SavedStatusFilterTabs(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Others",
+                    text = "Favourites",
                     color = if (currentFilter == 1) primaryGreen else Color(0xFF757575),
                     fontSize = 13.sp,
                     fontWeight = if (currentFilter == 1) FontWeight.Bold else FontWeight.Medium
